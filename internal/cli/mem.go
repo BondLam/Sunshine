@@ -350,6 +350,11 @@ func runMemSearch(f *memFlags) func(cmd *cobra.Command, args []string) error {
 		if err != nil {
 			return err
 		}
+		// search 预加载：SQLite 共享库（OpenCode / ZCode / Devin）
+		// 只全量读一次放内存，否则每个会话都要重开库、全表扫描一次；
+		// 预加载失败只记警告，search 回退到逐会话读，不中断。
+		// 只预加载平台过滤范围内的库。
+		warnings = append(warnings, adapters.PreloadSearchStores(ctx, home, mf.Platform)...)
 		load := func(s mem.MemSessionInfo) ([]mem.DialogueTurn, error) {
 			turns, warns, err := mem.LoadDialogue(ctx, s, all)
 			warnings = append(warnings, warns...)
@@ -673,11 +678,24 @@ func memGrepMatch(text, grep string) bool {
 // mem.ExtractDialogue(allTurns, mf) 在 phase=all 时一致。
 // 切片只认适配器 Collect 从工具调用里抽出的 events，
 // 不扫轮次文本——真实会话的命令藏在工具调用块里，轮次文本中没有。
+// 切片本身走 mem.ExtractDialogue 的事件通道（与直接调同一套
+// SliceMemPhase 语义）；窗口与警告仍由 SliceMemPhase 给出
+// （同一批输入），供分组与展示。
 func extractGroups(allTurns []mem.DialogueTurn, events []mem.MemEvent, platform mem.MemSourceKind, mf mem.MemFilter) (groups []memDialogueGroup, windows []mem.BrainstormWindow, totalTurns int, flat []mem.DialogueTurn, sliceWarnings []string) {
 	// 清理后全文：总轮次以它为准。
 	cleaned := mem.ExtractDialogue(allTurns, mem.MemFilter{Phase: mem.PhaseAll})
 	totalTurns = len(cleaned)
-	sliced, windows, sliceWarnings := mem.SliceMemPhase(cleaned, events, mf.Phase, platform)
+	if mf.Phase == "" {
+		mf.Phase = mem.PhaseAll
+	}
+	// 切片走 ExtractDialogue（事件通道）；grep 按分组另行过滤，
+	// 不在这里提前过滤。
+	sliceFilter := mf
+	sliceFilter.Events = events
+	sliceFilter.PlatformKind = platform
+	sliceFilter.Grep = ""
+	sliced := mem.ExtractDialogue(allTurns, sliceFilter)
+	_, windows, sliceWarnings = mem.SliceMemPhase(cleaned, events, mf.Phase, platform)
 	if windows == nil {
 		windows = []mem.BrainstormWindow{}
 	}

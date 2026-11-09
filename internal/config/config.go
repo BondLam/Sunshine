@@ -196,9 +196,6 @@ type Config struct {
 	Registry *RegistryConfig `yaml:"registry,omitempty"`
 
 	// 以下为 Sunshine 扩展字段（阶段 1 沿用，非 Trellis 原文所有）：
-	// Version 是项目内 Sunshine 版本标记（由 sunshine update 维护，
-	// 与 .sunshine/.version 文件含义相同）。
-	Version string `yaml:"version"`
 	// TasksDir 是任务默认存放目录（相对项目根目录）。
 	TasksDir string `yaml:"tasks_dir"`
 	// SpecDir 是规范目录（相对项目根目录）。

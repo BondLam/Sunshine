@@ -161,8 +161,9 @@ func TestParseRegistrySourceLocal(t *testing.T) {
 }
 
 func TestParseTemplateIndex(t *testing.T) {
-	// 已确认的 10 条目索引（Sunshine 命名：bootstarp 错拼已更正为
-	// sunshine-spec-bootstrap；mem-recall 于阶段 5 收录）。
+	// 已确认的 11 条目索引（Sunshine 命名：bootstarp 错拼已更正为
+	// sunshine-spec-bootstrap；mem-recall 于阶段 5 收录；
+	// go-sdk-author 于“待一并处理”批次收录，对应上游 ts-sdk-author）。
 	raw := `{"version": 1, "templates": [
 		{"id": "electron-fullstack", "type": "spec", "name": "Electron", "path": "specs/electron-fullstack"},
 		{"id": "nextjs-fullstack", "type": "spec", "name": "Next.js", "path": "specs/nextjs-fullstack"},
@@ -171,6 +172,7 @@ func TestParseTemplateIndex(t *testing.T) {
 		{"id": "sunshine-spec-bootstrap", "type": "skill", "name": "Spec Bootstrap", "path": "skills/sunshine-spec-bootstrap"},
 		{"id": "frontend-fullchain-optimization", "type": "skill", "name": "Frontend", "path": "skills/frontend-fullchain-optimization"},
 		{"id": "mem-recall", "type": "skill", "name": "Mem Recall", "path": "skills/mem-recall"},
+		{"id": "go-sdk-author", "type": "skill", "name": "Go SDK Author", "path": "skills/go-sdk-author"},
 		{"id": "native", "type": "workflow", "name": "Native", "path": "workflows/native/workflow.md"},
 		{"id": "tdd", "type": "workflow", "name": "TDD", "path": "workflows/tdd/workflow.md"},
 		{"id": "channel-driven-subagent-dispatch", "type": "workflow", "name": "Dispatch", "path": "workflows/channel-driven-subagent-dispatch/workflow.md"}
@@ -179,10 +181,10 @@ func TestParseTemplateIndex(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ParseTemplateIndex 失败：%v", err)
 	}
-	if len(index.Templates) != 10 {
-		t.Fatalf("模板数 = %d，想得到 10", len(index.Templates))
+	if len(index.Templates) != 11 {
+		t.Fatalf("模板数 = %d，想得到 11", len(index.Templates))
 	}
-	for _, id := range []string{"sunshine-spec-bootstrap", "native", "mem-recall"} {
+	for _, id := range []string{"sunshine-spec-bootstrap", "native", "mem-recall", "go-sdk-author"} {
 		if FindTemplate(index.Templates, id) == nil {
 			t.Errorf("找不到模板 %q", id)
 		}

@@ -9,6 +9,7 @@ import (
 )
 
 // 全字段解析：每个字段都显式写出时，解析结果与文件一致。
+// 其中 version: 0.2.0 是旧项目残留行（字段已删），应被忽略、不报错。
 func TestLoadFullFields(t *testing.T) {
 	data := `
 session_commit_message: "chore: my commit"
@@ -113,8 +114,21 @@ spec_dir: custom/spec
 	if cfg.PromptInjection.SkipKeyword != "skip-me" {
 		t.Errorf("skip_keyword = %q", cfg.PromptInjection.SkipKeyword)
 	}
-	if cfg.Version != "0.2.0" || cfg.TasksDir != "custom/tasks" || cfg.SpecDir != "custom/spec" {
-		t.Errorf("扩展字段：version=%q tasks_dir=%q spec_dir=%q", cfg.Version, cfg.TasksDir, cfg.SpecDir)
+	// 残留的 version 行（旧项目遗留）应被忽略，不报错；
+	// 版本的唯一标记是 .sunshine/.version 文件。
+	if cfg.TasksDir != "custom/tasks" || cfg.SpecDir != "custom/spec" {
+		t.Errorf("扩展字段：tasks_dir=%q spec_dir=%q", cfg.TasksDir, cfg.SpecDir)
+	}
+}
+
+// 旧项目 config.yaml 里只剩 version 残留行时也不报错，其余字段照常解析。
+func TestLoadIgnoresResidualVersionLine(t *testing.T) {
+	cfg, err := LoadBytes([]byte("version: 9.9.9\nsession_commit_message: \"chore: x\"\nmax_journal_lines: 123\n"))
+	if err != nil {
+		t.Fatalf("残留 version 行不应报错：%v", err)
+	}
+	if cfg.SessionCommitMessage != "chore: x" || cfg.MaxJournalLines != 123 {
+		t.Errorf("其余字段解析不对：%+v", cfg)
 	}
 }
 

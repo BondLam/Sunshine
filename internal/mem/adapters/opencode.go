@@ -90,7 +90,11 @@ func opencodeDialogue(ctx context.Context, s mem.MemSessionInfo) ([]mem.Dialogue
 // opencodeCollect 只产出对话轮次，事件恒为空：OpenCode 不支持按阶段
 // 切片（phaseSupported=false），extract --phase 时降级为全文 + 警告，
 // 见 mem.SliceMemPhase。
+// search 预加载命中时直接从内存 store 取轮次，不重开库、不再查表。
 func opencodeCollect(ctx context.Context, s mem.MemSessionInfo) ([]mem.DialogueTurn, []mem.MemEvent, []string, error) {
+	if store := cachedMsgPartStore(s.FilePath); store != nil {
+		return opencodeTurnsFromStore(store, s.ID), nil, nil, nil
+	}
 	db, warnings, opened := openMemDB(ctx, s.FilePath, "OpenCode")
 	if !opened {
 		return nil, nil, warnings, nil
@@ -107,7 +111,13 @@ func opencodeCollect(ctx context.Context, s mem.MemSessionInfo) ([]mem.DialogueT
 	if err != nil {
 		return nil, nil, append(warnings, fmt.Sprintf("无法读取 OpenCode 会话库（%s）：%v", s.FilePath, err)), nil
 	}
-	messages := store.messagesBySession[s.ID]
+	return opencodeTurnsFromStore(store, s.ID), nil, warnings, nil
+}
+
+// opencodeTurnsFromStore 从 message / part store 里拼出一次会话的轮次
+// （预加载命中与逐会话读共用，保证两路结果一致）。
+func opencodeTurnsFromStore(store *msgPartStore, sessionID string) []mem.DialogueTurn {
+	messages := store.messagesBySession[sessionID]
 	summaryIDs := compactSummaryMessageIDs(messages, store.partsByMsg)
 	var turns []mem.DialogueTurn
 	for _, msg := range messages {
@@ -115,7 +125,7 @@ func opencodeCollect(ctx context.Context, s mem.MemSessionInfo) ([]mem.DialogueT
 			turns = append(turns, *turn)
 		}
 	}
-	return turns, nil, warnings, nil
+	return turns
 }
 
 // checkMsgPartSchema 校验 message / part 表与必需列。

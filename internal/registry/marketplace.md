@@ -37,14 +37,15 @@
 
 - `id`、`type`、`name`、`path` 为必填；`description`、`tags` 可选。
 - `path` 相对 registry 根（index.json 所在目录）。
-- 已确认的 10 个条目：3 spec（`electron-fullstack`、`nextjs-fullstack`、
-  `cf-workers-fullstack`）、4 skill（`sunshine-meta`、
+- 已确认的 11 个条目：3 spec（`electron-fullstack`、`nextjs-fullstack`、
+  `cf-workers-fullstack`）、5 skill（`sunshine-meta`、
   `sunshine-spec-bootstrap`、`frontend-fullchain-optimization`、
-  `mem-recall`）、
+  `mem-recall`、`go-sdk-author`）、
   3 workflow（`native`、`tdd`、`channel-driven-subagent-dispatch`）。
   上游 `trellis-spec-bootstarp` 是错拼，Sunshine 用
   `sunshine-spec-bootstrap`，不沿用。`mem-recall` 已收录（`sunshine mem`
-  的用户入口）。
+  的用户入口）。`go-sdk-author` 已收录（Go SDK 编写 skill，
+  对应上游的 `ts-sdk-author`，内容已按 Go 重写）。
 
 ## 安装位置
 

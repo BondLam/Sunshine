@@ -4,8 +4,10 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"fmt"
 	"sort"
 	"strings"
+	"sync"
 
 	"github.com/linrong1982/Sunshine/internal/mem"
 )
@@ -27,7 +29,140 @@ type partRow struct {
 	messageID   string
 	timeCreated int64
 	seq         int64
-	data        map[string]any
+	data        *partData
+}
+
+// partData 是 part 的 data JSON 的强类型解析：只取后续流程真正读的
+// 字段（type / text / tool / state.input.command / replace /
+// summaryMessageId / tail_start_id / compactBoundary），
+// 比 map 解析快（bulk load 解析 30k 个 part 时约省一半解析时间）。
+// 未知字段忽略——后续流程不读它们。
+// Replace 与 CompactBoundary 用 RawMessage 存：任意 JSON 值都不报错，
+// 再按旧的 objBool / map 断言语义判断（true 当且仅当字面 true；
+// compactBoundary 当且仅当是个对象）。
+type partData struct {
+	Type             string          `json:"type"`
+	Text             string          `json:"text"`
+	Tool             string          `json:"tool"`
+	State            json.RawMessage `json:"state"`
+	Replace          json.RawMessage `json:"replace"`
+	SummaryMessageID string          `json:"summaryMessageId"`
+	TailStartID      string          `json:"tail_start_id"`
+	CompactBoundary  json.RawMessage `json:"compactBoundary"`
+
+	// stateCommand 是 state.input.command（解析时一次算好，
+	// ZCode 事件抽取直接读它；state 不是对象或 command 不是字符串时为空，
+	// 与旧的 objMap 链语义一致）。
+	stateCommand string
+}
+
+// IsReplace 判断 replace 是否为字面 true（与 objBool 语义一致）。
+func (d *partData) IsReplace() bool {
+	return strings.TrimSpace(string(d.Replace)) == "true"
+}
+
+// HasCompactBoundary 判断 compactBoundary 是否是个对象
+// （与旧的 map 断言语义一致）。
+func (d *partData) HasCompactBoundary() bool {
+	b := strings.TrimSpace(string(d.CompactBoundary))
+	return len(b) > 0 && b[0] == '{'
+}
+
+// StateInputCommand 返回 state.input.command（见 stateCommand 注释）。
+func (d *partData) StateInputCommand() string {
+	return d.stateCommand
+}
+
+// parseStateCommand 从 state 的原始 JSON 里取 input.command，
+// 不是对象或 command 不是字符串时返回 ""。
+func parseStateCommand(state json.RawMessage) string {
+	if len(strings.TrimSpace(string(state))) == 0 {
+		return ""
+	}
+	var v struct {
+		Input struct {
+			Command string `json:"command"`
+		} `json:"input"`
+	}
+	if err := json.Unmarshal(state, &v); err != nil {
+		return ""
+	}
+	return v.Input.Command
+}
+
+// parsePartData 用 struct 解析 part 的 data JSON；
+// 结构不合预期（如某个字符串字段给了数字）时回退到 map 解析再转换，
+// 与通用路径的语义完全一致；JSON 语法错误或非对象时返回 nil。
+func parsePartData(raw string) *partData {
+	if strings.TrimSpace(raw) == "null" {
+		return nil
+	}
+	var pd partData
+	if err := json.Unmarshal([]byte(raw), &pd); err == nil {
+		pd.stateCommand = parseStateCommand(pd.State)
+		// 归一化到与 partDataFromMap 相同的表示（只保留行为有意义的值，
+		// 这样两路产出的 partData 完全一致）：
+		// State 只用来派生 stateCommand；Replace 只有字面 true 有意义；
+		// CompactBoundary 只有“是个对象”有意义。
+		pd.State = nil
+		if strings.TrimSpace(string(pd.Replace)) != "true" {
+			pd.Replace = nil
+		}
+		if pd.HasCompactBoundary() {
+			pd.CompactBoundary = json.RawMessage("{}")
+		} else {
+			pd.CompactBoundary = nil
+		}
+		return &pd
+	}
+	return partDataFromMap(parseDataJSON(raw))
+}
+
+// partDataFromMap 把 map 解析结果转成 partData（通用路径用，
+// 字段语义与旧的 objStr / objBool / objMap 读取完全一致）。
+func partDataFromMap(m map[string]any) *partData {
+	if m == nil {
+		return nil
+	}
+	pd := &partData{
+		Type:             objStr(m, "type"),
+		Text:             objStr(m, "text"),
+		Tool:             objStr(m, "tool"),
+		SummaryMessageID: objStr(m, "summaryMessageId"),
+		TailStartID:      objStr(m, "tail_start_id"),
+	}
+	if b, ok := m["replace"].(bool); ok && b {
+		pd.Replace = json.RawMessage("true")
+	}
+	if _, ok := m["compactBoundary"].(map[string]any); ok {
+		pd.CompactBoundary = json.RawMessage("{}")
+	}
+	if state, ok := m["state"].(map[string]any); ok {
+		if input, ok := state["input"].(map[string]any); ok {
+			pd.stateCommand, _ = input["command"].(string)
+		}
+	}
+	return pd
+}
+
+// parseMessageRole 取 message 的 data JSON 里的 role：
+// struct 解析（快路径），结构不合预期时回退 map 解析；
+// JSON 语法错误或非对象时返回 false。
+func parseMessageRole(raw string) (string, bool) {
+	if strings.TrimSpace(raw) == "null" {
+		return "", false
+	}
+	var md struct {
+		Role string `json:"role"`
+	}
+	if err := json.Unmarshal([]byte(raw), &md); err == nil {
+		return md.Role, true
+	}
+	m := parseDataJSON(raw)
+	if m == nil {
+		return "", false
+	}
+	return objStr(m, "role"), true
 }
 
 // msgPartStore 是按会话与消息分组的 message / part。
@@ -117,7 +252,7 @@ func loadMsgPartStore(ctx context.Context, db *sql.DB, sessionID string, partHas
 		if msgID == "" {
 			continue
 		}
-		data := parseDataJSON(row["data"])
+		data := partDataFromMap(parseDataJSON(row["data"]))
 		if data == nil {
 			continue
 		}
@@ -126,6 +261,13 @@ func loadMsgPartStore(ctx context.Context, db *sql.DB, sessionID string, partHas
 		list = append(list, partRow{messageID: msgID, timeCreated: tc, seq: int64(i), data: data})
 		store.partsByMsg[msgID] = list
 	}
+	sortMsgPartStore(store)
+	return store, nil
+}
+
+// sortMsgPartStore 按（time_created, seq）稳定排序 store 里的
+// 全部消息与 part（通用路径与 bulk 路径共用）。
+func sortMsgPartStore(store *msgPartStore) {
 	for _, list := range store.messagesBySession {
 		sort.SliceStable(list, func(i, j int) bool {
 			if list[i].timeCreated != list[j].timeCreated {
@@ -142,32 +284,147 @@ func loadMsgPartStore(ctx context.Context, db *sql.DB, sessionID string, partHas
 			return list[i].seq < list[j].seq
 		})
 	}
+}
+
+// toInt64 把直接扫描出的列值转成整数（int64 / float64 / 数字字符串，
+// 与 rowInt 接受的类型一致）；转不了返回 false。
+func toInt64(v any) (int64, bool) {
+	switch n := v.(type) {
+	case nil:
+		return 0, false
+	case int64:
+		return n, true
+	case float64:
+		return int64(n), true
+	case string:
+		var parsed int64
+		if _, err := fmt.Sscanf(n, "%d", &parsed); err == nil {
+			return parsed, true
+		}
+	}
+	return 0, false
+}
+
+// loadMsgPartStoreBulk 全量读 message 与 part 表（预加载专用）：
+// 直接按列扫描，不经过 QueryRows 的逐行 map，60k 行规模下比通用
+// 路径省掉大量小分配；两张表互不依赖，并行扫描。
+// 语义与 loadMsgPartStore(sessionID="") 完全一致
+// （同样的 ORDER BY rowid、同样的 role 过滤、同样的 seq 与排序），
+// 等价性见 TestLoadMsgPartStoreBulk_EqualsGeneric。
+func loadMsgPartStoreBulk(ctx context.Context, db *sql.DB) (*msgPartStore, error) {
+	store := &msgPartStore{
+		messagesBySession: make(map[string][]msgRow),
+		partsByMsg:        make(map[string][]partRow),
+	}
+	var wg sync.WaitGroup
+	var msgErr, partErr error
+	wg.Add(2)
+	go func() {
+		defer wg.Done()
+		msgErr = scanBulkMessages(ctx, db, store)
+	}()
+	go func() {
+		defer wg.Done()
+		partErr = scanBulkParts(ctx, db, store)
+	}()
+	wg.Wait()
+	if msgErr != nil {
+		return nil, msgErr
+	}
+	if partErr != nil {
+		return nil, partErr
+	}
+	sortMsgPartStore(store)
 	return store, nil
+}
+
+// scanBulkMessages 全量读 message 表进 store（bulk 并行扫描的一路）。
+func scanBulkMessages(ctx context.Context, db *sql.DB, store *msgPartStore) error {
+	msgRows, err := db.QueryContext(ctx, "SELECT id, session_id, time_created, data FROM message ORDER BY rowid")
+	if err != nil {
+		return err
+	}
+	defer msgRows.Close()
+	seq := int64(0)
+	for msgRows.Next() {
+		var id, session, dataStr string
+		var tcRaw any
+		if err := msgRows.Scan(&id, &session, &tcRaw, &dataStr); err != nil {
+			return err
+		}
+		tc, _ := toInt64(tcRaw)
+		if session == "" || id == "" {
+			seq++
+			continue
+		}
+		role, ok := parseMessageRole(dataStr)
+		if !ok {
+			seq++
+			continue
+		}
+		if role != "user" && role != "assistant" {
+			seq++
+			continue
+		}
+		list := store.messagesBySession[session]
+		list = append(list, msgRow{id: id, timeCreated: tc, seq: seq, role: role})
+		store.messagesBySession[session] = list
+		seq++
+	}
+	return msgRows.Err()
+}
+
+// scanBulkParts 全量读 part 表进 store（bulk 并行扫描的一路）。
+func scanBulkParts(ctx context.Context, db *sql.DB, store *msgPartStore) error {
+	partRows, err := db.QueryContext(ctx, "SELECT message_id, time_created, data FROM part ORDER BY rowid")
+	if err != nil {
+		return err
+	}
+	defer partRows.Close()
+	seq := int64(0)
+	for partRows.Next() {
+		var msgID, dataStr string
+		var tcRaw any
+		if err := partRows.Scan(&msgID, &tcRaw, &dataStr); err != nil {
+			return err
+		}
+		tc, _ := toInt64(tcRaw)
+		if msgID == "" {
+			seq++
+			continue
+		}
+		data := parsePartData(dataStr)
+		if data == nil {
+			seq++
+			continue
+		}
+		list := store.partsByMsg[msgID]
+		list = append(list, partRow{messageID: msgID, timeCreated: tc, seq: seq, data: data})
+		store.partsByMsg[msgID] = list
+		seq++
+	}
+	return partRows.Err()
 }
 
 // isCompactionSummaryPart 判断 part 是否为压缩摘要载体：
 // type 为 compaction 且带 tail_start_id 或 compactBoundary。
-func isCompactionSummaryPart(data map[string]any) bool {
-	if objStr(data, "type") != "compaction" {
+func isCompactionSummaryPart(data *partData) bool {
+	if data == nil || data.Type != "compaction" {
 		return false
 	}
-	if tail, ok := data["tail_start_id"].(string); ok && tail != "" {
+	if data.TailStartID != "" {
 		return true
 	}
-	_, ok := data["compactBoundary"].(map[string]any)
-	return ok
+	return data.HasCompactBoundary()
 }
 
 // compactionMarkerSummaryID 取 marker part 指向的摘要消息 id：
 // type 为 compaction、replace 为 true 且 summaryMessageId 为字符串。
-func compactionMarkerSummaryID(data map[string]any) string {
-	if objStr(data, "type") != "compaction" || !objBool(data, "replace") {
+func compactionMarkerSummaryID(data *partData) string {
+	if data == nil || data.Type != "compaction" || !data.IsReplace() {
 		return ""
 	}
-	if id, ok := data["summaryMessageId"].(string); ok {
-		return id
-	}
-	return ""
+	return data.SummaryMessageID
 }
 
 // compactSummaryMessageIDs 找出承载压缩摘要的消息：压缩后的轮次
@@ -199,11 +456,11 @@ func buildMsgPartTurn(msg msgRow, parts []partRow, compactSummaryIDs map[string]
 	var collected []string
 	totalRaw := 0
 	for _, part := range parts {
-		if objStr(part.data, "type") != "text" {
+		if part.data == nil || part.data.Type != "text" {
 			continue
 		}
-		text, ok := part.data["text"].(string)
-		if !ok || text == "" {
+		text := part.data.Text
+		if text == "" {
 			continue
 		}
 		totalRaw += len(text)

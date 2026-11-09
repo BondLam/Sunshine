@@ -83,7 +83,12 @@ func zcodeDialogue(ctx context.Context, s mem.MemSessionInfo) ([]mem.DialogueTur
 // `sunshine task create|start` 调用。注意顺序与上游一致：先把本消息
 // 的文本轮次入池，再记工具事件——事件的 turnIndex 是入池后的轮次数
 // （助手先写回复、工具随后执行）。
+// search 预加载命中时直接从内存 store 取轮次与事件，不重开库、不再查表。
 func zcodeCollect(ctx context.Context, s mem.MemSessionInfo) ([]mem.DialogueTurn, []mem.MemEvent, []string, error) {
+	if store := cachedMsgPartStore(s.FilePath); store != nil {
+		turns, events := zcodeTurnsAndEvents(store, s.ID)
+		return turns, events, nil, nil
+	}
 	db, warnings, opened := openMemDB(ctx, s.FilePath, "ZCode")
 	if !opened {
 		return nil, nil, warnings, nil
@@ -96,7 +101,14 @@ func zcodeCollect(ctx context.Context, s mem.MemSessionInfo) ([]mem.DialogueTurn
 	if err != nil {
 		return nil, nil, append(warnings, fmt.Sprintf("无法读取 ZCode 会话库（%s）：%v", s.FilePath, err)), nil
 	}
-	messages := store.messagesBySession[s.ID]
+	turns, events := zcodeTurnsAndEvents(store, s.ID)
+	return turns, events, warnings, nil
+}
+
+// zcodeTurnsAndEvents 从 message / part store 里拼出一次会话的轮次
+// 与任务命令事件（预加载命中与逐会话读共用，保证两路结果一致）。
+func zcodeTurnsAndEvents(store *msgPartStore, sessionID string) ([]mem.DialogueTurn, []mem.MemEvent) {
+	messages := store.messagesBySession[sessionID]
 	summaryIDs := compactSummaryMessageIDs(messages, store.partsByMsg)
 	var turns []mem.DialogueTurn
 	var events []mem.MemEvent
@@ -105,22 +117,20 @@ func zcodeCollect(ctx context.Context, s mem.MemSessionInfo) ([]mem.DialogueTurn
 			turns = append(turns, *turn)
 		}
 		for _, part := range store.partsByMsg[msg.id] {
-			if objStr(part.data, "type") != "tool" {
+			if part.data == nil || part.data.Type != "tool" {
 				continue
 			}
-			tool := objStr(part.data, "tool")
+			tool := part.data.Tool
 			if tool != "Bash" && tool != "bash" {
 				continue
 			}
-			state := objMap(part.data, "state")
-			input := objMap(state, "input")
-			command, ok := input["command"].(string)
-			if !ok || command == "" {
+			command := part.data.StateInputCommand()
+			if command == "" {
 				continue
 			}
 			events = append(events, mem.EventsFromParsed(
 				mem.ParseTaskCommandsAll(command), toISOEpochMs(float64(part.timeCreated)), len(turns))...)
 		}
 	}
-	return turns, events, warnings, nil
+	return turns, events
 }

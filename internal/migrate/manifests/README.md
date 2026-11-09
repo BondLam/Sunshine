@@ -3,11 +3,51 @@
 本目录存放 Sunshine 自己的版本迁移清单，每份清单对应一个版本，
 文件名 `<版本号>.json`（例如 `0.2.0.json`）。
 
-## 当前状态：空
+## 当前状态：已有第一份真实清单
 
-当前版本尚无历史迁移，清单集初始为空。后续每次模板结构变更
-（文件改名、目录改名、删除过期文件、新引入配置段落），由该版本
-补一份清单；不要为没有结构变更的版本建清单。
+- `0.2.0.json`（2026-11-09 落地）：Skill-first 架构迁移——6 条改名
+  （Claude / Cursor 命令改 skill、`.agents/skills/` 未加前缀的 skill
+  加 `sunshine-` 前缀）与 4 条 safe-file-delete（退役的 onboard /
+  parallel 旧命令与旧 skill）。蓝本是 Trellis 0.5.0-beta.0 的
+  Skill-first 迁移（该版含 68 条改名与 138 条 safe-file-delete）；
+  只取“改了什么”的事实，未复制上游代码与原文；路径按 Sunshine 的
+  `.claude` / `.cursor` / `.agents` 布局与 `sunshine-` 前缀改写。
+  0.1.0 模板里本就用统一 skill 名的项目不受影响（源文件不存在的项
+  自动跳过）。回归测试见 `internal/update/migrate020_test.go`
+  （门禁 / 试运行 / `--migrate --force` / 备份后执行四路）。
+
+## 新增清单（之后每加一份照此办理）
+
+1. **取材**：只写 Sunshine 自己版本线上的真实结构变更（文件改名、
+   目录改名、删除过期文件、新引入配置段落）；不要为没有结构变更的
+   版本建清单；不要照搬其他项目的清单（路径与结构都不同）。
+   如需参考上游历史，只取“改了什么”的事实，不抄代码、不直接发布
+   英文原文，蓝本出处写进清单的 `notes`。
+2. **文件**：`manifests/<目标版本号>.json`（例如 `0.3.0.json`），
+   版本号须与该版 CLI 版本一致；清单只在项目版→CLI 版区间
+   `(旧版, 新版]` 内生效。
+3. **内容**：`version` / `description` / `migrations`（`rename` /
+   `rename-dir` / `delete` / `safe-file-delete`，`from` / `to` 均为
+   相对项目根的路径）必填其余按需；破坏性变更置 `breaking` 与
+   `recommendMigrate` 为 true（无 `--migrate` 时 update 硬停）。
+   `safe-file-delete` 的 `allowed_hashes` 填旧版模板文件内容的
+   原始字节 SHA-256（与 `.template-hashes.json` 的算法一致，
+   不做换行符归一化），可用 `sha256sum <文件>` 计算；用户改过
+   的文件哈希不命中，一定保留。
+4. **禁区**：受保护的用户数据路径（`.sunshine/workspace`、
+   `.sunshine/tasks`、`.sunshine/spec`、`.sunshine/.developer`、
+   `.sunshine/.current-task`）永不迁移、不删除，不要写进清单。
+   改名源不得是当前模板集合里仍有的路径（否则 update 会在迁移后
+   又把它当新文件写回来）。
+5. **验证**：在 `internal/migrate/migrate_test.go` 的内嵌清单测试
+   里更新版本断言；在 `internal/update/` 补一轮 CLI 级回归
+   （门禁 / 试运行 / `--migrate` 执行 / `.version` 更新 / 备份含
+   更新前内容）；再用真实二进制搭夹具项目跑交互与非交互两路
+   （夹具做法：真实 `init` 建 0.1.0 项目，植入旧版文件并记哈希，
+   删掉改名目标的文件与哈希条目，再以新版二进制跑 `update`）。
+6. **发布**：只加文件，不改代码——清单随二进制内嵌发布
+   （`//go:embed manifests`），`update` 在 `MigrationRegistry`
+   为 nil 时自动回落到内嵌清单集。
 
 ## 清单格式（JSON）
 

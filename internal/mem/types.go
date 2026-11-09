@@ -124,6 +124,15 @@ type MemFilter struct {
 	Grep string
 	// Phase 只对 extract 生效。
 	Phase MemPhase
+	// Events 是 extract 阶段切片用的事件通道：适配器 Collect 从
+	// 工具调用里抽出的 `sunshine task create|start` 事件
+	//（TurnIndex 指向清理后对话里的下标）。为空表示无任务边界，
+	// 与 SliceMemPhase 的无边界语义一致。轮次文本里的命令只是
+	// 普通文本，绝不作为事件来源。
+	Events []MemEvent
+	// PlatformKind 是 extract 阶段切片用的平台：只有 OpenCode
+	// 不支持阶段切片（降级返回全文）。为空时按支持切片的平台处理。
+	PlatformKind MemSourceKind
 	// Turns / Around / MaxChars 只对 context 生效。
 	Turns    int
 	Around   int

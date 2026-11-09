@@ -7,9 +7,11 @@
 //     以及无需 --migrate 也能自动执行的 safe-file-delete 清理。
 //   - 清单格式：MigrationManifest / MigrationItem / ConfigSectionAdded，
 //     与上游清单格式一致的 JSON（字段名见各结构体的 json 标签）。
-//   - 清单集：Sunshine 自己的版本线起步，当前尚无历史迁移，清单集初始
-//     为空（NewRegistry）；后续每次模板结构变更，由该版本补一份
-//     manifests/<版本号>.json，格式见 internal/migrate/manifests/README.md。
+//   - 清单集：Sunshine 自己的版本线起步，第一份真实清单是 0.2.0
+//     （internal/migrate/manifests/0.2.0.json，蓝本 Trellis
+//     0.5.0-beta.0 的 Skill-first 迁移）；后续每次模板结构变更，由该
+//     版本补一份 manifests/<版本号>.json，格式见
+//     internal/migrate/manifests/README.md 的“新增清单”一节。
 //
 // 执行规则（供 update 调用）：只有 --migrate 才执行 rename / rename-dir /
 // delete 类迁移；safe-file-delete 在内容哈希命中 allowed_hashes 时无需

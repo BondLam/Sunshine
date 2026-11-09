@@ -1490,6 +1490,12 @@ rename 由 E 组负责。未动 `internal/channel/`（B 组）、
 - 空仓库上 Git Data API 拒绝建 blob/tree（409 "Git Repository is empty"），先用 Contents API 推 `.gitignore` 建种子提交 `211458f`，再以它为父提交推完整提交（tree 与本地提交一致，均为 `4a039f79`）。
 - 移动 main 引用时报 403：提交含 `.github/workflows/ci.yml`，token 除 Contents 读写外还需 Workflows 读写（GitHub 返回头 `x-accepted-github-permissions: contents=write; contents=write,workflows=write`）。用户在 token 上补了 Workflows 读写权限后重试成功；token 本身不用重建。
 
+### v0.1.0 发布记录（2026-11-09）
+
+- 新增 `.github/workflows/release.yml`（tag `v*` 触发，goreleaser 发布 GitHub Release，`permissions: contents: write`）；同时修正 `.goreleaser.yaml` 里 `release.github` 的 owner/name（之前仍是占位 `sunshine/sunshine`，已改为 `linrong1982/Sunshine`）。
+- 第一轮 tag v0.1.0 触发的 CI 与发布工作流全部失败、0 个 job：job ID 用了中文（`检查`、`发布配置检查`、`发布`），GitHub job ID 只接受 ASCII 字母/数字/横线/下划线且以字母或下划线开头，中文只能放在 display name（`name` 字段）里。已修正 job ID（`check`、`goreleaser-check`、`release`），删掉旧 tag 后在新提交上重打 v0.1.0。
+- Release 已发布：https://github.com/linrong1982/Sunshine/releases/tag/v0.1.0，6 个资产（checksums.txt + darwin/linux amd64/arm64、windows amd64 共 5 个包），CI 与发布工作流均 success。实测验证：从 Release 下载的 darwin/amd64 包 checksum 通过，解出 Mach-O x86_64 二进制；本地构建的 sunshine（0.1.0）跑 `upgrade` 与 `upgrade --dry-run` 均对真实 Release 查到最新 0.1.0 并报“已是最新”，自更新检查链路已通。
+
 ### 本地验证命令（发版前）
 
 ```sh
@@ -1532,3 +1538,120 @@ pre-commit install       # 在仓库根目录执行一次
 - **版本注入核对**：`internal/cli/root.go` 的 `version` 已为 var（默认 `0.1.0`）、`repo` 默认 `github.com/sunshine/sunshine`，导出 `Version()` / `Repo()` 供 upgrade 与 update 共用；`scaffold.InitOptions` 新增 `Version` 字段，init 的 `.sunshine/.version` 与 `--version` 同源（ldflags 注入验证通过：注入 `0.9.9-test` 后 init 生成的 `.version` 同为该值）；`templates/sunshine/.version` 仍含字面 `0.1.0`，仅作 scaffold 不传 Version 时的 fallback。
 - **upgrade 核对**：`sunshine upgrade`（--tag/--dry-run）已接入根命令；`RegisterUpgradeCommand` 里把 GitHub Releases 查询赋给 `update.LatestVersionFunc`；占位仓库下 `upgrade --dry-run` 报错说明（不静默跳过）并附中文 troubleshooting；`--tag "bad tag!"` 校验拒绝；httptest 端到端覆盖下载/校验/替换/回滚；`update --dry-run` 在未配置仓库时只警告不中断（实测 exit 0）。
 - **遗留**：真实 GitHub 发布待仓库建立后验证（真实 Release、真实资产名；upgrade 资产名按 goreleaser 默认模板 `sunshine_<版本>_<系统>_<架构>.tar.gz`，另有后缀退化匹配兜底）；Windows 运行时行为待真实 Windows 环境验证；`pre-commit install` 未实测（工作目录目前不是 git 仓库，建仓后补跑）；仓库根目录无 `.gitignore`，建仓时建议把 `dist/` 加进去；两个历史注释仍有 trellis 字样（`internal/cli/init.go:266`、`internal/scaffold/scaffold.go:129`，均为上游语义对照注释，未动）。
+
+## 待一并处理批次实施说明（2026-11-09 用户确认集中处理）
+
+依据：GOAL.md“待一并处理”一节 7 项；其中第 2 项已完成（GitHub Releases 检查地址已接线并对真实 v0.1.0 Release 验证通过），本批次只做其余 6 项。全部中文；不复制 Trellis 源码，按需求清单重实现行为；每项做完须 `go build`、`go vet`、`gofmt`、`go test ./...` 全过，生成文件抽查中文与无 trellis 残留。
+
+### 第 1 项：update --migrate 的 CLI 级端到端
+
+- 现状：迁移引擎（`internal/migrate/`）与 `update --migrate` 开关（`internal/cli/update.go`）已就位，引擎已用真实清单做过单元测试；但内嵌清单集（`internal/migrate/manifests/`）为空，CLI 级全流程从未跑过。
+- 做法：先落地第一份真实迁移清单——取材须有据：以 Trellis 模板历史上真实发生的一次改名/删除类变更为蓝本（到 `~/workspace/research/trellis-source` 里找一例，只取“改了什么”的事实，不抄代码；`renameTracesToJournal` 已定不移植，另选一例），写成 JSON 清单进内嵌清单集；再搭一个夹具项目（旧版模板文件 + 待迁移内容），跑 `update --migrate` 全流程（交互与非交互两路），验证改名/删除/迁移门禁/备份/回滚与 `.version` 更新。
+- 验收：端到端跑通；清单内容有上游出处；新清单的加入方式写进 PLAN.md（之后每加一份清单照此办理）。
+
+#### 第 1 项结论（2026-11-09，已完成）
+
+- **第一份真实清单**：`internal/migrate/manifests/0.2.0.json`（6 条改名 + 4 条 safe-file-delete）。蓝本是 Trellis `packages/cli/src/migrations/manifests/0.5.0-beta.0.json` 的 Skill-first 架构迁移（该版含 68 条改名与 138 条 safe-file-delete，breaking 与 recommendMigrate 均为真；另核对过 0.1.9、0.2.0、0.2.14、0.3.4、0.4.0-beta.1、0.5.0-beta.5 六份清单才定下这一份）；只取“改了什么”的事实，未复制上游代码与原文；路径按 Sunshine 三平台（Claude Code、Cursor、Codex）与 `sunshine-` 前缀改写；出处写进清单的 `notes`。`renameTracesToJournal` 未用（已定不移植）。
+- **回归测试**：`internal/migrate/migrate_test.go` 的 `TestLoadEmbeddedRegistryEmpty` 改为 `TestLoadEmbeddedRegistry020`（版本、条数、breaking/recommendMigrate、无 trellis 残留）；新增 `internal/update/migrate020_test.go`（门禁 / 试运行 / `--migrate --force` / 非交互 / 备份后执行五路，全过）。
+- **二进制端到端**（0.1.0 二进制真实 `init` 建夹具：植入旧版文件并记哈希、两处本地改动、删掉改名目标的文件与哈希条目；0.2.0 二进制经 ldflags 跑 `update`，四路全过，断言脚本 39 项全绿）：门禁（无 `--migrate`）exit 1、硬停提示、零写盘；试运行 exit 0、只列计划、零写盘；非交互 `--migrate` exit 0（5 改名 + 1 跳过、清理 3 个退役文件、`.version` 0.1.0→0.2.0、备份含更新前内容、按备份恢复后与更新前夹具逐字节一致）；交互 PTY `--migrate` exit 0（6 改名，改动项默认“备份后执行”写 `.backup`、清理 3 个、`.version`→0.2.0）。
+- **端到端发现并修复的缺陷**：非交互 `update --migrate` 遇已改动迁移项时，survey 读 stdin 得 EOF，`ExecuteMigrations` 把报错当跳过又记为错误，导致整个 update exit 1、后续步骤全没跑（`.version` 不更新）。修复在 `internal/update/migrate.go` 的 `migrationPrompterFor`：stdin 非终端时根本不调 survey，直接返回跳过（与 `surveyPrompter` 的非交互门禁一致；引擎层“报错即记错”的已钉住行为未动）。回归测试 `TestRunMigration020MigrateNonInteractive` 锁定。另记：PTY 驱动 survey 时，两个 `\x1b[6n` 查询的应答须逐个间隔发送（survey 的 `Location()` 每次新建 bufio.Reader，同时在队的第二个应答会被丢弃致死锁）。
+- **适用边界（如实记录）**：plain `delete` 类型不在本清单里（上游仅 0.3.4 用过一次，删改名后留下的空目录；本清单的“删除”由 safe-file-delete 覆盖；`delete` 类型仍由阶段 4 单元测试覆盖）。safe-file-delete“无 `--migrate` 也执行”的语义在本夹具上被破坏性门禁挡住（无 `--migrate` 时直接硬停），CLI 级只由 `--dry-run` 的清理计划 + 阶段 4 单元测试覆盖，未单独跑一条无 `--migrate` 的删除实测。
+
+#### 新增迁移清单的加入方式（之后每加一份照此办理）
+
+完整六步见 `internal/migrate/manifests/README.md`“新增清单”一节（取材 / 文件命名 / 内容字段 / 禁区 / 验证 / 发布）。要点：只写 Sunshine 自己版本线上的真实结构变更，文件为 `manifests/<目标版本号>.json`，破坏性变更置 `breaking` 与 `recommendMigrate` 为 true，`safe-file-delete` 的 `allowed_hashes` 用旧版模板文件内容的原始字节 SHA-256，受保护路径不得进清单，改名源不得是当前模板集合里仍有的路径；验证分两层——`internal/update/` 的 CLI 级回归（门禁 / 试运行 / `--migrate` 执行 / `.version` 更新 / 备份含更新前内容）+ 真实二进制夹具跑交互与非交互两路（夹具做法：真实 `init` 建旧版项目，植入旧版文件并记哈希，删掉改名目标的文件与哈希条目，再以新版二进制跑 `update`）；只加文件、不改代码，清单随二进制内嵌发布。
+
+### 第 3 项：SSH 形式 --registry 端到端克隆
+
+- 现状：`init --registry` 支持 SSH 形式（go-git），但从未端到端验证；沙箱 22 端口被出口代理重置，无法直连外部 SSH。
+- 做法：在沙箱内起本地 sshd（有 openssh-server 则直接用，没有则装；装不上就如实记录），建一个本地 git 仓库作 registry 源（marketplace 结构），配好 key 认证，跑 `sunshine init --registry ssh://git@localhost:<端口>/<路径>` 全流程，验证克隆、marketplace 解析与模板安装。
+- 若沙箱确实起不了 sshd：只做到 go-git SSH 代码路径的单测覆盖，并如实记录阻塞点，该项记为“待真实环境复验”，不谎报通过。
+
+#### 第 3 项结论（2026-11-09，已完成；sshd 真实跑通，不用记“待复验”）
+
+- **环境**：沙箱起初无 openssh-server（`apt list` 无候选），`apt-get update` 跑完（约 12 分钟，代理很慢）后装上 `openssh-server 1:9.6p1-3ubuntu13.20`。本地 sshd 跑在 `127.0.0.1:2222`（配置 `/tmp/ssh-e2e/sshd_config`，pid 文件 `/tmp/ssh-e2e/sshd.pid`，仅监听回环；密钥认证、无口令；验证时仍在运行）。`git` 用户已建（`/home/git`，`usermod -p '*'` 解锁——新建账号默认锁定态，sshd 会报 `User git not allowed because account is locked`）；客户端钥匙 `/tmp/ssh-e2e/home/.ssh/id_ed25519`（无口令），公钥已入 `/home/git/.ssh/authorized_keys`。
+- **Registry 源**：裸仓 `/git/registry.git`（git 用户所有），marketplace 结构（`marketplace/index.json` + `specs/demo-spec` + `skills/demo-skill` + `workflows/native`），默认分支 `main`。
+- **验证**：`sunshine init -u 测试 -y --registry ssh://git@localhost:2222/git/registry/marketplace --template demo-spec` exit 0——go-git SSH 克隆成功、accept-new 回调把 `[localhost]:2222` 主机密钥记入 `known_hosts`、marketplace 解析出 3 条模板、demo-spec 2 文件装进 `.sunshine/spec`、registry.spec 写入 config.yaml、哈希清单就位、无 trellis 残留；改模板推 v2 后 `sunshine update --force` 把 `backend.md` 刷到 v2（registry 持续刷新走 SSH 也通）。git CLI `ls-remote` 同 URL 也通（交叉验证服务端）。
+- **发现的解析局限（未修，报总协调人定）**：`ParseRegistrySource` 把 ssh:// 路径按 `user/repo[/subdir]` 切分，三段式绝对路径 `ssh://git@localhost:2222/home/git/registry.git` 被误解析为 Repo=`home/git`、Subdir=`registry`、GitURL=`ssh://git@localhost:2222/home/git.git`（临时程序实测输出）；两段式 `ssh://git@localhost:2222/git/registry[.git]` 与带 subdir 的 `.../git/registry/marketplace` 解析正确。结论：SSH registry 目前只支持两段式路径；要支持任意绝对路径须改解析器（另立任务，不在本项修）。
+- **环境坑（夹具侧，已解决，非产品缺陷）**：`/git` 目录须对 git 用户可遍历（初建时 root 770，git 用户进不去）；root 推上去的引用文件会变成 root 所有，致使 git 用户读不到、upload-pack 通告零 OID、go-git 报 `malformed zero-id ref`——推完须 `chown -R git:git /git/registry.git`（或改以 git 用户推送）。
+- **复验 / 停止**：重跑 `HOME=/tmp/ssh-e2e/home /tmp/sunshine-e2e/sunshine-0.1.0 init -u 测试 -y --registry ssh://git@localhost:2222/git/registry/marketplace --template demo-spec`（须先 `rm -rf` 目标项目目录；sshd 在跑的前提下）。停止：`kill $(cat /tmp/ssh-e2e/sshd.pid)`；重起：`/usr/sbin/sshd -f /tmp/ssh-e2e/sshd_config -E /tmp/ssh-e2e/sshd.log`（`/run/sshd` 须为 root 755）。
+
+### 第 4 项：version 字段与 .sunshine/.version 重复（已查清，按此办）
+
+- 查清的结论：`config.yaml` 的 `version` 字段（`internal/config/config.go` 的 `Version`、`templates/sunshine/config.yaml:153` 的 `version: 0.1.0`）没有任何代码读或维护它；版本比较与更新全走 `.sunshine/.version` 文件（`internal/update/version.go` 的 `GetInstalledVersion` / `WriteVersionFile`，init 与 update 共同维护）。两者不是“各有分工”，是字段冗余。
+- 做法：去掉 `config.yaml` 的 `version` 字段（struct 字段 + 模板行 + 相关文档与注释），`.sunshine/.version` 保留为唯一版本标记。
+- 动手前先全仓 grep 一遍确认确实无读者（若发现读者，停下来改方案：保留字段并在 PLAN.md 写明分工，不硬删）。
+- 验收：删后全量测试过；旧项目 config.yaml 里残留的 `version` 行不报错（未知字段应被忽略或给提示，不得崩）。
+
+#### 第 4 项结论（2026-11-09，已完成）
+
+- **动手前 grep**：`internal/config/config.go` 的 `Version` 字段没有任何生产代码读者；命中的只有测试夹具里的 `version:` 行（`config_test.go`、`registry_test.go`、`hook_test.go`、`configyaml_test.go`，测的是行级保留/容忍逻辑）与 `.version` 文件本身的版本逻辑（`internal/update/version.go` 的 `GetInstalledVersion` / `WriteVersionFile`、CLI 的 `version` 变量）。`LoadBytes` 用非严格 `yaml.Unmarshal`，未知字段默认忽略——残留行不报错有实现依据，符合规格，无需改方案。
+- **改动**：删 `internal/config/config.go` 的 `Version string \`yaml:"version"\`` 字段及注释；删 `templates/sunshine/config.yaml` 的 `version: 0.1.0` 行及上方注释行。`.sunshine/.version` 保留为唯一版本标记。
+- **测试**：`internal/config/config_test.go` 的 `TestLoadFullFields` 夹具 `version: 0.2.0` 行保留（改为残留行容忍的证明），断言只验 `tasks_dir` / `spec_dir`；新增 `TestLoadIgnoresResidualVersionLine`（只含 `version: 9.9.9` 残留行的旧 config 应解析成功）。其余三处测试夹具的 `version:` 行有意保留（即残留行不报错的证据）。
+- **验证**：`sunshine init` 后 `.sunshine/config.yaml` 无 version 行，`.sunshine/.version` 内容为 `0.1.0`；追加 `version: 0.1.0` 残留行后 `sunshine task list` 与 `sunshine update --dry-run` 均正常退出。`go build`、`go vet`、`gofmt`、`go test ./...` 全过（560 个测试，0 失败）。
+
+### 第 5 项：ts-sdk-author 改为 Go SDK 编写版
+
+- 现状：Trellis 的 `ts-sdk-author` skill（`~/workspace/research/trellis-source/.agents/skills/ts-sdk-author/`，教写生产级 TypeScript SDK：npm/pnpm/tsdown/双 ESM+CJS/changesets）在 Sunshine 里不存在；Sunshine 是 Go 项目，没有 TS SDK。
+- 做法：新写 `go-sdk-author` skill，落到 `templates/marketplace/skills/go-sdk-author/SKILL.md`，并收入模板市场索引（mem-recall 的索引位置见 `internal/registry/marketplace.md` 与 `templates/marketplace/skills/`，照同格式加第 11 条）。
+- 内容要求：参照 ts-sdk-author 的章节结构（工程布局、公共 API 与模块边界、插件扩展点、版本与发布生命周期）重写 Go 版；TS 专属内容（tsdown、pnpm、changesets、双 ESM+CJS）不逐字翻译，换成 Go 对应物（Go module 布局、公开 API 设计、semver tag、goreleaser 发布、GoReleaser + GitHub Release 流程）；不复制 Trellis 技能原文。
+- 验收：skill 可读、Go 内容准确、索引条目就位；`sunshine init --registry` 能装上它（走一次本地 registry 安装验证）。
+
+#### 第 5 项结论（2026-11-09，已完成）
+
+- **新增**：`templates/marketplace/skills/go-sdk-author/SKILL.md`（522 行，全中文，frontmatter 的 `name` / `description` 格式与 `mem-recall` 一致）。参照 `ts-sdk-author` 的章节结构重写，未复制原文：何时使用 → 七阶段工作流（1. Go module 与工程布局；2. 公开 API 与模块边界——函数式选项、不透明 ID、`%w` 错误链；3. 构建配置——`go build/vet/test -race`、CGO_ENABLED=0 静态交叉编译、ldflags 注入版本；4. 分发形态——module 路径、v2 的 `/v2` 后缀、`go install`、伪版本；5. 多包流水线——GitHub Actions 矩阵、`go.work`；6. 验证——冒烟安装；7. 发布生命周期——semver tag、GoReleaser + GitHub Release、预发布隔离、`retract` 撤回）→ 速查表 → 发布前检查清单 → 常见错误表；末尾附 Sunshine 自身对照。
+- **TS 专属内容已全部替换**：tsdown、pnpm、changesets、双 ESM+CJS 在新 skill 里零出现（grep 验证），对应物为 Go module 布局、公开 API 设计、semver tag、GoReleaser 发布、GoReleaser + GitHub Release 流程。
+- **索引（第 11 条）**：`internal/registry/marketplace.md`（“已确认的 10 个条目”→“11 个条目”，skill 由 4 个→5 个）与 `internal/registry/source_test.go`（`TestParseTemplateIndex` 夹具 10→11 条，新增 `{"id": "go-sdk-author", "type": "skill", "name": "Go SDK Author", "path": "skills/go-sdk-author"}`，计数断言改为 11，`FindTemplate` 检查加入 `go-sdk-author`）两处同步。
+- **验证**：本地 registry 安装走通（`/tmp/b5market`：11 条 `index.json` + `skills/go-sdk-author/SKILL.md`），`sunshine init --registry /tmp/b5market --template go-sdk-author` 退出 0，`.agents/skills/go-sdk-author/SKILL.md` 已装上，`diff` 与模板字节一致。`go build`、`go vet`、`gofmt`、`go test ./...` 全过（560 个测试，0 失败）。
+
+### 第 6 项：ExtractDialogue 内部 phase 切片统一
+
+- 现状：`internal/mem/context.go` 的 `ExtractDialogue` 内部自己按 `filter.Phase` 切片；生产路径（CLI 的 extract）走的是适配器 `Collect` 的事件 + `SliceMemPhase`（`internal/mem/phase.go`），两路切片语义未统一。
+- 做法：把 `ExtractDialogue` 改成走事件通道（与 CLI 路径同一套 `SliceMemPhase` 语义），删掉内部自有的切片分支；按原备注“统一时先改相关测试的预期”，先改测试预期再改实现。
+- 验收：`extract --phase` 两种入口（直接调与 CLI）结果一致；全量测试过。
+
+#### 第 6 项结论（2026-11-09，已完成）
+
+- **改法**：`MemFilter` 新增 `Events []MemEvent`（事件通道：适配器 `Collect` 从工具调用里抽出的事件）与 `PlatformKind MemSourceKind`（只有 OpenCode 不支持切片，降级返回全文）；`ExtractDialogue` 删掉内部自有的 `sliceByPhase`（全文删除），改为 `SliceMemPhase(cleaned, filter.Events, phase, filter.PlatformKind)` 再按 grep 过滤；非法 phase 按 all 处理（与统一前一致）。`FindTaskCommands` 本身保留（`phase_test.go` 仍直接测它），只是不再是切片的事件来源。
+- **测试先行**：先改 `internal/mem/context_test.go` 的预期再改实现——有事件时 brainstorm 取窗口内 2 轮、implement 取窗口外 4 轮；无事件时文本里的任务命令不再算边界（`TestExtractDialogue_TextCommandsIgnored`：brainstorm 返回全文、implement 为空，旧实现下此测试会失败）；新增 `TestExtractDialogue_MatchesSliceMemPhase`（直接调与 `SliceMemPhase` 三阶段逐轮一致）、`TestExtractDialogue_OpencodeDowngrade`、`TestExtractDialogue_InvalidPhase`。
+- **CLI 接线**：`internal/cli/mem.go` 的 `extractGroups` 切片改走 `ExtractDialogue` 的事件通道（`sliceFilter.Events / PlatformKind`），窗口与警告仍由同一批输入的 `SliceMemPhase` 给出，供分组与展示；CLI 的 `TestMemExtractPhase`（工具调用藏命令的 Claude 夹具）仍全过，两种入口一致。
+- **验证**：`go build`、`go vet`、`gofmt`、`go test ./...` 全过（560 个测试，0 失败）。
+
+### 第 7 项：search 的 SQLite 预加载缓存（先测再定）
+
+- 现状：search 每次打开 SQLite 再查，未做预加载缓存；原备注“v1 可接受，search 性能成问题再补”。
+- 做法：先测：造一份有规模的会话库（量级与真实用户使用相当，至少数千条会话/数万条消息），测 `sunshine mem search` 的耗时（冷查与热查）；达标线：单次 scoped search p95 < 500ms。
+- 达标则该项记为“已实测，不需要补”，把测试数据与结论写进 PLAN.md；不达标再实现预加载缓存（缓存须有失效策略，不得读脏数据），实现后复测达标。
+- 验收：有实测数字与结论；若实现缓存，全量测试过且只读哈希不变（mem 的 SQLite 只读约定不得破）。
+
+#### 第 7 项结论（2026-11-09，已完成——实测不达标，已实现预加载缓存并复测达标）
+
+- **实测不达标（改造前）**：性能库为 OpenCode 单库 3000 会话 / 30000 消息 / 30000 part（9.4MB，`/tmp/sunshine-perf-home`，由 `SUNSHINE_PERF_GEN=1 go test ./internal/mem/adapters/ -run TestSearchPerfGenerate` 生成，复现方法见 `internal/mem/adapters/search_perf_test.go` 文件头），scope 为项目目录（默认 cwd scope）。进程内 `ListSessions + SearchMatches`：命中关键词“缓存检索”（30 个命中会话）三轮 31.86s / 31.69s / 31.82s（p95 31.86s），无命中关键词 32.65s；达标线 500ms，超标约 64 倍，必须补缓存。
+- **根因（分段诊断，见已删的临时诊断测试，数字留此）**：开库仅 117µs、`checkMsgPartSchema` 仅 50µs、列会话仅 15ms；瓶颈是单会话 `loadMsgPartStore` 均值 9.3ms——按会话过滤的查询无索引，每会话都要全表扫描，×3000 ≈ 28s；全库 bulk load 一次仅约 275ms；纯内存匹配约 437ms（其中 `CleanTurns` 的重复正则清洗占约 60% CPU）。
+- **实现——预加载缓存**（`internal/mem/adapters/preload.go`，search 入口显式调用，`internal/cli/mem.go` 的 `runMemSearch` 在列出会话后、检索前调 `adapters.PreloadSearchStores`）：
+  - 覆盖三家 SQLite 共享库：OpenCode / ZCode 的 message / part（共用 `msgPartStore`）、Devin 的 message_nodes + 各会话 main_chain_id；JSONL 平台（Claude / Codex / Grok / Pi）单会话单文件，无共享库可预加载，不走本缓存。
+  - 只预加载平台过滤范围内的库（`--platform` 只指定某一家时其余家不读）。
+  - 失效策略：缓存只活在单个 CLI 进程内，不落盘，进程结束即失效；每次取用前按（库文件 + `-wal` 文件）的 mtime 与 size 指纹校验，不一致就丢弃、当次回退逐会话读；预加载时加载前后各取一次指纹，前后不一致（加载中有人写库）就不入缓存；预加载失败只记警告，search 回退逐会话读，不中断。
+  - 只读约定：预加载只读打开（`mode=ro`），不写会话库；实测前后库文件 SHA-256 不变（`abe4feeff9d428c8bbc951f6ee4ea24f967fada954487024b83dd40f5982a95d`）。
+  - bulk load 用 lean 扫描（`loadMsgPartStoreBulk`：直接按列扫描、message/part 两表并行、part data 强类型 `partData` 解析，struct 解析失败时回退 map 解析再转换；与通用全库路径逐行等价，`TestLoadMsgPartStoreBulk_EqualsGeneric` 与畸形数据等价测试 `TestLoadMsgPartStoreBulk_MalformedEqualsGeneric` 锁定）：bulk load 约 275ms → 约 168ms。
+- **实现——匹配快路径（达标必需的配套改动，语义不变）**：`StripInjectionTags`（`internal/mem/dialogue.go` 与 `internal/mem/adapters/dialogue.go` 两份实现）加触发子串快路径（无 `<`、无 `# AGENTS.md instructions for`、无 `\n\n\n` 时只裁剪首尾空白，慢速路径每步都是恒等变换，结果完全一致），并把每次现编译的 `\n{3,}` 正则提到包级只编译一次；`CleanTurns` 的 `len([]rune(...))` 改为 `utf8.RuneCountInString`。纯内存匹配 352ms → 76ms（benchmark `BenchmarkSearchMatchesMemory`）；预加载命中后的整条 search 路径 453ms → 约 121ms（benchmark `BenchmarkSearchWithPreload`）。
+- **复测达标（改造后，CLI 二进制全新进程、`--json`、各 31 次，页缓存热状态）**：
+  - 命中关键词“缓存检索”：min 284ms、p50 327ms、**p95 375ms**、max 392ms、均值 330ms；
+  - 无命中关键词：min 285ms、p50 334ms、**p95 380ms**、max 442ms、均值 340ms；
+  - 进程内：预加载 181ms，缓存命中后单轮检索 p50 117ms / p95 122ms。
+  - 均低于 500ms 达标线。冷查未能在沙箱隔离：`/proc` 只读、清不了页缓存，上述 62 次均为页缓存热状态；冷查只多一次 9.4MB 磁盘读，量级上不影响结论（未给冷查数字，不谎报）。
+- **测试**：新增 `internal/mem/adapters/preload_test.go`（预加载命中与逐会话读结果一致、改写库后指纹失效、ZCode 事件一致、Devin 一致、空 HOME 无警告、平台过滤）与 `internal/mem/adapters/search_perf_test.go`（造库 / 计时 / 两个 benchmark，默认跳过，`SUNSHINE_PERF_GEN=1`、`SUNSHINE_PERF_SEARCH=1` 才跑，不拖慢全量测试）；`go build`、`go vet`、`gofmt`、`go test ./...` 全过（560 个测试，0 失败），adapters 包 `-race` 通过。
+- **未做**：未做跨进程持久化缓存（进程内预加载已达标，持久化缓存要另做落盘失效与并发控制，收益已不大）；Devin 预加载未单独做大规模实测（与 OpenCode/ZCode 同一模式，夹具级测试覆盖）。
+
+### 批次验收（总）
+
+- 6 项逐项有结论（完成 / 已实测不需要 / 待真实环境复验并写明阻塞点），不把“未做”写成“已做”。
+- `go build`、`go vet`、`gofmt`、`go test ./...` 全过；生成文件抽查中文与无 trellis 残留。
+- PLAN.md 与 GOAL.md 的“待一并处理”一节同步更新：逐项写清结论与落点。
+
+#### 总协调终验（2026-11-09）
+
+- `gofmt -l .` 无输出；`go vet ./...` 通过；`go build ./...` 通过；`go test ./... -count=1` 18 个包全过，560 个测试，0 失败。
+- 独立复验：SSH 端到端重跑一次（`init --registry ssh://git@localhost:2222/git/registry/marketplace --template demo-spec`，demo-spec 2 文件装进 `.sunshine/spec`）；迁移五路测试全过；ExtractDialogue 十路测试全过；`mem search` 在 3000 会话 / 30000 消息性能库上三轮 325/291/329ms（30 个命中），库文件 SHA-256 与实测前一致（`abe4feef…2a95d`）。
+- 新增 trellis 字样核查：改动代码与新增文件里无新输出的 trellis 字样；仅有的 1 处是 `0.2.0.json` 的 `notes` 字段（上游出处说明，CLI 不打印，`From`/`To` 路径有测试 guard 锁死不得残留）与 PLAN.md 文档里的出处引用。
+- **后续任务（另立，不在本批次）**：SSH registry 的 `ParseRegistrySource` 只支持两段式路径，三段式绝对路径（如 `ssh://git@localhost:2222/home/git/registry.git`）会被误解析（见第 3 项结论）；要支持任意绝对路径须改解析器。另：本批次改动尚未提交推送，待定下版本号（清单已备好 0.2.0，下一发布为 v0.2.0）后随下次发版一起推。

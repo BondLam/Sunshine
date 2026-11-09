@@ -637,7 +637,7 @@ func TestApplyConfigSectionsAdded(t *testing.T) {
 	}
 }
 
-func TestLoadEmbeddedRegistryEmpty(t *testing.T) {
+func TestLoadEmbeddedRegistry020(t *testing.T) {
 	reg, warnings := LoadEmbeddedRegistry()
 	if reg == nil {
 		t.Fatal("内嵌清单集不应为 nil")
@@ -645,7 +645,46 @@ func TestLoadEmbeddedRegistryEmpty(t *testing.T) {
 	if len(warnings) != 0 {
 		t.Fatalf("内嵌清单集应无警告，得到 %v", warnings)
 	}
-	if got := len(reg.Versions()); got != 0 {
-		t.Fatalf("内嵌清单集目前应为空，得到 %d 个版本 %v", got, reg.Versions())
+	// 第一份真实清单：0.2.0（蓝本 Trellis 0.5.0-beta.0 的 Skill-first 迁移）。
+	if got := reg.Versions(); len(got) != 1 || got[0] != "0.2.0" {
+		t.Fatalf("内嵌清单集应只有 0.2.0，得到 %v", got)
+	}
+	items := reg.MigrationsForVersion("0.1.0", "0.2.0")
+	var renames, safeDeletes int
+	for _, item := range items {
+		if strings.Contains(item.From, "trellis") || strings.Contains(item.From, "Trellis") ||
+			strings.Contains(item.To, "trellis") || strings.Contains(item.To, "Trellis") {
+			t.Errorf("清单路径不得残留 trellis 字样：%s → %s", item.From, item.To)
+		}
+		switch item.Type {
+		case MigrationTypeRename:
+			renames++
+			if item.To == "" {
+				t.Errorf("改名项缺少目标路径：%s", item.From)
+			}
+		case MigrationTypeSafeFileDelete:
+			safeDeletes++
+			if len(item.AllowedHashes) == 0 {
+				t.Errorf("safe-file-delete 缺少 allowed_hashes：%s", item.From)
+			}
+		default:
+			t.Errorf("0.2.0 清单不应含 %s 类型：%s", item.Type, item.From)
+		}
+	}
+	if renames != 6 {
+		t.Errorf("0.2.0 应有 6 条改名，得到 %d", renames)
+	}
+	if safeDeletes != 4 {
+		t.Errorf("0.2.0 应有 4 条 safe-file-delete，得到 %d", safeDeletes)
+	}
+	meta := reg.Metadata("0.1.0", "0.2.0")
+	if !meta.Breaking || !meta.RecommendMigrate {
+		t.Errorf("0.2.0 应为破坏性版本且建议 --migrate，得到 Breaking=%v RecommendMigrate=%v", meta.Breaking, meta.RecommendMigrate)
+	}
+	if !reg.HasPendingMigrations("0.1.0", "0.2.0") {
+		t.Error("0.1.0 → 0.2.0 应有待执行迁移")
+	}
+	if reg.HasPendingMigrations("0.2.0", "0.2.0") {
+		t.Error("同版本之间不应有待执行迁移")
 	}
 }

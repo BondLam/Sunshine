@@ -253,66 +253,30 @@ func SessionContext(turns []DialogueTurn, filter MemFilter) string {
 	return b.String()
 }
 
-// sliceByPhase 按工作阶段切分清理后的对话：brainstorm 取全部头脑风暴
-// 窗口内的轮次（按窗口顺序拼接）；implement 取窗口外的全部轮次。
-// 没有任何任务边界时，brainstorm 返回全文、implement 返回空，
-// 与上游切片语义一致（上游同时记一条警告，本函数只返回轮次）。
-func sliceByPhase(turns []DialogueTurn, phase MemPhase) []DialogueTurn {
-	events := FindTaskCommands(turns)
-	windows := BuildBrainstormWindows(events, len(turns))
-	if phase == PhaseBrainstorm {
-		if len(windows) == 0 {
-			return turns
-		}
-		out := make([]DialogueTurn, 0)
-		for _, w := range windows {
-			out = append(out, turns[w.StartTurn:w.EndTurn]...)
-		}
-		return out
-	}
-	if len(windows) == 0 {
-		return []DialogueTurn{}
-	}
-	covered := map[int]bool{}
-	for _, w := range windows {
-		for i := w.StartTurn; i < w.EndTurn; i++ {
-			covered[i] = true
-		}
-	}
-	out := make([]DialogueTurn, 0)
-	for i, t := range turns {
-		if !covered[i] {
-			out = append(out, t)
-		}
-	}
-	return out
-}
-
 // ExtractDialogue 抽取一次会话的完整内容：先按 filter.Phase 切片
 // （brainstorm / implement / all，默认 all；非法值按 all 处理，
 // 非法值的报错由 CLI 层负责），再按 filter.Grep 过滤轮次
 // （多 token 为 AND，不区分大小写；与 context 的 grep 语义一致）。
 // marker 轮次保留在结果里，展示模型上下文被截断的位置。
 // 本函数不合并子会话（只对 context / search 生效）。
-// 注意：这里的阶段切片扫轮次文本（历史行为，见 sliceByPhase）；
-// 真实会话的命令藏在工具调用块里，轮次文本中没有，
-// CLI 的 extract 走适配器 Collect 的事件 + SliceMemPhase，
-// 不要用本函数的 Phase 切片代替它。
+// 阶段切片走事件通道：filter.Events（适配器 Collect 从工具调用里
+// 抽出的事件）+ SliceMemPhase，与 CLI 的 extract 同一套语义；
+// 无事件时按无边界处理（brainstorm 返回全文、implement 返回空）。
+// 轮次文本里的任务命令只是普通文本，不再扫描。
+// SliceMemPhase 的窗口与降级警告由本函数丢弃，需要窗口/警告的
+// 调用方（CLI 的 extract）直接调 SliceMemPhase。
 func ExtractDialogue(turns []DialogueTurn, filter MemFilter) []DialogueTurn {
 	cleaned := CleanTurns(turns)
 	phase := filter.Phase
 	if phase == "" {
 		phase = PhaseAll
 	}
-	var sliced []DialogueTurn
 	switch phase {
-	case PhaseAll:
-		sliced = cleaned
-	case PhaseBrainstorm, PhaseImplement:
-		sliced = sliceByPhase(cleaned, phase)
+	case PhaseAll, PhaseBrainstorm, PhaseImplement:
 	default:
-		sliced = cleaned
+		phase = PhaseAll
 	}
+	sliced, _, _ := SliceMemPhase(cleaned, filter.Events, phase, filter.PlatformKind)
 	grep := strings.TrimSpace(filter.Grep)
 	if grep == "" {
 		return sliced

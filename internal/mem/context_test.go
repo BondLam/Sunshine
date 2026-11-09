@@ -232,9 +232,21 @@ func taskPhaseTurns() []DialogueTurn {
 	}
 }
 
+// taskPhaseEvents 是 taskPhaseTurns 对应的事件通道：
+// create 在第 2 轮（下标 1）、start 在第 4 轮（下标 3），
+// 与 CLI 路径适配器 Collect 从工具调用里抽出的事件一致。
+// 轮次文本里的命令只是普通文本，不再作为事件来源。
+func taskPhaseEvents() []MemEvent {
+	return []MemEvent{
+		{Action: "create", TurnIndex: 1, Slug: "demo"},
+		{Action: "start", TurnIndex: 3, TaskDir: ".sunshine/tasks/11-09-demo/"},
+	}
+}
+
 func TestExtractDialogue_PhaseBrainstorm(t *testing.T) {
-	got := ExtractDialogue(taskPhaseTurns(), MemFilter{Phase: PhaseBrainstorm})
-	// 头脑风暴窗口 = [create 所在轮次 1, start 所在轮次 3)，即第 2、3 轮。
+	// 事件通道有边界时：头脑风暴窗口 = [create 所在轮次 1, start 所在轮次 3)，
+	// 即第 2、3 轮。
+	got := ExtractDialogue(taskPhaseTurns(), MemFilter{Phase: PhaseBrainstorm, Events: taskPhaseEvents()})
 	if len(got) != 2 {
 		t.Fatalf("brainstorm 应返回窗口内 2 轮，实际 %d 轮：%v", len(got), got)
 	}
@@ -244,13 +256,58 @@ func TestExtractDialogue_PhaseBrainstorm(t *testing.T) {
 }
 
 func TestExtractDialogue_PhaseImplement(t *testing.T) {
-	got := ExtractDialogue(taskPhaseTurns(), MemFilter{Phase: PhaseImplement})
-	// implement = 窗口外的轮次：第 1、4、5、6 轮。
+	// 事件通道有边界时：implement = 窗口外的轮次：第 1、4、5、6 轮。
+	got := ExtractDialogue(taskPhaseTurns(), MemFilter{Phase: PhaseImplement, Events: taskPhaseEvents()})
 	if len(got) != 4 {
 		t.Fatalf("implement 应返回窗口外 4 轮，实际 %d 轮：%v", len(got), got)
 	}
 	if !strings.Contains(got[0].Text, "先想想做什么") {
 		t.Errorf("implement 第一轮应为窗口前的内容，实际：%q", got[0].Text)
+	}
+}
+
+// TestExtractDialogue_TextCommandsIgnored 是统一后的关键回归：
+// 轮次文本里就算写着任务命令，没有事件通道就不算边界——
+// 真实会话的命令藏在工具调用块里，轮次文本中没有，
+// 旧的文本扫描分支会把普通讨论误判为边界。
+func TestExtractDialogue_TextCommandsIgnored(t *testing.T) {
+	turns := taskPhaseTurns()
+	if got := ExtractDialogue(turns, MemFilter{Phase: PhaseBrainstorm}); len(got) != len(turns) {
+		t.Errorf("无事件时 brainstorm 应返回全文 %d 轮（文本命令不算边界），实际 %d 轮", len(turns), len(got))
+	}
+	if got := ExtractDialogue(turns, MemFilter{Phase: PhaseImplement}); len(got) != 0 {
+		t.Errorf("无事件时 implement 应为空，实际 %d 轮", len(got))
+	}
+}
+
+// TestExtractDialogue_MatchesSliceMemPhase 是两种入口一致性的直接断言：
+// 直接调 ExtractDialogue（事件通道）与 CLI 路径的 SliceMemPhase
+// 用同一批事件、同一平台，应切出完全相同的轮次。
+func TestExtractDialogue_MatchesSliceMemPhase(t *testing.T) {
+	turns := taskPhaseTurns()
+	events := taskPhaseEvents()
+	for _, phase := range []MemPhase{PhaseBrainstorm, PhaseImplement, PhaseAll} {
+		direct := ExtractDialogue(turns, MemFilter{Phase: phase, Events: events})
+		cleaned := ExtractDialogue(turns, MemFilter{Phase: PhaseAll})
+		sliced, _, _ := SliceMemPhase(cleaned, events, phase, MemSourceClaude)
+		if len(direct) != len(sliced) {
+			t.Fatalf("phase=%s 时直接调应与 SliceMemPhase 一致（%d 轮），实际 %d 轮", phase, len(sliced), len(direct))
+		}
+		for i := range direct {
+			if direct[i] != sliced[i] {
+				t.Fatalf("phase=%s 时第 %d 轮不一致：直接调=%+v，SliceMemPhase=%+v", phase, i, direct[i], sliced[i])
+			}
+		}
+	}
+}
+
+// TestExtractDialogue_OpencodeDowngrade：OpenCode 平台不支持阶段切片，
+// 直接调与 SliceMemPhase 一致：brainstorm 降级返回全文。
+func TestExtractDialogue_OpencodeDowngrade(t *testing.T) {
+	turns := taskPhaseTurns()
+	got := ExtractDialogue(turns, MemFilter{Phase: PhaseBrainstorm, Events: taskPhaseEvents(), PlatformKind: MemSourceOpencode})
+	if len(got) != len(turns) {
+		t.Errorf("OpenCode 上 brainstorm 应降级返回全文 %d 轮，实际 %d 轮", len(turns), len(got))
 	}
 }
 
@@ -268,9 +325,19 @@ func TestExtractDialogue_PhaseNoBoundary(t *testing.T) {
 }
 
 func TestExtractDialogue_PhaseAndGrep(t *testing.T) {
-	// 先按阶段切片，再按 grep 过滤。
-	got := ExtractDialogue(taskPhaseTurns(), MemFilter{Phase: PhaseImplement, Grep: "写代码"})
+	// 先按阶段切片（事件通道），再按 grep 过滤。
+	got := ExtractDialogue(taskPhaseTurns(), MemFilter{Phase: PhaseImplement, Events: taskPhaseEvents(), Grep: "写代码"})
 	if len(got) != 1 || !strings.Contains(got[0].Text, "写代码中") {
 		t.Errorf("implement + grep 应只留窗口外含“写代码”的轮次，实际：%v", got)
+	}
+}
+
+// TestExtractDialogue_InvalidPhase：非法 phase 按 all 处理（返回全文），
+// 与统一前的行为一致；非法值的报错由 CLI 层负责。
+func TestExtractDialogue_InvalidPhase(t *testing.T) {
+	turns := taskPhaseTurns()
+	got := ExtractDialogue(turns, MemFilter{Phase: MemPhase("foo"), Events: taskPhaseEvents()})
+	if len(got) != len(turns) {
+		t.Errorf("非法 phase 应按 all 返回全文 %d 轮，实际 %d 轮", len(turns), len(got))
 	}
 }

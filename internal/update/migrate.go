@@ -1,13 +1,17 @@
 package update
 
 import (
+	"os"
+
 	"github.com/linrong1982/Sunshine/internal/migrate"
+	"golang.org/x/term"
 )
 
 // MigrationRegistry 是迁移系统（C 组，internal/migrate）向 update
-// 提供的清单集。清单从 Sunshine 自己的版本线起步，当前尚无历史迁移，
-// 清单集初始为空；后续每次模板结构变更由该版本补一份
-// internal/migrate/manifests/<版本号>.json（随二进制内嵌发布）。
+// 提供的清单集。清单从 Sunshine 自己的版本线起步，第一份真实清单是
+// 0.2.0（internal/migrate/manifests/0.2.0.json）；后续每次模板结构
+// 变更由该版本补一份 internal/migrate/manifests/<版本号>.json
+// （随二进制内嵌发布，加入方式见 manifests/README.md 的“新增清单”一节）。
 //
 // 接线：默认用内嵌清单集（LoadEmbeddedRegistry）；测试或外部清单可
 // 直接给本变量赋值覆盖，例如：
@@ -51,15 +55,24 @@ func MigrationPaths() map[string]bool {
 // migrationPrompterFor 决定迁移执行用的确认函数：
 // 测试替身优先；否则交互环境用 C 组默认的 PromptMigrationAction，
 // 非交互环境一律跳过（survey 在非交互终端会报错，
-// C 组 ExecuteMigrations 也会把报错当作跳过处理）。
+// ExecuteMigrations 会把报错当作跳过并记为错误、让整个 update 失败，
+// 所以这里根本不调 survey——与 cli 的 surveyPrompter
+// “非交互时不提问、冲突默认 Skip”是同一门禁）。
 func migrationPrompterFor(opts Options) migrate.Prompter {
 	if MigrationPrompter != nil {
 		return MigrationPrompter
 	}
-	if opts.Prompter != nil {
-		return migrate.PromptMigrationAction
+	if opts.Prompter == nil || !stdinIsTerminal() {
+		return func(migrate.MigrationItem) (migrate.MigrationAction, error) {
+			return migrate.ActionSkip, nil
+		}
 	}
-	return func(migrate.MigrationItem) (migrate.MigrationAction, error) {
-		return migrate.ActionSkip, nil
-	}
+	return migrate.PromptMigrationAction
+}
+
+// stdinIsTerminal 用 ioctl 判断标准输入是否为交互终端
+// （与 internal/cli 的 stdinIsTTY 同款；/dev/null 虽是字符设备
+// 但不是终端，不能只看 ModeCharDevice）。
+func stdinIsTerminal() bool {
+	return term.IsTerminal(int(os.Stdin.Fd()))
 }

@@ -43,15 +43,31 @@ var injectionTagPatterns = func() []*regexp.Regexp {
 	return patterns
 }()
 
+// multiNewlineRe 把 3 个以上连续换行压成一段空行（包级只编译一次，
+// 之前是每次调用现编译，是 search 全量扫描的热点之一）。
+var multiNewlineRe = regexp.MustCompile(`\n{3,}`)
+
 // stripInjectionTags 去掉注入标签整段内容与 AGENTS.md 前言，
 // 再把 3 个以上连续换行压成一段空行并裁剪首尾空白。
+//
+// 快路径：注入标签正则都以字面 `<` 开头，前言要
+// `# AGENTS.md instructions for`，换行压缩要 `\n\n\n`；
+// 三个触发子串都不存在时，每一步慢速处理都是恒等变换，
+// 直接裁剪首尾空白即可，结果与慢速路径完全一致。
+// buildMsgPartTurn 会对每个 part 调一次本函数，快路径让
+// 已清理过的文本近乎免费。
 func stripInjectionTags(text string) string {
+	if !strings.Contains(text, "<") &&
+		!strings.Contains(text, "# AGENTS.md instructions for") &&
+		!strings.Contains(text, "\n\n\n") {
+		return strings.TrimSpace(text)
+	}
 	out := text
 	for _, pattern := range injectionTagPatterns {
 		out = pattern.ReplaceAllString(out, "")
 	}
 	out = stripAgentsPreamble(out)
-	out = regexp.MustCompile(`\n{3,}`).ReplaceAllString(out, "\n\n")
+	out = multiNewlineRe.ReplaceAllString(out, "\n\n")
 	return strings.TrimSpace(out)
 }
 

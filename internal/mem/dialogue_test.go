@@ -141,6 +141,37 @@ func TestStripInjectionTags_AgentsPreamble(t *testing.T) {
 	}
 }
 
+// TestStripInjectionTags_FastPath：快路径（无触发子串）与慢速路径结果一致，
+// 且含触发子串的文本仍走慢速路径正常清洗；快路径只裁剪首尾空白。
+func TestStripInjectionTags_FastPath(t *testing.T) {
+	plain := []string{
+		"  普通中文文本，前后有空白  ",
+		"多段文本\n\n第二段，没有注入标签",
+		"含数学比较 a < b 但无标签的文本",
+		"只有两个换行\n\n结尾",
+	}
+	for _, text := range plain {
+		got := StripInjectionTags(text)
+		want := strings.TrimSpace(text)
+		// “a < b”含 <，会走慢速路径；慢速路径无标签可去，结果仍应等于裁剪后文本。
+		if got != want {
+			t.Errorf("无注入标签的文本清理后应为 %q，实际 %q", want, got)
+		}
+	}
+	// 触发子串齐全时仍按慢速路径清洗：标签去掉、多余换行压掉。
+	dirty := "正文<system-reminder>注入内容</system-reminder>结尾\n\n\n\n下一段"
+	got := StripInjectionTags(dirty)
+	if strings.Contains(got, "注入内容") || strings.Contains(got, "system-reminder") {
+		t.Errorf("含注入标签的文本仍应去掉标签，实际：%q", got)
+	}
+	if !strings.Contains(got, "正文结尾") || !strings.Contains(got, "下一段") {
+		t.Errorf("清洗后正文应保留，实际：%q", got)
+	}
+	if strings.Contains(got, "\n\n\n") {
+		t.Errorf("3 个以上连续换行应压成一段空行，实际：%q", got)
+	}
+}
+
 func TestIsBootstrapTurn(t *testing.T) {
 	if !IsBootstrapTurn("# AGENTS.md instructions for x", 100) {
 		t.Error("AGENTS.md 前言开头应判为启动注入")

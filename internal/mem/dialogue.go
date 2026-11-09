@@ -9,6 +9,7 @@ package mem
 import (
 	"regexp"
 	"strings"
+	"unicode/utf8"
 )
 
 // CompactBoundaryPrefix 是每个压缩边界 marker 轮次文本的固定开头，
@@ -49,16 +50,31 @@ var injectionTagPatterns = func() []*regexp.Regexp {
 
 var agentsPreambleStart = regexp.MustCompile(`(?m)^# AGENTS\.md instructions for`)
 
+// multiNewlineRe 把 3 个以上连续换行压成一段空行（包级只编译一次，
+// 之前是每次调用现编译，是 search 全量扫描的热点之一）。
+var multiNewlineRe = regexp.MustCompile(`\n{3,}`)
+
 // StripInjectionTags 去掉文本里全部注入标签 `<tag>...</tag>` 整段内容
 // 与开头的 AGENTS.md 前言，再把 3 个以上连续换行压成一段空行，
 // 并裁剪首尾空白。
+//
+// 快路径：注入标签正则都以字面 `<` 开头，前言正则要
+// `# AGENTS.md instructions for`，换行压缩要 `\n\n\n`；
+// 三个触发子串都不存在时，每一步慢速处理都是恒等变换，
+// 直接裁剪首尾空白即可，结果与慢速路径完全一致。
+// 检索会对已清理过的轮次重复调用本函数，快路径让重复清理近乎免费。
 func StripInjectionTags(text string) string {
+	if !strings.Contains(text, "<") &&
+		!strings.Contains(text, "# AGENTS.md instructions for") &&
+		!strings.Contains(text, "\n\n\n") {
+		return strings.TrimSpace(text)
+	}
 	out := text
 	for _, pattern := range injectionTagPatterns {
 		out = pattern.ReplaceAllString(out, "")
 	}
 	out = stripAgentsPreamble(out)
-	out = regexp.MustCompile(`\n{3,}`).ReplaceAllString(out, "\n\n")
+	out = multiNewlineRe.ReplaceAllString(out, "\n\n")
 	return strings.TrimSpace(out)
 }
 
@@ -136,7 +152,7 @@ func CleanTurns(turns []DialogueTurn) []DialogueTurn {
 		if cleaned == "" {
 			continue
 		}
-		if IsBootstrapTurn(cleaned, len([]rune(t.Text))) {
+		if IsBootstrapTurn(cleaned, utf8.RuneCountInString(t.Text)) {
 			continue
 		}
 		t.Text = cleaned
