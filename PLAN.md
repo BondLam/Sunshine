@@ -1456,7 +1456,7 @@ rename 由 E 组负责。未动 `internal/channel/`（B 组）、
 
 ## 发布流程
 
-> 本节是阶段 7 的发布流程文档。仓库目前没有独立 README，文档先写在这里；日后建 README 时把本节整体搬过去，并在本处留一行指引。
+> 本节是阶段 7 的发布流程文档。README 已建（2026-11-09，随 v0.2.0 一起，只有安装与快速上手），详细发布流程仍写在这里。
 
 ### 发版流程（四步）
 
@@ -1495,6 +1495,14 @@ rename 由 E 组负责。未动 `internal/channel/`（B 组）、
 - 新增 `.github/workflows/release.yml`（tag `v*` 触发，goreleaser 发布 GitHub Release，`permissions: contents: write`）；同时修正 `.goreleaser.yaml` 里 `release.github` 的 owner/name（之前仍是占位 `sunshine/sunshine`，已改为 `linrong1982/Sunshine`）。
 - 第一轮 tag v0.1.0 触发的 CI 与发布工作流全部失败、0 个 job：job ID 用了中文（`检查`、`发布配置检查`、`发布`），GitHub job ID 只接受 ASCII 字母/数字/横线/下划线且以字母或下划线开头，中文只能放在 display name（`name` 字段）里。已修正 job ID（`check`、`goreleaser-check`、`release`），删掉旧 tag 后在新提交上重打 v0.1.0。
 - Release 已发布：https://github.com/linrong1982/Sunshine/releases/tag/v0.1.0，6 个资产（checksums.txt + darwin/linux amd64/arm64、windows amd64 共 5 个包），CI 与发布工作流均 success。实测验证：从 Release 下载的 darwin/amd64 包 checksum 通过，解出 Mach-O x86_64 二进制；本地构建的 sunshine（0.1.0）跑 `upgrade` 与 `upgrade --dry-run` 均对真实 Release 查到最新 0.1.0 并报“已是最新”，自更新检查链路已通。
+
+### v0.2.0 发布记录（2026-11-09）
+
+- 内容：“待一并处理”7 项批次（迁移清单 0.2.0、SSH 克隆验证、config version 字段去重、go-sdk-author、ExtractDialogue 切片统一、search 预加载缓存）+ 新增 `install.sh` 一键安装脚本与 `README.md`。
+- install.sh（仓库根目录）：macOS / Linux 一行安装，`curl -fsSL https://raw.githubusercontent.com/linrong1982/Sunshine/main/install.sh | sh`，自动识别 OS/架构、默认装最新版（GitHub API 查 latest）、sha256 校验、落盘 `/usr/local/bin`（不可写时退到 `~/.local/bin`）；支持 `sh -s -- v0.2.0` / `SUNSHINE_VERSION` 指定版本、`SUNSHINE_INSTALL_DIR` 指定目录。写完后用真实 v0.1.0 Release 验了三路（指定版本、latest 解析、管道形式）全过；发布后又用真实一键命令对 v0.2.0 复验通过。写脚本时踩到一个坑：`SUNSHINE_INSTALL_DIR` 指定的目录不存在时 `[ ! -w "$DIR" ]` 为真，会误退回 `~/.local/bin`——已改成“显式指定目录时建不出/不可写直接报错”，并用 `install -m 755` 代替 `mv`（沙箱里 mv 跨文件系统报无法保留属主的警告）。
+- 用户问“发版的 releases 都是打包文件，利于后续安装吗”——答：包本身是 Go CLI 标准做法，也是 `sunshine upgrade` 用的格式，但首次安装要手动下载解压放 PATH；这次先加 install.sh，Homebrew 以后再说（要多建 homebrew-tap 仓库 + 存一个能写它的密钥，setup 更重）。
+- 推送：批次提交 `c431dde`（28 文件）与 install.sh 提交 `06be4d5` 均走 GitHub API（`push-initial.py`），本地已对齐，工作树干净；tag v0.2.0 为注释 tag（对象 `a6e618b`），同样经 Git Tags API 创建。
+- Release 已发布：https://github.com/linrong1982/Sunshine/releases/tag/v0.2.0，6 个资产（checksums.txt + 5 个平台包）。CI（2 次）与发布工作流均 success。实测验证：用真实一键命令装上 v0.2.0，`--version` 打印“Sunshine 版本 0.2.0”；0.1.0 二进制跑 `upgrade --dry-run` 正确查到 0.2.0 并给出升级计划；linux 与 darwin 包 checksum 均 OK，darwin/amd64 解出 Mach-O x86_64 二进制。
 
 ### 本地验证命令（发版前）
 
@@ -1654,4 +1662,4 @@ pre-commit install       # 在仓库根目录执行一次
 - `gofmt -l .` 无输出；`go vet ./...` 通过；`go build ./...` 通过；`go test ./... -count=1` 18 个包全过，560 个测试，0 失败。
 - 独立复验：SSH 端到端重跑一次（`init --registry ssh://git@localhost:2222/git/registry/marketplace --template demo-spec`，demo-spec 2 文件装进 `.sunshine/spec`）；迁移五路测试全过；ExtractDialogue 十路测试全过；`mem search` 在 3000 会话 / 30000 消息性能库上三轮 325/291/329ms（30 个命中），库文件 SHA-256 与实测前一致（`abe4feef…2a95d`）。
 - 新增 trellis 字样核查：改动代码与新增文件里无新输出的 trellis 字样；仅有的 1 处是 `0.2.0.json` 的 `notes` 字段（上游出处说明，CLI 不打印，`From`/`To` 路径有测试 guard 锁死不得残留）与 PLAN.md 文档里的出处引用。
-- **后续任务（另立，不在本批次）**：SSH registry 的 `ParseRegistrySource` 只支持两段式路径，三段式绝对路径（如 `ssh://git@localhost:2222/home/git/registry.git`）会被误解析（见第 3 项结论）；要支持任意绝对路径须改解析器。另：本批次改动尚未提交推送，待定下版本号（清单已备好 0.2.0，下一发布为 v0.2.0）后随下次发版一起推。
+- **后续任务（另立，不在本批次）**：SSH registry 的 `ParseRegistrySource` 只支持两段式路径，三段式绝对路径（如 `ssh://git@localhost:2222/home/git/registry.git`）会被误解析（见第 3 项结论）；要支持任意绝对路径须改解析器。本批次已随 v0.2.0 提交推送并发布（见“v0.2.0 发布记录”）。
