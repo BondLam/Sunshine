@@ -3,10 +3,9 @@
 # 发布方式：打 tag（如 v0.2.0，beta/rc 按 -beta/-rc 后缀）后由 CI
 # 调用 goreleaser 发布 GitHub Release；用户用 sunshine upgrade 自更新。
 #
-# 仓库占位：真实仓库 owner/name 待用户定，定后改两处——
-#   1. internal/cli/root.go 里 repo 变量的默认值；
-#   2. 本文件 builds 的 ldflags 与 release.github 的 owner/name。
-# 在此之前不要把占位地址当成真实仓库地址使用。
+# 仓库地址：github.com/linrong1982/Sunshine（2026-11-09 已定）。
+# 若仓库改名，同步改两处：internal/cli/root.go 里 repo 变量的默认值，
+# 以及本文件 builds 的 ldflags 与 release.github 的 owner/name。
 version: 2
 
 project_name: sunshine
@@ -70,7 +69,7 @@ changelog:
 
 release:
   github:
-    owner: sunshine
-    name: sunshine
+    owner: linrong1982
+    name: Sunshine
   draft: false
   prerelease: auto

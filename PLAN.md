@@ -1483,6 +1483,13 @@ rename 由 E 组负责。未动 `internal/channel/`（B 组）、
 
 `sunshine upgrade` 与 `update` 的最新版检查共用同一个仓库变量（`internal/update/update.go` 的 `LatestVersionFunc`），换一处即两处生效。旧占位值 `github.com/sunshine/sunshine` 仅保留在 `internal/upgrade/upgrade.go` 的 `PlaceholderRepo` 哨兵常量里（显式传入该值仍视为未配置）。
 
+### 首次推送记录（2026-11-09）
+
+- 339 个文件已推到 `https://github.com/linrong1982/Sunshine.git` 的 main 分支，远端提交 `2c3d007`，本地已 `git fetch` + `git reset --hard origin/main` 对齐，工作树干净。
+- 沙箱出站代理挡住了 git 协议与 SSH（22 与 443 端口均被重置），`git push` 无法用；改走 GitHub Git Data API（连接器文档见 `~/workspace/custom-connectors/custom.github/CONNECTOR.md`，脚本在该目录的 `bin/push-initial.py`）。
+- 空仓库上 Git Data API 拒绝建 blob/tree（409 "Git Repository is empty"），先用 Contents API 推 `.gitignore` 建种子提交 `211458f`，再以它为父提交推完整提交（tree 与本地提交一致，均为 `4a039f79`）。
+- 移动 main 引用时报 403：提交含 `.github/workflows/ci.yml`，token 除 Contents 读写外还需 Workflows 读写（GitHub 返回头 `x-accepted-github-permissions: contents=write; contents=write,workflows=write`）。用户在 token 上补了 Workflows 读写权限后重试成功；token 本身不用重建。
+
 ### 本地验证命令（发版前）
 
 ```sh
