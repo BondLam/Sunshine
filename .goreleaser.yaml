@@ -1,7 +1,8 @@
 # goreleaser 发布配置（Sunshine 发布流程）。
 #
 # 发布方式：打 tag（如 v0.2.0，beta/rc 按 -beta/-rc 后缀）后由 CI
-# 调用 goreleaser 发布 GitHub Release；用户用 sunshine upgrade 自更新。
+# 调用 goreleaser 发布 GitHub Release；首次安装用仓库根目录的 install.sh，
+# 已装好的用户用 sunshine upgrade 自更新。
 #
 # 仓库地址：github.com/linrong1982/Sunshine（2026-11-09 已定）。
 # 若仓库改名，同步改两处：internal/cli/root.go 里 repo 变量的默认值，
