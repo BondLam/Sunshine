@@ -1,0 +1,24 @@
+{
+  "version": 1,
+  "hooks": {
+    "beforeShellExecution": [
+      {
+        "command": "SUNSHINE_HOOK_PLATFORM=cursor sunshine hook shell-session",
+        "timeout": 5
+      }
+    ],
+    "preToolUse": [
+      {
+        "command": "SUNSHINE_HOOK_PLATFORM=cursor sunshine hook subagent-context",
+        "matcher": "Task|Subagent",
+        "timeout": 30
+      }
+    ],
+    "sessionStart": [
+      {
+        "command": "SUNSHINE_HOOK_PLATFORM=cursor sunshine hook session-start",
+        "timeout": 30
+      }
+    ]
+  }
+}

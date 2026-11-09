@@ -1,0 +1,28 @@
+# Sunshine pre-commit 配置
+#
+# 启用方式（可选，未安装 pre-commit 时不强制）：
+#   pip install pre-commit     # 或 brew install pre-commit
+#   pre-commit install         # 在仓库根目录执行一次
+#   pre-commit run --all-files # 手动对全部文件跑一次
+#
+# 钩子说明：本配置只用本地钩子（repo: local），不依赖任何第三方钩子仓库，
+# 也不要求联网拉取；gofmt 与 go vet 均随 Go 工具链提供。
+# 选型记录：用 pre-commit 框架的本地钩子，未用 golang 官方钩子仓库
+# （dnephin/pre-commit-golang），因为本地钩子零外部依赖、离线可用，
+# 且检查内容（gofmt + go vet）与 .github/workflows/ci.yml 完全一致。
+repos:
+  - repo: local
+    hooks:
+      # 提交前自动按 gofmt 格式化暂存的 Go 文件。
+      - id: gofmt
+        name: gofmt 格式化
+        entry: gofmt
+        args: [-l, -w]
+        language: system
+        types: [go]
+      # 对整个模块跑 go vet（不传文件名，避免多目录参数混杂）。
+      - id: go-vet
+        name: go vet 检查
+        entry: go vet ./...
+        language: system
+        pass_filenames: false

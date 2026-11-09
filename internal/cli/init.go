@@ -1,0 +1,402 @@
+package cli
+
+import (
+	"fmt"
+	"os"
+	"os/exec"
+	"path/filepath"
+	"strings"
+
+	"github.com/AlecAivazis/survey/v2"
+	"github.com/linrong1982/Sunshine/internal/platforms"
+	"github.com/linrong1982/Sunshine/internal/registry"
+	"github.com/linrong1982/Sunshine/internal/scaffold"
+	"github.com/spf13/cobra"
+	"golang.org/x/term"
+)
+
+var (
+	initUser           string
+	initYes            bool
+	initForce          bool
+	initClaude         bool
+	initCursor         bool
+	initCodex          bool
+	initWithStatusline bool
+)
+
+// platformIDs 是 init 支持的三个平台，按安装顺序排列。
+var platformIDs = []string{"claude-code", "cursor", "codex"}
+
+// platformDisplayNames 是平台 ID 到中文展示名的映射。
+var platformDisplayNames = map[string]string{
+	"claude-code": "Claude Code",
+	"cursor":      "Cursor",
+	"codex":       "Codex",
+}
+
+var initCmd = &cobra.Command{
+	Use:   "init",
+	Short: "初始化当前项目，生成 .sunshine/ 工程骨架",
+	Long: `在当前目录生成 .sunshine/ 工程骨架，包括：
+  - config.yaml：项目配置
+  - workflow.md：标准工作流
+  - spec/：团队规范模板（中文）
+  - AGENTS.md：给 AI 助手的工作说明
+  - tasks/、workspace/：任务与协作区
+
+并按选择的平台安装对应的 AI 编程助手配置
+（Claude Code、Cursor、Codex）。
+
+重复执行 init 时进入增量模式：只追加新选的平台，
+不动已有平台文件与 .sunshine/ 骨架。
+
+--registry 从模板市场安装规范模板：
+  - 有 index.json 的来源是模板市场，须用 --template 指定条目 id；
+  - 无 index.json 的来源走直接下载，整个 registry 内容装进 .sunshine/spec；
+  - 装完后来源与模板会记进 .sunshine/config.yaml 的 registry.spec，
+    sunshine update 按它持续刷新。
+
+示例：
+  sunshine init -u 张三 -y
+  sunshine init --codex
+  sunshine init --claude --with-statusline
+  sunshine init --registry gh:owner/repo --template nextjs-fullstack -y
+  sunshine init --registry /path/to/spec-repo -y`,
+	RunE: func(cmd *cobra.Command, args []string) error {
+		cwd, err := os.Getwd()
+		if err != nil {
+			return err
+		}
+		initialized := dirExists(filepath.Join(cwd, ".sunshine"))
+
+		selected, withStatusline, err := resolvePlatformSelection(cmd)
+		if err != nil {
+			return err
+		}
+
+		// --registry 相关 flag 校验与目标解析（在 scaffold.Init 之前，
+		// 以便按目标是否写 spec 决定是否跳过默认 spec 模板）。
+		var target *registry.Target
+		var strategy registry.TemplateStrategy
+		if initRegistry != "" || initTemplate != "" {
+			if initTemplate != "" && initRegistry == "" {
+				return fmt.Errorf("--template 需要配合 --registry 使用")
+			}
+			strategy, err = resolveRegistryStrategy()
+			if err != nil {
+				return err
+			}
+			target, err = registry.ResolveTarget(initRegistry, initTemplate)
+			if err != nil {
+				return err
+			}
+			// 探测资源（临时克隆）由安装步骤接管关闭；任何提前返回
+			// 路径都由这层 defer 兜底（安装后再次 Close 是安全的）。
+			defer target.Close()
+		}
+		skipSpec := target != nil && target.WritesSpec()
+
+		switch {
+		case !initialized:
+			if len(selected) == 0 {
+				fmt.Println("未选择任何平台，初始化已取消。")
+				return nil
+			}
+			user := resolveUser(initUser)
+			if err := scaffold.InitWithOptions(cwd, user, scaffold.InitOptions{SkipSpec: skipSpec, Version: version}); err != nil {
+				return err
+			}
+			installed, err := installPlatforms(cwd, selected, withStatusline, false)
+			if err != nil {
+				return err
+			}
+			if target != nil {
+				installRegistryTemplates(cwd, target, strategy)
+			}
+			fmt.Printf("初始化完成，开发者：%s\n", user)
+			printPlatformSummary(installed, withStatusline)
+			fmt.Println("下一步：")
+			fmt.Println("  1. 编辑 .sunshine/spec/，填入团队已有的技术规范与业务术语；")
+			fmt.Println("  2. 按 .sunshine/workflow.md 开始第一个任务。")
+			return nil
+		case initForce:
+			user := resolveUser(initUser)
+			if err := scaffold.InitWithOptions(cwd, user, scaffold.InitOptions{Force: true, SkipSpec: skipSpec, Version: version}); err != nil {
+				return err
+			}
+			installed, err := installPlatforms(cwd, selected, withStatusline, true)
+			if err != nil {
+				return err
+			}
+			if target != nil {
+				installRegistryTemplates(cwd, target, strategy)
+			}
+			fmt.Printf("重新初始化完成，开发者：%s\n", user)
+			printPlatformSummary(installed, withStatusline)
+			return nil
+		default:
+			// 增量模式：跳过 scaffold.Init，只安装新选的平台与 registry 模板。
+			toInstall, skipped := filterUninstalled(cwd, selected)
+			for _, id := range skipped {
+				fmt.Printf("  ○ %s 已安装，跳过\n", platformDisplayNames[id])
+			}
+			if len(toInstall) == 0 && target == nil {
+				fmt.Println("所选平台均已安装，没有需要安装的新平台。")
+				return nil
+			}
+			if len(toInstall) > 0 {
+				installed, err := installPlatforms(cwd, toInstall, withStatusline, false)
+				if err != nil {
+					return err
+				}
+				printPlatformSummary(installed, withStatusline)
+			}
+			if target != nil {
+				installRegistryTemplates(cwd, target, strategy)
+			}
+			return nil
+		}
+	},
+}
+
+func init() {
+	initCmd.Flags().StringVarP(&initUser, "user", "u", "", "开发者名称（默认读取 git 配置，未配置时为 developer）")
+	initCmd.Flags().BoolVarP(&initYes, "yes", "y", false, "跳过全部提问，使用默认配置")
+	initCmd.Flags().BoolVarP(&initForce, "force", "f", false, "已初始化时仍覆盖重建")
+	initCmd.Flags().BoolVar(&initClaude, "claude", false, "安装 Claude Code 平台配置")
+	initCmd.Flags().BoolVar(&initCursor, "cursor", false, "安装 Cursor 平台配置")
+	initCmd.Flags().BoolVar(&initCodex, "codex", false, "安装 Codex 平台配置")
+	initCmd.Flags().BoolVar(&initWithStatusline, "with-statusline", false, "为 Claude Code 安装状态栏（仅 Claude Code 入选时有效）")
+	registerRegistryFlags(initCmd)
+	rootCmd.AddCommand(initCmd)
+}
+
+// resolveUser 按“-u 参数 > git user.name > developer”的顺序确定开发者名称。
+func resolveUser(flag string) string {
+	if strings.TrimSpace(flag) != "" {
+		return strings.TrimSpace(flag)
+	}
+	if out, err := exec.Command("git", "config", "user.name").Output(); err == nil {
+		if name := strings.TrimSpace(string(out)); name != "" {
+			return name
+		}
+	}
+	return "developer"
+}
+
+// dirExists 判断 path 是否为已存在的目录。
+func dirExists(path string) bool {
+	st, err := os.Stat(path)
+	return err == nil && st.IsDir()
+}
+
+// platformSelectionInput 是 resolveSelection 的输入（与 cobra 解耦，便于测试）。
+type platformSelectionInput struct {
+	explicit            []string // 显式传入的平台 flag 对应的平台 ID
+	yes                 bool
+	withStatusline      bool
+	withStatuslineGiven bool // 是否显式传了 --with-statusline
+	isTTY               bool
+}
+
+// promptPlatforms 弹出平台多选（默认实现用 survey；测试可替换）。
+var promptPlatforms = func(defaultIDs []string) ([]string, error) {
+	var options []string
+	for _, id := range platformIDs {
+		options = append(options, platformDisplayNames[id])
+	}
+	var defaults []string
+	for _, id := range defaultIDs {
+		defaults = append(defaults, platformDisplayNames[id])
+	}
+	var chosen []string
+	err := survey.AskOne(&survey.MultiSelect{
+		Message: "请选择要配置的 AI 编程平台：",
+		Options: options,
+		Default: defaults,
+	}, &chosen)
+	if err != nil {
+		return nil, err
+	}
+	var ids []string
+	for _, label := range chosen {
+		for _, id := range platformIDs {
+			if platformDisplayNames[id] == label {
+				ids = append(ids, id)
+			}
+		}
+	}
+	return ids, nil
+}
+
+// promptStatusline 追问是否安装 Claude Code 状态栏（默认实现用 survey；测试可替换）。
+var promptStatusline = func() (bool, error) {
+	var answer bool
+	err := survey.AskOne(&survey.Confirm{
+		Message: "是否为 Claude Code 安装状态栏（statusline，显示模型、上下文、分支与限流信息）？",
+		Default: false,
+	}, &answer)
+	return answer, err
+}
+
+// explicitPlatformIDs 把 --claude/--cursor/--codex 三个 flag 转成平台 ID
+// （按 platformIDs 的固定顺序；未传任何 flag 时返回空）。
+func explicitPlatformIDs(claude, cursor, codex bool) []string {
+	flags := map[string]bool{
+		"claude-code": claude,
+		"cursor":      cursor,
+		"codex":       codex,
+	}
+	var ids []string
+	for _, id := range platformIDs {
+		if flags[id] {
+			ids = append(ids, id)
+		}
+	}
+	return ids
+}
+
+// stdinIsTTY 判断标准输入是否为交互终端（用 term.IsTerminal 做 ioctl 判断，
+// /dev/null 虽是字符设备但不是终端，不能只看 ModeCharDevice）。
+func stdinIsTTY() bool {
+	return term.IsTerminal(int(os.Stdin.Fd()))
+}
+
+// resolvePlatformSelection 按 Trellis init.ts 的语义确定平台选择与 statusline：
+//
+//   - 显式传了任一平台 flag → 恰好安装这些平台；
+//   - 无 flag 且 -y → 默认选择（Claude Code + Cursor）；
+//   - 无 flag 且交互 → survey 多选，默认勾选 Claude Code 与 Cursor；
+//   - stdin 不是 TTY 且无 -y、无 flag → 回退到默认选择并打印中文说明。
+//
+// statusline：仅 Claude Code 入选时有效；已传 --with-statusline 或 -y 时不追问，
+// 否则在交互终端上用 survey Confirm 追问（默认不安装）。
+func resolvePlatformSelection(cmd *cobra.Command) (selected []string, withStatusline bool, err error) {
+	in := platformSelectionInput{
+		explicit:            explicitPlatformIDs(initClaude, initCursor, initCodex),
+		yes:                 initYes,
+		withStatusline:      initWithStatusline,
+		withStatuslineGiven: cmd.Flags().Changed("with-statusline"),
+		isTTY:               stdinIsTTY(),
+	}
+	return resolveSelection(in)
+}
+
+// resolveSelection 是平台选择的核心逻辑（不依赖 cobra，便于测试）。
+func resolveSelection(in platformSelectionInput) ([]string, bool, error) {
+	var selected []string
+	var err error
+	switch {
+	case len(in.explicit) > 0:
+		selected = in.explicit
+	case in.yes:
+		selected = platforms.DefaultSelected()
+	case !in.isTTY:
+		fmt.Println("未检测到交互终端，使用默认平台选择：Claude Code、Cursor。")
+		selected = platforms.DefaultSelected()
+	default:
+		selected, err = promptPlatforms(platforms.DefaultSelected())
+		if err != nil {
+			return nil, false, fmt.Errorf("选择平台失败：%w", err)
+		}
+	}
+
+	// --with-statusline 仅 Claude Code 入选时有效。
+	hasClaude := false
+	for _, id := range selected {
+		if id == "claude-code" {
+			hasClaude = true
+		}
+	}
+	var withStatusline bool
+	switch {
+	case !hasClaude:
+		if in.withStatuslineGiven && in.withStatusline {
+			fmt.Println("提示：--with-statusline 仅在安装 Claude Code 时有效，已忽略。")
+		}
+		withStatusline = false
+	case in.withStatuslineGiven:
+		withStatusline = in.withStatusline
+	case in.yes || !in.isTTY:
+		withStatusline = false
+	default:
+		answer, err := promptStatusline()
+		if err != nil {
+			return nil, false, fmt.Errorf("确认状态栏安装失败：%w", err)
+		}
+		withStatusline = answer
+	}
+	return selected, withStatusline, nil
+}
+
+// platformInstalled 按平台配置目录是否存在判定该平台是否已安装。
+// 配置目录取自 internal/platforms 注册表的 ConfigDir 字段（阶段 4 合并：
+// 原 platformConfigDirs 映射已删除，唯一来源是注册表）。
+func platformInstalled(cwd, platformID string) bool {
+	for _, p := range platforms.Registry() {
+		if p.ID == platformID {
+			return dirExists(filepath.Join(cwd, p.ConfigDir))
+		}
+	}
+	return false
+}
+
+// filterUninstalled 把 selected 分成未安装（待安装）与已安装（跳过）两组。
+func filterUninstalled(cwd string, selected []string) (toInstall, skipped []string) {
+	for _, id := range selected {
+		if platformInstalled(cwd, id) {
+			skipped = append(skipped, id)
+			continue
+		}
+		toInstall = append(toInstall, id)
+	}
+	return toInstall, skipped
+}
+
+// installPlatforms 逐个安装平台，把写出的文件并入模板哈希清单。
+// withStatusline 只对 Claude Code 生效；force 为真时覆盖已有平台文件。
+func installPlatforms(cwd string, ids []string, withStatusline bool, force bool) ([]string, error) {
+	var installed []string
+	var allFiles []string
+	for _, id := range ids {
+		if _, ok := platforms.ByID(id); !ok {
+			return installed, fmt.Errorf("未知平台：%s", id)
+		}
+		fmt.Printf("正在配置 %s……\n", platformDisplayNames[id])
+		files, err := platforms.Install(cwd, id, platforms.InstallOptions{
+			WithStatusline: withStatusline && id == "claude-code",
+			Force:          force,
+		})
+		if err != nil {
+			return installed, fmt.Errorf("安装 %s 失败：%w", platformDisplayNames[id], err)
+		}
+		installed = append(installed, id)
+		allFiles = append(allFiles, files...)
+	}
+	if len(allFiles) > 0 {
+		if err := scaffold.RecordHashes(cwd, allFiles); err != nil {
+			return installed, err
+		}
+	}
+	return installed, nil
+}
+
+// printPlatformSummary 打印平台安装小结；新装 Codex 时打印 hooks 启用提示。
+func printPlatformSummary(installed []string, withStatusline bool) {
+	if len(installed) == 0 {
+		return
+	}
+	fmt.Println("已安装平台：")
+	for _, id := range installed {
+		fmt.Printf("  - %s\n", platformDisplayNames[id])
+		if id == "claude-code" && withStatusline {
+			fmt.Println("    ↳ 已安装 Claude Code 状态栏（--with-statusline）")
+		}
+	}
+	for _, id := range installed {
+		if id == "codex" {
+			fmt.Println(platforms.CodexHooksHint())
+		}
+	}
+}

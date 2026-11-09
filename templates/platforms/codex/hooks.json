@@ -1,0 +1,38 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "command": "SUNSHINE_HOOK_PLATFORM=codex sunshine hook session-start",
+            "timeout": 30,
+            "type": "command"
+          }
+        ]
+      }
+    ],
+    "SubagentStart": [
+      {
+        "hooks": [
+          {
+            "command": "SUNSHINE_HOOK_PLATFORM=codex sunshine hook subagent-context",
+            "timeout": 15,
+            "type": "command"
+          }
+        ],
+        "matcher": "^(?:sunshine-implement|sunshine-check|sunshine-research)$"
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "command": "SUNSHINE_HOOK_PLATFORM=codex sunshine hook workflow-state",
+            "timeout": 15,
+            "type": "command"
+          }
+        ]
+      }
+    ]
+  }
+}

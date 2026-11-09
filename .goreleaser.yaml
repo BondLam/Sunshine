@@ -1,0 +1,76 @@
+# goreleaser 发布配置（Sunshine 发布流程）。
+#
+# 发布方式：打 tag（如 v0.2.0，beta/rc 按 -beta/-rc 后缀）后由 CI
+# 调用 goreleaser 发布 GitHub Release；用户用 sunshine upgrade 自更新。
+#
+# 仓库占位：真实仓库 owner/name 待用户定，定后改两处——
+#   1. internal/cli/root.go 里 repo 变量的默认值；
+#   2. 本文件 builds 的 ldflags 与 release.github 的 owner/name。
+# 在此之前不要把占位地址当成真实仓库地址使用。
+version: 2
+
+project_name: sunshine
+
+builds:
+  - id: sunshine
+    main: ./cmd/sunshine
+    binary: sunshine
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+      - darwin
+      - windows
+    goarch:
+      - amd64
+      - arm64
+    # windows 只要 amd64。
+    ignore:
+      - goos: windows
+        goarch: arm64
+    ldflags:
+      - -s -w -X github.com/linrong1982/Sunshine/internal/cli.version={{.Version}} -X github.com/linrong1982/Sunshine/internal/cli.repo=github.com/linrong1982/Sunshine
+
+archives:
+  - id: sunshine
+    formats:
+      - tar.gz
+    format_overrides:
+      - goos: windows
+        formats:
+          - zip
+    name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+
+checksum:
+  name_template: checksums.txt
+  algorithm: sha256
+
+changelog:
+  sort: asc
+  use: git
+  groups:
+    - title: 新功能
+      regexp: "^feat"
+    - title: 修复
+      regexp: "^fix"
+    - title: 性能优化
+      regexp: "^perf"
+    - title: 重构
+      regexp: "^refactor"
+    - title: 文档
+      regexp: "^docs"
+    - title: 其他
+      regexp: ".*"
+  filters:
+    exclude:
+      - "^chore"
+      - "^test"
+      - "^ci"
+      - "^build"
+
+release:
+  github:
+    owner: sunshine
+    name: sunshine
+  draft: false
+  prerelease: auto

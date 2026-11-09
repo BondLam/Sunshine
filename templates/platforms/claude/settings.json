@@ -1,0 +1,73 @@
+{
+  "env": {
+    "CLAUDE_BASH_MAINTAIN_PROJECT_WORKING_DIR": "1"
+  },
+  "hooks": {
+    "PreToolUse": [
+      {
+        "hooks": [
+          {
+            "command": "SUNSHINE_HOOK_PLATFORM=claude sunshine hook subagent-context",
+            "timeout": 30,
+            "type": "command"
+          }
+        ],
+        "matcher": "Task"
+      },
+      {
+        "hooks": [
+          {
+            "command": "SUNSHINE_HOOK_PLATFORM=claude sunshine hook subagent-context",
+            "timeout": 30,
+            "type": "command"
+          }
+        ],
+        "matcher": "Agent"
+      }
+    ],
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "command": "SUNSHINE_HOOK_PLATFORM=claude sunshine hook session-start",
+            "timeout": 30,
+            "type": "command"
+          }
+        ],
+        "matcher": "startup"
+      },
+      {
+        "hooks": [
+          {
+            "command": "SUNSHINE_HOOK_PLATFORM=claude sunshine hook session-start",
+            "timeout": 30,
+            "type": "command"
+          }
+        ],
+        "matcher": "clear"
+      },
+      {
+        "hooks": [
+          {
+            "command": "SUNSHINE_HOOK_PLATFORM=claude sunshine hook session-start",
+            "timeout": 30,
+            "type": "command"
+          }
+        ],
+        "matcher": "compact"
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "command": "SUNSHINE_HOOK_PLATFORM=claude sunshine hook workflow-state",
+            "timeout": 15,
+            "type": "command"
+          }
+        ]
+      }
+    ]
+  },
+  "enabledPlugins": {}
+}

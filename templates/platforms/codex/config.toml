@@ -1,0 +1,36 @@
+# Sunshine 工作流的项目级 Codex 默认配置。
+# 当项目被标记为可信项目时，Codex 会在用户级配置之后合并这一层。
+# 要信任本项目，请在 ~/.codex/config.toml 的 `[projects]` 下添加，例如：
+#
+#   [projects."/abs/path/to/this/repo"]
+#   trust_level = "trusted"
+
+# 保持 AGENTS.md 为主要的项目指令文件。
+project_doc_fallback_filenames = ["AGENTS.md"]
+
+# Codex hooks（本目录下的 `hooks.json`）只有在用户
+# 在用户级配置中启用后才会触发：~/.codex/config.toml 中的
+# `[features].hooks = true`（Codex 0.129+；旧版名称为 `codex_hooks = true`，
+# 在 0.129+ 上仍可用，但会发出弃用警告）。项目级
+# config.toml 无法设置功能开关；它们必须放在用户级。
+# Codex 0.129+ 还会把每个已安装的 hook 交给一次性的
+# `/hooks` 界面评审；用户批准前，hook 保持未激活。
+
+# 注意：Sunshine 有意不在此处写 `[features.multi_agent_v2]`
+# 配置块。Codex CLI 在 0.130 与 0.131 之间改了 `features` 的反序列化：
+# 结构化表形式（含 max_concurrent_threads_per_session
+# / *_wait_timeout_ms）只有 0.131+ 才接受。在 0.130 及更早版本——
+# 包括 Codex 桌面应用内捆绑的 codex CLI——会报
+# `data did not match any variant of untagged enum FeatureToml`，
+# 导致整个配置加载失败、Codex 无法启动。改用 Codex 自身的
+# multi_agent_v2 默认值；如需调整，请在用户级配置中设置。
+
+# 显式固定子代理递归深度，而不是依赖 Codex 的默认值。#445 移除了
+# 每个 agent 的 `[features] multi_agent = false` 防护
+# （#240/#241 的 wait_agent 死锁结构性修复），因为原生子代理派发
+# 已通过 `agents.max_depth` 限制递归——但该键是全局/用户级的，
+# 不能写在单个 agent 的 .toml 里。在此处固定它，意味着上游默认值
+# 变化或用户全局覆盖都无法悄悄重开 #240/#241 修复所关闭的递归。
+# 项目配置（本文件）优先于用户级 `~/.codex/config.toml`。
+[agents]
+max_depth = 1
