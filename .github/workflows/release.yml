@@ -15,7 +15,9 @@ permissions:
   contents: write
 
 jobs:
-  发布:
+  # 注意：job ID 只能用 ASCII 字母、数字、横线与下划线（且以字母或下划线开头），
+  # 中文只能放在 display name（name 字段）里，否则工作流在解析时直接失败、0 个 job。
+  release:
     name: 打包并发布
     runs-on: ubuntu-latest
     steps:

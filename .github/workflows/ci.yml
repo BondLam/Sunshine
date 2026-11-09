@@ -15,7 +15,9 @@ name: 持续集成
   pull_request:
 
 jobs:
-  检查:
+  # 注意：job ID 只能用 ASCII 字母、数字、横线与下划线（且以字母或下划线开头），
+  # 中文只能放在 display name（name 字段）里，否则工作流在解析时直接失败、0 个 job。
+  check:
     name: 构建与测试
     runs-on: ubuntu-latest
     steps:
@@ -45,10 +47,10 @@ jobs:
       - name: 构建
         run: go build ./...
 
-  发布配置检查:
+  goreleaser-check:
     name: 发布配置检查
     runs-on: ubuntu-latest
-    needs: 检查
+    needs: check
     steps:
       - name: 检出代码
         uses: actions/checkout@v4
