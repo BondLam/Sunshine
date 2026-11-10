@@ -1896,3 +1896,9 @@ pre-commit install       # 在仓库根目录执行一次
 - 内容：滚动轨道剩余 19 个平台（上一节的批次），共支持 22 个 AI 编程平台。提交 `b2922ae`（441 个文件），tag v0.3.0 为注释 tag（对象 `16dceb2`）。
 - Release 已发布：https://github.com/linrong1982/Sunshine/releases/tag/v0.3.0，6 个资产；发布与两路 CI 均 success——这次也没有抖动。实测验证：真实一键命令装上 v0.3.0（`--version` 打印 0.3.0）；0.2.3 二进制 `upgrade --dry-run` 正确查到 0.3.0；darwin 包 checksum OK，解出 Mach-O x86_64 二进制；用发布的 0.3.0 二进制实跑：`init --gemini --kilo --copilot` 三家均装好，`platforms` 认出 3 家。
 - 未复现的 FAIL 仍未复现（本轮发布三路 CI 全过，本地全量也全过）；若 CI 再抖，先抓完整日志再定。
+
+### 教程第 13 节：五个场景（2026-11-10，用户定做）
+
+- 内容：按用户给的五场景表（从零新项目 / 接入存量项目 / 交付产品功能 / 重构老模块 / 修复反复 bug）给中英文教程各加第 13 节，全部命令用 v0.3.0 真实二进制实跑验证，演示目录 `/tmp/scenes/s1-new`、`s2-old`、`s3-cross`、`s4-refactor`、`s5-bug`。
+- 五个场景实跑要点：① 空目录 init 默认全栈，第一任务值班表小工具（Go 读 CSV，实跑输出三行值班表），任务归档进 archive/2026-11/。② 存量 Express 项目 init 判后端（只认依赖，express-only 不误判全栈），只生成 system+backend，现有文件不动；第一任务把 README 三条约定落进 spec，grep 验证。③ 全链路任务：implement 上下文三层（Refund.vue/server.js/refunds.json）+ check 一份规范；切 channel-driven 工作流，channel 绑任务，send 两条协调消息；wait 无 worker 超时（上游退出码 124）；收尾切回 native 要 --force。④ TDD 重构：先写特征测试钉住行为（go test 全绿 0.003s），再把折扣规则抽成常量与小函数（仍全绿 0.002s），新约定写进 spec。⑤ 反复 bug：真实 channel spawn 拉起 codex worker，因未登录报 401（worker.log 原文），会话落盘；mem list/search/context 实测可检索；实测边界：mem 只搜对话轮次文字，不搜错误事件（11-10 凌晨的 01a1c376 会话搜 401 无结果，因 401 只在错误事件里）；修掉一个核查错误：11-09 两个探针会话只有一个以 401 结束（另一个 turn_aborted），文档按“11 月 9 日一次、11 月 10 日凌晨一次、今天一次”写。⑤ 的 spawn 另记一坑：`--agent` 必须填 `.sunshine/agents/` 里已有的定义，填不存在的直接报错。
+- 本批改动未提交推送，等主代理验收后定夺（提议随 v0.3.1 发版，文档-only）。
