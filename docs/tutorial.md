@@ -44,7 +44,38 @@ sunshine init -u 你的名字 -y
   2. 规范已按默认模板生成在 .sunshine/spec/（已生成 system.md、frontend.md、backend.md；有团队规范时再补充），工作流按 .sunshine/workflow.md 自动推进，一般不用改。
 ```
 
-`-u` 是开发者名字，`-y` 跳过全部提问用默认配置。项目类型是 init 时自动检测的：读 `package.json` 的依赖与常见前后端配置文件（`vite.config.ts`、`go.mod` 等）判断前端/后端/全栈，只生成对应的规范——前端项目只生成 `system.md` 与 `frontend.md`，后端只生成 `system.md` 与 `backend.md`，全栈三份都有。演示目录是空目录，检测不到类型，`-y` 跳过提问后默认按全栈处理，所以上面输出是 `项目类型：全栈（默认）`。不带 `-y` 时检测不到会问一句（前端项目/后端项目/前后端全栈）；想显式指定就用 `--type 前端`（或后端、全栈）。`--registry` 从模板市场装规范时不检测、不提问。不带 `-y` 且不传 `--template` 时，平台选完后还会弹出规范模板选单（“请选择规范模板”）：默认“从零开始”，也可以选“自定义”输一个模板市场来源再挑；带 `--registry` 时选单直接列出该市场的 spec 模板，选了就装它、不再生成空白规范。默认装 Claude Code 与 Cursor；只想装 Codex 时用 `sunshine init --codex -y`，已初始化的项目里再跑 `init --codex -y` 是增量追加，不动已有文件。目前共支持 22 个平台，想装哪个就用 `sunshine init --<平台> -y`，例如 `sunshine init --gemini -y`；不带平台 flag 时仍只装 Claude Code 与 Cursor。`sunshine platforms` 可查看当前项目已配置的平台：
+项目类型是 init 时自动检测的：读 `package.json` 的依赖与常见前后端配置文件（`vite.config.ts`、`go.mod` 等）判断前端/后端/全栈，只生成对应的规范——前端项目只生成 `system.md` 与 `frontend.md`，后端只生成 `system.md` 与 `backend.md`，全栈三份都有。演示目录是空目录，检测不到类型，`-y` 跳过提问后默认按全栈处理，所以上面输出是 `项目类型：全栈（默认）`。
+
+### init 交互时会问什么（不带 `-y` 时，按顺序共四问）
+
+1. **选平台**（“请选择要配置的 AI 编程平台”）：22 家多选，默认勾选 Claude Code 与 Cursor；全不选则取消初始化（“未选择任何平台，初始化已取消。”）。
+2. **状态栏确认**（只有 Claude Code 入选时才问）：“是否为 Claude Code 安装状态栏……？”默认不装；想直接装就传 `--with-statusline`。
+3. **选规范模板**（“请选择规范模板”）：默认“从零开始”，也可以选“自定义”输一个模板市场来源再挑；带 `--registry` 时选单直接列出该市场的 spec 模板，选了就装它、不再生成空白规范。
+4. **选项目类型**（只有检测不到时才问）：“检测不到项目类型，请选择”：前端项目 / 后端项目 / 前后端全栈，默认全栈。
+
+`-y` 跳过上面全部提问用默认配置；传了对应的 flag（平台 flag、`--type`、`--template`）也会跳过那一问。
+
+### 常用选项
+
+| 选项 | 作用 |
+| --- | --- |
+| `-u, --user <名字>` | 开发者名字，写进 `.sunshine/.developer`；优先级：`-u` > git user.name > `developer`；任务的创建人与负责人默认就是它 |
+| `-y, --yes` | 跳过全部提问：默认平台 Claude Code + Cursor、默认全栈、默认空白规范、不装状态栏 |
+| `-f, --force` | 已初始化时覆盖重建骨架与平台文件（见下“三种模式”） |
+| `--type <前端/后端/全栈>` | 显式指定项目类型，跳过检测与提问 |
+| `--registry <来源>` | 模板市场来源：`gh:owner/repo`、完整 git URL、HTTP(S) URL、`git@`、本地 git 仓库路径 |
+| `--template <id>` | 模板市场条目 id，须配合 `--registry`；不传时 `-y` 下市场型来源直接报错、交互下出选单 |
+| `--overwrite` / `--append` | 目标已存在时覆盖 / 只补缺失文件；仅配合 `--template` 使用 |
+| `--with-statusline` | 给 Claude Code 装状态栏；仅 Claude Code 入选时有效 |
+| `--<平台>` | 只装指定平台：`--claude` `--cursor` `--codex` `--kiro` `--gemini` `--qoder` `--pi` `--zcode` `--trae` `--omp` `--snow` `--opencode` `--dsh` `--reasonix` `--grok` `--kimi` `--kilo` `--antigravity` `--devin` `--codebuddy` `--copilot` `--droid`（22 个；`--windsurf` 是已废弃的 `--devin` 别名，传了会自动转并警告） |
+
+### 三种模式
+
+- **全新 init**：目录里没有 `.sunshine/`，按上面流程生成骨架与平台配置。
+- **覆盖重建**（`-f`）：已初始化时仍重建骨架与平台文件。
+- **增量追加**：已初始化时不带 `-f` 再跑 init，只追加新选的平台（也可以顺带用 `--registry` 装模板），不动已有平台文件与 `.sunshine/` 骨架。例如只想装 Codex 时用 `sunshine init --codex -y`。
+
+注意：init 拒绝在用户主目录执行（设置 `SUNSHINE_ALLOW_HOMEDIR=1` 可绕过）。`sunshine platforms` 可查看当前项目已配置的平台：
 
 ```text
 已配置的平台：
@@ -827,6 +858,7 @@ sunshine upgrade --dry-run
 | 切工作流 | `sunshine workflow --list` / `sunshine workflow --template tdd` | 已改动时加 `--force` 覆盖或 `--create-new` 写 `.new` |
 | 看模板更新计划 | `sunshine update --dry-run` | 三态：自动更新 / 你已修改 / 用户数据不动 |
 | 从市场装规范 | `sunshine init --registry <来源> --template <模板 id> -y` | 来源支持 `gh:owner/repo`、git URL、HTTP(S) URL、`git@`、本地路径；交互模式不传 `--template` 时列出市场模板现选 |
+| init 全部操作 | `sunshine init --help` | 平台、状态栏、模板选单、项目类型、三种模式，详见第 1 节 |
 | 回顾会话 | `sunshine mem search "关键词"` / `sunshine mem list` | 只读；`--global` 查全部项目，`--json` 输出 JSON |
 | 看 channel | `sunshine channel list` / `sunshine channel messages <名字>` | 事件时间线；`wait` 等某个 worker 的 `done` 事件 |
 | 升级 CLI 自身 | `sunshine upgrade --dry-run` / `sunshine upgrade` | 与 `update`（更新项目模板文件）是两回事 |

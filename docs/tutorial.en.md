@@ -60,6 +60,37 @@ Real output:
 
 Project type is auto-detected at init: `init` reads `package.json` dependencies and common frontend/backend config files (`vite.config.ts`, `go.mod`, etc.) and generates only the matching specs — a frontend project gets `system.md` and `frontend.md`, a backend project gets `system.md` and `backend.md`, a fullstack project gets all three. The demo directory is empty, so nothing is detected; with `-y` skipping the prompt it defaults to fullstack, which is why the output above says `项目类型：全栈（默认）` ("Project type: fullstack (default)"). Without `-y`, an undetected type triggers one question (frontend / backend / fullstack); to specify it explicitly use `--type 前端` (or 后端 / 全栈). With `--registry` (specs from the template marketplace) there is no detection and no question. Without `-y` and without `--template`, init asks one more question after the platform selection — a spec template picker ("请选择规范模板"): "从零开始" (from scratch, the default), or "自定义" (enter a marketplace source and pick from it); with `--registry` the picker lists that marketplace's spec templates, and the picked one replaces the blank specs.
 
+### What init asks (without `-y`, four questions in order)
+
+1. **Pick platforms** ("请选择要配置的 AI 编程平台", "Select the AI programming platforms to configure"): a multi-select of all 22 platforms, with Claude Code and Cursor checked by default; selecting none cancels the init ("未选择任何平台，初始化已取消。", "No platform selected, initialization cancelled.").
+2. **Statusline confirmation** (only when Claude Code is selected): "是否为 Claude Code 安装状态栏……？" ("Install the statusline for Claude Code…?"), default no; pass `--with-statusline` to install it directly.
+3. **Pick a spec template** ("请选择规范模板", "Select a spec template"): "从零开始" (from scratch) by default, or "自定义" (enter a marketplace source and pick from it); with `--registry` the picker lists that marketplace's spec templates, and the picked one is installed instead of the blank specs.
+4. **Pick a project type** (only when nothing is detected): "检测不到项目类型，请选择" ("Project type not detected, please choose"): frontend / backend / fullstack, default fullstack.
+
+`-y` skips all four questions and uses the defaults; passing the matching flag (a platform flag, `--type`, `--template`) skips that question too.
+
+### Common options
+
+| Option | What it does |
+| --- | --- |
+| `-u, --user <name>` | Developer name, written to `.sunshine/.developer`; priority: `-u` > git user.name > `developer`; new tasks default their creator and assignee to it |
+| `-y, --yes` | Skip all prompts: default platforms Claude Code + Cursor, default fullstack, default blank specs, no statusline |
+| `-f, --force` | Rebuild the skeleton and platform files even when already initialized (see "Three modes" below) |
+| `--type <前端/后端/全栈>` | Specify the project type explicitly, skipping detection and the question |
+| `--registry <source>` | Template marketplace source: `gh:owner/repo`, a full git URL, an HTTP(S) URL, a `git@` address, or a local git repository path |
+| `--template <id>` | Marketplace entry id, must be used with `--registry`; when omitted, a marketplace source errors out under `-y` and shows the picker interactively |
+| `--overwrite` / `--append` | Overwrite the target if it exists / only fill in missing files; only with `--template` |
+| `--with-statusline` | Install the statusline for Claude Code; only effective when Claude Code is selected |
+| `--<platform>` | Install only the named platform: `--claude` `--cursor` `--codex` `--kiro` `--gemini` `--qoder` `--pi` `--zcode` `--trae` `--omp` `--snow` `--opencode` `--dsh` `--reasonix` `--grok` `--kimi` `--kilo` `--antigravity` `--devin` `--codebuddy` `--copilot` `--droid` (22 in total; `--windsurf` is a deprecated alias for `--devin` and is converted automatically with a warning) |
+
+### Three modes
+
+- **Fresh init**: no `.sunshine/` in the directory yet; generates the skeleton and platform configs following the flow above.
+- **Rebuild** (`-f`): rebuilds the skeleton and platform files even when already initialized.
+- **Incremental**: running `init` again without `-f` in an initialized project only adds the newly selected platforms (and can also install a marketplace template with `--registry`), leaving existing platform files and the `.sunshine/` skeleton untouched. For example, `sunshine init --codex -y` adds only Codex.
+
+Note: `init` refuses to run in your home directory (set `SUNSHINE_ALLOW_HOMEDIR=1` to bypass). `sunshine platforms` shows which platforms are configured for the current project.
+
 What `init` just installed — 115 files, in two groups:
 
 - **For the agent to read — `.sunshine/` (17 files):** `workflow.md` (714 lines, the full development workflow the agent follows), `spec/` with three spec templates (`system.md`, `backend.md`, `frontend.md`), `config.yaml` (project config with Chinese comments), `AGENTS.md`, and `agents/` (five agent definitions). `AGENTS.md` opens with:
@@ -930,6 +961,7 @@ Everything else in Sunshine is something you reach for when you step in manually
 | Switch how the agent works | `sunshine workflow --list` / `sunshine workflow --template tdd` | List or switch workflow templates ([section 7](#7-switching-workflows)) |
 | Refresh project templates | `sunshine update --dry-run` (drop `--dry-run` to apply) | Sync template files; user data is never touched ([section 8](#8-update-and-the-template-marketplace)) |
 | Install a spec from a marketplace | `sunshine init --registry <source> --template <id>` | Install a spec template, refreshed by `update` afterwards ([section 8](#8-update-and-the-template-marketplace)); in interactive mode, omit `--template` to pick from a list |
+| All init operations | `sunshine init --help` | Platforms, statusline, template picker, project type, three modes — see section 1 |
 | Look back | `sunshine mem search "退款"` / `sunshine mem list` | Search local session history, read-only ([section 9](#9-mem-look-back-at-sessions)) |
 | Multi-agent work | `sunshine channel list` / `sunshine channel messages <name>` | Inspect channels and their event timelines ([section 10](#10-channel-multi-agent-collaboration)) |
 | Update the CLI itself | `sunshine upgrade --dry-run` (drop `--dry-run` to apply) | Upgrade the `sunshine` binary ([section 11](#11-upgrade-update-the-cli-itself)) |
