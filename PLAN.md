@@ -2012,3 +2012,9 @@ pre-commit install       # 在仓库根目录执行一次
 - 有意不动 channel-driven 模板：它的 in_progress-inline 是设计好的有条件许可（“只有用户要求 inline，或改动太小不值得派工作线程时，才允许 inline 实现”，且复核仍走 channel 派 check 工作线程），不是 Codex 专用分支，改它等于改行为。
 - 有意不动 `[codex-inline, Kilo, Antigravity, Devin, DeepSeek Harness]` 平台块：那些已按平台名正确限定，是不支持派发的平台的 inline 落点。
 - 既有项目通过 `sunshine update` 刷新 workflow.md 获得新写法（哈希变化走正常三态流程）。
+
+### v0.3.5 发布记录（2026-11-10）
+- 内容：workflow inline 分支加平台守卫（native 与 tdd 模板 inline 块首行守卫 + 派发句 reinforcement；教程 §4 的 2.1 摘要行同步加“仅 Codex”限定）。提交 `b7896ac`（4 个文件），tag v0.3.5 为注释 tag（对象 `a18dbfb`）。
+- Release 已发布：https://github.com/linrong1982/Sunshine/releases/tag/v0.3.5，6 个资产；发布 run 42789481102、两路 CI（tag 42789166884、push 42789481568）均 success 无抖动。
+- 实测验证：不带参数的一键命令装上 v0.3.5（`Sunshine 版本 0.3.5`）；0.3.4 二进制 `upgrade --dry-run` 正确查到 0.3.5；darwin_amd64 包 checksum OK（Mach-O x86_64）。
+- 注意：沙箱里之前装的 v0.3.4 二进制（/usr/local/bin/sunshine）在虚拟机更换后已不在，一键安装重新装上 v0.3.5。
