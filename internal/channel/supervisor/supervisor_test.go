@@ -126,9 +126,12 @@ func TestSupervisorClosedLoop(t *testing.T) {
 	}); err != nil {
 		t.Fatalf("发消息失败：%v", err)
 	}
-	// worker 的回答与 done。
+	// worker 的回答与 done。turn_finished 由 supervisorSink 在 done
+	// 落盘后追加，两者之间有窗口：只等 done 就读事件，可能在 done 已见、
+	// turn_finished 未落盘时误判（CI 曾因此抖动失败），所以两个都等到再断言。
 	done := waitForEvent(t, ref, store.KindDone, 5*time.Second)
 	_ = done
+	waitForEvent(t, ref, store.KindTurnFinished, 5*time.Second)
 	events := readEvents(t, ref)
 	var sawText, sawTurnStarted, sawTurnFinished bool
 	for _, ev := range events {
