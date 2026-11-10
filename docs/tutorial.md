@@ -10,7 +10,7 @@
 - 版本号随你安装的 CLI 版本而变；本教程用当前 Release **v0.2.1** 验证（`sunshine version` 打印 `Sunshine 版本 0.2.1`）。第 11 节“有新版”的输出来自本地构建的 0.1.0 二进制，仅版本号不同，形态一致，那里会注明。
 - 演示用的目录都在 `/tmp/rewrite-zh/demo/` 下面（`demo`、`demo2`、`registry-src`、`channels`、`home`），删掉即可，不影响任何真实项目。
 
-终端命令在本教程里只出现在三处：第 4 节“底下发生了什么”（agent 实际调的命令 + 真实输出）、第 12 节“手动干预速查”和第 13 节“五个场景”（每个场景的实录）。其余章节讲的是人在 agent 界面里做什么、agent 按什么干活。
+终端命令在本教程里只出现在三处：第 4 节“底下发生了什么”（agent 实际调的命令 + 真实输出）、第 12 节“五个场景”（每个场景的实录）和末尾的附录“命令速查”。其余章节讲的是人在 agent 界面里做什么、agent 按什么干活。
 
 ## 1. 终端只跑一次：init
 
@@ -44,59 +44,9 @@ sunshine init -u 你的名字 -y
   2. 规范已按默认模板生成在 .sunshine/spec/（已生成 system.md、frontend.md、backend.md；有团队规范时再补充），工作流按 .sunshine/workflow.md 自动推进，一般不用改。
 ```
 
-项目类型是 init 时自动检测的：读 `package.json` 的依赖与常见前后端配置文件（`vite.config.ts`、`go.mod` 等）判断前端/后端/全栈，只生成对应的规范——前端项目只生成 `system.md` 与 `frontend.md`，后端只生成 `system.md` 与 `backend.md`，全栈三份都有。演示目录是空目录，检测不到类型，`-y` 跳过提问后默认按全栈处理，所以上面输出是 `项目类型：全栈（默认）`。
+演示目录是空目录，检测不到类型，`-y` 跳过提问后默认按全栈处理，所以上面输出是 `项目类型：全栈（默认）`。init 默认装 Claude Code 与 Cursor，生成中文 `.sunshine/` 骨架与两个平台的配置。
 
-### init 交互时会问什么（不带 `-y` 时，按顺序共四问）
-
-1. **选平台**（“请选择要配置的 AI 编程平台”）：22 家多选，默认勾选 Claude Code 与 Cursor；全不选则取消初始化（“未选择任何平台，初始化已取消。”）。
-2. **状态栏确认**（只有 Claude Code 入选时才问）：“是否为 Claude Code 安装状态栏……？”默认不装；想直接装就传 `--with-statusline`。
-3. **选规范模板**（“请选择规范模板”）：默认“从零开始”，也可以选“自定义”输一个模板市场来源再挑；带 `--registry` 时选单直接列出该市场的 spec 模板，选了就装它、不再生成空白规范。
-4. **选项目类型**（只有检测不到时才问）：“检测不到项目类型，请选择”：前端项目 / 后端项目 / 前后端全栈，默认全栈。
-
-`-y` 跳过上面全部提问用默认配置；传了对应的 flag（平台 flag、`--type`、`--template`）也会跳过那一问。
-
-### 常用选项
-
-| 选项 | 作用 |
-| --- | --- |
-| `-u, --user <名字>` | 开发者名字，写进 `.sunshine/.developer`；优先级：`-u` > git user.name > `developer`；任务的创建人与负责人默认就是它 |
-| `-y, --yes` | 跳过全部提问：默认平台 Claude Code + Cursor、默认全栈、默认空白规范、不装状态栏 |
-| `-f, --force` | 已初始化时覆盖重建骨架与平台文件（见下“三种模式”） |
-| `--type <前端/后端/全栈>` | 显式指定项目类型，跳过检测与提问 |
-| `--registry <来源>` | 模板市场来源：`gh:owner/repo`、完整 git URL、HTTP(S) URL、`git@`、本地 git 仓库路径 |
-| `--template <id>` | 模板市场条目 id，须配合 `--registry`；不传时 `-y` 下市场型来源直接报错、交互下出选单 |
-| `--overwrite` / `--append` | 目标已存在时覆盖 / 只补缺失文件；仅配合 `--template` 使用 |
-| `--with-statusline` | 给 Claude Code 装状态栏；仅 Claude Code 入选时有效 |
-| `--<平台>` | 只装指定平台：`--claude` `--cursor` `--codex` `--kiro` `--gemini` `--qoder` `--pi` `--zcode` `--trae` `--omp` `--snow` `--opencode` `--dsh` `--reasonix` `--grok` `--kimi` `--kilo` `--antigravity` `--devin` `--codebuddy` `--copilot` `--droid`（22 个；`--windsurf` 是已废弃的 `--devin` 别名，传了会自动转并警告） |
-
-### 三种模式
-
-- **全新 init**：目录里没有 `.sunshine/`，按上面流程生成骨架与平台配置。
-- **覆盖重建**（`-f`）：已初始化时仍重建骨架与平台文件。
-- **增量追加**：已初始化时不带 `-f` 再跑 init，只追加新选的平台（也可以顺带用 `--registry` 装模板），不动已有平台文件与 `.sunshine/` 骨架。例如只想装 Codex 时用 `sunshine init --codex -y`。
-
-注意：init 拒绝在用户主目录执行（设置 `SUNSHINE_ALLOW_HOMEDIR=1` 可绕过）。`sunshine platforms` 可查看当前项目已配置的平台：
-
-```text
-已配置的平台：
-  Claude Code (claude-code) — .claude
-  Cursor (cursor) — .cursor
-```
-
-init 生成了 115 个文件（不含 `.git`），其中给 agent 读的是这些：
-
-- `.sunshine/workflow.md`：完整版开发工作流（714 行），agent 按它推进任务。
-- `.sunshine/AGENTS.md`：开头即“本文件面向在本仓库工作的 AI 编程助手”。
-- `.sunshine/spec/`：三份规范模板（`system.md` 总原则、`backend.md` 后端、`frontend.md` 前端）。
-- `.sunshine/config.yaml`：项目配置，带中文注释（关键字段见 [README.md](../README.md#配置要点)）。
-- `.claude/` 与 `.cursor/`：两个平台的 skill、命令、子代理与 hooks 配置（Codex 同理是 `.codex/`）。
-
-装完这一步，终端的任务就结束了。`sunshine --help` 自己也是这么说的：
-
-```text
-先用 sunshine init 初始化当前项目，再让 AI 助手按
-.sunshine/workflow.md 推进任务。
-```
+装完这一步，终端的任务就结束了——进 agent 界面提第一个需求（第 2 节）。init 的全部操作（交互提问、常用选项、三种模式、项目类型检测、装了哪些文件）见末尾[附录：命令速查](#附录命令速查)。
 
 ## 2. 进 agent 界面：用自然语言提需求
 
@@ -309,15 +259,6 @@ sunshine task list
 分支：master
 工作区：4 处未提交改动
 
-改动：
-?? .claude/
-?? .cursor/
-?? .sunshine/
-?? src/
-
-## 最近提交
-（无提交）
-
 ## 当前任务
 路径：.sunshine/tasks/11-10-给退款原因加必填校验
 来源：file:.sunshine/.current-task
@@ -325,18 +266,6 @@ sunshine task list
 状态：in_progress
 创建：2026-11-10
 描述：退款时原因字段必填
-
-[!] 该任务有 prd.md，详情请读它
-
-## 活动任务
-- 11-10-给退款原因加必填校验/ (in_progress) @演示者
-总计：1 个活动任务
-
-## 我的任务（分配给我）
-- [P1] 给退款原因加必填校验 (in_progress)
-
-## 日志文件
-未找到日志文件
 ……
 ```
 
@@ -359,11 +288,6 @@ sunshine task add-session --title "退款原因必填校验实现" --summary "�
 会话：1
 标题：退款原因必填校验实现
 提交：-
-
-当前日志文件：journal-1.md
-当前行数：7
-新增行数：21
-追加后总计：28
 
 [OK] 会话已追加到 journal-1.md
 ……
@@ -844,31 +768,9 @@ sunshine upgrade --dry-run
 
 真正升级时去掉 `--dry-run`：查最新版 → 按当前系统与架构选资产 → 下载 → 按 `checksums.txt` 校验 sha256 → 备份当前二进制（同目录 `.bak`，权限保留）→ 替换 → 运行新版 `--version` 校验，失败回滚备份并报错（流程见 `sunshine upgrade --help`）。也可以指定版本或通道：`sunshine upgrade --tag 0.2.0`、`sunshine upgrade --tag beta`。
 
-## 12. 收尾：手动干预速查
+## 12. 五个场景：从第一天到日常
 
-主线走完了：项目骨架与规范在 `.sunshine/` 里，任务从创建到归档走了一遍，工作流切过 TDD，模板市场装过规范并验证了持续刷新，会话能回顾，多 Agent 的 channel 能建会话、发消息、开主题，CLI 也能自己升级。
-
-平时你在 agent 界面里工作，下面的命令只在手动干预时用——每一行都是本教程前面实跑过的命令（`uninstall` / `ablate` / `restore` 的一句话说明来自各自的 `--help`，未在本教程里真执行）：
-
-| 场景 | 命令 | 说明 |
-| --- | --- | --- |
-| 看当前任务 / 全部活动任务 | `sunshine task current` / `sunshine task list` | 状态来源就是 `.sunshine/.current-task` 与任务目录 |
-| 看会话运行时信息 | `sunshine task context` | 开发者、Git 状态、当前任务、活动任务、日志文件 |
-| 看已归档任务 | `sunshine task list-archive` | 按 `<年-月>` 分组 |
-| 切工作流 | `sunshine workflow --list` / `sunshine workflow --template tdd` | 已改动时加 `--force` 覆盖或 `--create-new` 写 `.new` |
-| 看模板更新计划 | `sunshine update --dry-run` | 三态：自动更新 / 你已修改 / 用户数据不动 |
-| 从市场装规范 | `sunshine init --registry <来源> --template <模板 id> -y` | 来源支持 `gh:owner/repo`、git URL、HTTP(S) URL、`git@`、本地路径；交互模式不传 `--template` 时列出市场模板现选 |
-| init 全部操作 | `sunshine init --help` | 平台、状态栏、模板选单、项目类型、三种模式，详见第 1 节 |
-| 回顾会话 | `sunshine mem search "关键词"` / `sunshine mem list` | 只读；`--global` 查全部项目，`--json` 输出 JSON |
-| 看 channel | `sunshine channel list` / `sunshine channel messages <名字>` | 事件时间线；`wait` 等某个 worker 的 `done` 事件 |
-| 升级 CLI 自身 | `sunshine upgrade --dry-run` / `sunshine upgrade` | 与 `update`（更新项目模板文件）是两回事 |
-| 看已配置平台 | `sunshine platforms` | 按哈希清单判断，避免误判原生平台目录 |
-| 临时移除全部 Sunshine 表面（可逆） | `sunshine ablate` / `sunshine restore` | 切除内容存入项目外的恢复事务，`restore` 精确恢复 |
-| 删除项目内全部 Sunshine 文件 | `sunshine uninstall` | 只删哈希清单列出的托管内容，再移除整个 `.sunshine/` |
-
-## 13. 五个场景：从第一天到日常
-
-前面 12 节讲的是主线流程；这一节按五个真实场景走一遍，每个场景都是一个完整的端到端实录：
+前面 11 节讲的是主线流程；这一节按五个真实场景走一遍，每个场景都是一个完整的端到端实录：
 
 | 场景 | 适用时机 | 关键点 |
 | --- | --- | --- |
@@ -880,7 +782,7 @@ sunshine upgrade --dry-run
 
 本节用当前 Release **v0.3.0** 验证（`sunshine version` 打印 `Sunshine 版本 0.3.0`），演示目录都在 `/tmp/scenes/` 下面（`s1-new`、`s2-old`、`s3-cross`、`s4-refactor`、`s5-bug`），删掉即可。任务目录名里的 `11-10` 是实跑当天的月-日（2026-11-10）。命令输出是真实跑出来的摘录，`……` 表示省略的行；与 agent 的对话示例标明是“示例提示词”，不是真实会话记录。
 
-### 13.1 从零开始新项目：值班表小工具
+### 12.1 从零开始新项目：值班表小工具
 
 空目录，什么都没有——这是最干净的起点。先建目录、进 git，再 init：
 
@@ -953,7 +855,7 @@ go run ./cmd/duty 值班表.csv
 
 新项目第一个任务走完，项目里就有了三样东西：能跑的代码、归档的任务记录、按默认模板生成的规范。第二个任务开始，agent 就有据可依了。
 
-### 13.2 接入存量项目：先把约定落进 spec
+### 12.2 接入存量项目：先把约定落进 spec
 
 仓库已存在，但规范主要靠人记——这是最常见的接入场景。演示用的存量项目是一个跑了两年的退款接口（`package.json` 里只有 `express`，`src/server.js` 一个文件），团队约定写在 `README.md` 里，从没落进任何规范文件：
 
@@ -1021,7 +923,7 @@ grep -c "审计日志" .sunshine/spec/backend.md
 
 从这时起，约定不再只活在老员工的记忆里：新任务的 agent 会读 spec，老员工离职也不带走规范。存量项目接入的验收标准就一条——**init 之后 `git status` 里没有被改过的旧文件，spec 里多了一条以前只靠人记的约定**。
 
-### 13.3 交付产品功能：一个任务横跨产品、API、数据和 UI
+### 12.3 交付产品功能：一个任务横跨产品、API、数据和 UI
 
 一个任务横跨四层时，最容易出的错是只改了一层、漏了另一层——Sunshine 的解法是：一个任务，上下文清单里四层的文件一次列齐，验收时按同一份清单对照。演示项目是一个退款应用（`src/Refund.vue` 是 UI，`src/server.js` 是 API，`data/refunds.json` 是数据），任务是给退款原因加必填校验。
 
@@ -1103,7 +1005,7 @@ sunshine workflow --template native --force
 
 跨层任务的验收标准也在清单里：`list-context` 的四行全改完、`check` 的那一份规范逐条过——哪层漏了，清单上看得见。
 
-### 13.4 重构老模块：先钉住行为，再动代码
+### 12.4 重构老模块：先钉住行为，再动代码
 
 代码能跑，但已经难以安全修改——重构的第一步不是动手改，而是把现有行为钉住。演示用的老模块是一个价格计算函数，折扣规则全写死在 `if` 里：
 
@@ -1199,9 +1101,9 @@ go test ./...
 - 折扣规则集中在 calc.go 的常量与 applyBulk / applyVIP，Price 只做组合；改规则先改 calc_test.go 的用例表。
 ```
 
-任务照常归档，工作流切回 native（`--force`，原因同 13.3 节）。
+任务照常归档，工作流切回 native（`--force`，原因同 12.3 节）。
 
-### 13.5 修复反复出现的 bug：先找上次的会话
+### 12.5 修复反复出现的 bug：先找上次的会话
 
 同类问题多次出现时，最贵的是每次都从零查起。这一节的 bug 是真实发生过的：codex worker 连不上，报 401——11 月 9 日出现过一次，11 月 10 日凌晨又出现一次，今天再跑还是 401。
 
@@ -1285,3 +1187,80 @@ sunshine task create "codex worker 401：spawn 前先确认登录状态" --descr
 - [README.md](../README.md)：安装、快速上手、核心命令一览与配置要点。
 - [PLAN.md](../PLAN.md)：完整规划与各阶段实施记录，包括本教程没展开的设计决策。
 - [Releases](https://github.com/linrong1982/Sunshine/releases)：各版本下载与更新说明。
+
+## 附录：命令速查
+
+主线走完了：项目骨架与规范在 `.sunshine/` 里，任务从创建到归档走了一遍，工作流切过 TDD，模板市场装过规范并验证了持续刷新，会话能回顾，多 Agent 的 channel 能建会话、发消息、开主题，CLI 也能自己升级。
+
+平时你在 agent 界面里工作，下面的命令只在手动干预时用——每一行都是本教程前面实跑过的命令（`uninstall` / `ablate` / `restore` 的一句话说明来自各自的 `--help`，未在本教程里真执行）。agent 在底下调的命令（`task create/start/archive`、`task add-context/validate`、`channel create/send/spawn/wait`、`task add-session`）不在这里——那是 agent 的活，见第 4 节。
+
+### init 参考
+
+#### 交互时会问什么（不带 `-y` 时，按顺序共四问）
+
+1. **选平台**（“请选择要配置的 AI 编程平台”）：22 家多选，默认勾选 Claude Code 与 Cursor；全不选则取消初始化（“未选择任何平台，初始化已取消。”）。
+2. **状态栏确认**（只有 Claude Code 入选时才问）：“是否为 Claude Code 安装状态栏……？”默认不装；想直接装就传 `--with-statusline`。
+3. **选规范模板**（“请选择规范模板”）：默认“从零开始”，也可以选“自定义”输一个模板市场来源再挑；带 `--registry` 时选单直接列出该市场的 spec 模板，选了就装它、不再生成空白规范。
+4. **选项目类型**（只有检测不到时才问）：“检测不到项目类型，请选择”：前端项目 / 后端项目 / 前后端全栈，默认全栈。
+
+`-y` 跳过上面全部提问用默认配置；传了对应的 flag（平台 flag、`--type`、`--template`）也会跳过那一问。
+
+项目类型检测读 `package.json` 的依赖与常见前后端配置文件（`vite.config.ts`、`go.mod` 等）判断前端/后端/全栈，只生成对应的规范——前端项目只生成 `system.md` 与 `frontend.md`，后端只生成 `system.md` 与 `backend.md`，全栈三份都有。`--registry` 从模板市场装规范时不检测、不提问。
+
+#### 常用选项
+
+| 选项 | 作用 |
+| --- | --- |
+| `-u, --user <名字>` | 开发者名字，写进 `.sunshine/.developer`；优先级：`-u` > git user.name > `developer`；任务的创建人与负责人默认就是它 |
+| `-y, --yes` | 跳过全部提问：默认平台 Claude Code + Cursor、默认全栈、默认空白规范、不装状态栏 |
+| `-f, --force` | 已初始化时覆盖重建骨架与平台文件（见下“三种模式”） |
+| `--type <前端/后端/全栈>` | 显式指定项目类型，跳过检测与提问 |
+| `--registry <来源>` | 模板市场来源：`gh:owner/repo`、完整 git URL、HTTP(S) URL、`git@`、本地 git 仓库路径 |
+| `--template <id>` | 模板市场条目 id，须配合 `--registry`；不传时 `-y` 下市场型来源直接报错、交互下出选单 |
+| `--overwrite` / `--append` | 目标已存在时覆盖 / 只补缺失文件；仅配合 `--template` 使用 |
+| `--with-statusline` | 给 Claude Code 装状态栏；仅 Claude Code 入选时有效 |
+| `--<平台>` | 只装指定平台：`--claude` `--cursor` `--codex` `--kiro` `--gemini` `--qoder` `--pi` `--zcode` `--trae` `--omp` `--snow` `--opencode` `--dsh` `--reasonix` `--grok` `--kimi` `--kilo` `--antigravity` `--devin` `--codebuddy` `--copilot` `--droid`（22 个；`--windsurf` 是已废弃的 `--devin` 别名，传了会自动转并警告） |
+
+#### 三种模式
+
+- **全新 init**：目录里没有 `.sunshine/`，按上面流程生成骨架与平台配置。
+- **覆盖重建**（`-f`）：已初始化时仍重建骨架与平台文件。
+- **增量追加**：已初始化时不带 `-f` 再跑 init，只追加新选的平台（也可以顺带用 `--registry` 装模板），不动已有平台文件与 `.sunshine/` 骨架。例如只想装 Codex 时用 `sunshine init --codex -y`。
+
+注意：init 拒绝在用户主目录执行（设置 `SUNSHINE_ALLOW_HOMEDIR=1` 可绕过）。
+
+#### init 装了什么
+
+init 生成了 115 个文件（不含 `.git`），其中给 agent 读的是这些：
+
+- `.sunshine/workflow.md`：完整版开发工作流（714 行），agent 按它推进任务。
+- `.sunshine/AGENTS.md`：开头即“本文件面向在本仓库工作的 AI 编程助手”。
+- `.sunshine/spec/`：三份规范模板（`system.md` 总原则、`backend.md` 后端、`frontend.md` 前端）。
+- `.sunshine/config.yaml`：项目配置，带中文注释（关键字段见 [README.md](../README.md#配置要点)）。
+- `.claude/` 与 `.cursor/`：两个平台的 skill、命令、子代理与 hooks 配置（Codex 同理是 `.codex/`）。
+
+`sunshine platforms` 可查看当前项目已配置的平台：
+
+```text
+已配置的平台：
+  Claude Code (claude-code) — .claude
+  Cursor (cursor) — .cursor
+```
+
+### 手动干预速查
+
+| 场景 | 命令 | 说明 |
+| --- | --- | --- |
+| 看当前任务 / 全部活动任务 | `sunshine task current` / `sunshine task list` | 状态来源就是 `.sunshine/.current-task` 与任务目录 |
+| 看会话运行时信息 | `sunshine task context` | 开发者、Git 状态、当前任务、活动任务、日志文件 |
+| 看已归档任务 | `sunshine task list-archive` | 按 `<年-月>` 分组 |
+| 切工作流 | `sunshine workflow --list` / `sunshine workflow --template tdd` | 已改动时加 `--force` 覆盖或 `--create-new` 写 `.new` |
+| 看模板更新计划 | `sunshine update --dry-run` | 三态：自动更新 / 你已修改 / 用户数据不动 |
+| 从市场装规范 | `sunshine init --registry <来源> --template <模板 id> -y` | 来源支持 `gh:owner/repo`、git URL、HTTP(S) URL、`git@`、本地路径；交互模式不传 `--template` 时列出市场模板现选 |
+| init 全部操作 | `sunshine init --help` | 平台、状态栏、模板选单、项目类型、三种模式，详见本附录“init 参考” |
+| 回顾会话 | `sunshine mem search "关键词"` / `sunshine mem list` | 只读；`--global` 查全部项目，`--json` 输出 JSON |
+| 看 channel | `sunshine channel list` / `sunshine channel messages <名字>` | 事件时间线；`wait` 等某个 worker 的 `done` 事件 |
+| 升级 CLI 自身 | `sunshine upgrade --dry-run` / `sunshine upgrade` | 与 `update`（更新项目模板文件）是两回事 |
+| 看已配置平台 | `sunshine platforms` | 按哈希清单判断，避免误判原生平台目录 |
+| 临时移除全部 Sunshine 表面（可逆） | `sunshine ablate` / `sunshine restore` | 切除内容存入项目外的恢复事务，`restore` 精确恢复 |
+| 删除项目内全部 Sunshine 文件 | `sunshine uninstall` | 只删哈希清单列出的托管内容，再移除整个 `.sunshine/` |

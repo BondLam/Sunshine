@@ -43,26 +43,37 @@ sunshine init -u YourName -y   # Generate the Chinese .sunshine/ skeleton (specs
 
 That is the only terminal command you need. Then open the project in Claude Code (Codex / Cursor work the same way) and ask for what you want in plain language — the agent drives the work following `.sunshine/workflow.md` and calls `sunshine` commands under the hood. See the [tutorial](docs/tutorial.en.md) for the full storyline.
 
-`init` installs Claude Code and Cursor platform configs by default. To install only Codex, use `sunshine init --codex -y`; running `init --codex -y` again in an already initialized project only adds the new platform and leaves existing files untouched. There are 22 supported platforms in total; install a specific one with `sunshine init --<platform> -y`. `sunshine platforms` shows which platforms are configured for the current project. Without `-y` and without `--template`, init asks one more question after the platform selection — a spec template picker: from scratch by default, or a marketplace source you enter and pick from; with `--registry` it lists that marketplace's spec templates.
+`init` installs Claude Code and Cursor by default; to install only Codex, use `sunshine init --codex -y`. All init operations (platforms, template picker, three modes) are in the [tutorial appendix](docs/tutorial.en.md#appendix-command-reference).
 
-## The main flow, in one line
+## How it works: five scenarios
 
-**Run `sunshine init` once in the terminal → ask in plain language inside the agent UI → the agent works through `workflow.md` (creates the task, writes prd/design, dispatches implement/check sub-agents, verifies, writes lessons back into the spec, finishes with `/sunshine:finish-work`) → you review the diff, accept, and commit.** The terminal commands below are the mechanism the agent uses, plus the few you run yourself when you step in manually — not a daily routine to type by hand.
+**Run `sunshine init` once in the terminal → ask in plain language inside the agent UI → the agent works through `workflow.md` (creates the task, writes prd/design, dispatches implement/check sub-agents, verifies, writes lessons back into the spec, finishes with `/sunshine:finish-work`) → you review the diff, accept, and commit.** The terminal commands are the agent's tools, not your daily interface — an opening prompt names four things: the workflow, ask first, confirm then create the task and write the PRD, then implement.
+
+Section 12 of the tutorial walks through five real scenarios, each one a complete end-to-end run:
+
+| Scenario | When it applies |
+| --- | --- |
+| [Starting a new project from zero](docs/tutorial.en.md#121-starting-a-new-project-from-zero-a-duty-roster-tool) | A new product, service, package, or internal tool |
+| [Adopting an existing project](docs/tutorial.en.md#122-adopting-an-existing-project-land-the-conventions-in-spec-first) | The repo exists, but the conventions live mostly in people's heads |
+| [Delivering a product feature](docs/tutorial.en.md#123-delivering-a-product-feature-one-task-across-product-api-data-and-ui) | One task spans product, API, data, and UI |
+| [Refactoring a legacy module](docs/tutorial.en.md#124-refactoring-a-legacy-module-pin-the-behavior-first-then-change-the-code) | The code runs, but it is no longer safe to change |
+| [Fixing a bug that keeps coming back](docs/tutorial.en.md#125-fixing-a-bug-that-keeps-coming-back-find-the-last-session-first) | The same class of problem appears again and again |
 
 ## Core commands
 
-| Command | In one line | Called by | Most common example |
-| --- | --- | --- | --- |
-| `init` | Initialize a project: generate the Chinese `.sunshine/` skeleton and platform configs | You, once per project | `sunshine init -u YourName -y` |
-| `task` | Task management: create, start, finish, archive | The agent, under the hood | `sunshine task create "给退款原因加必填校验" --description "退款时原因字段必填"` |
-| `workflow` | View or switch the workflow template used by `.sunshine/workflow.md` | You, or the agent when you ask it to switch | `sunshine workflow --list` |
-| `update` | Sync the Sunshine template files in the project to the current CLI version | You, when a new version is out (or the agent, on request) | `sunshine update --dry-run` |
-| `init --registry` | Install spec templates from a template marketplace (refreshed by `update` afterwards; in interactive mode, omit `--template` to pick from a list) | You, once per project | `sunshine init --registry gh:owner/repo --template demo-spec -y` |
-| `mem` | Search local AI session history across platforms (read-only) | You, or the agent when you ask it to look back | `sunshine mem search "退款"` |
-| `channel` | Multi-agent collaboration: spawn and coordinate workers through a shared event log | The agent, under the hood (you, when debugging a channel) | `sunshine channel create review --type chat` |
-| `upgrade` | Upgrade the Sunshine CLI itself (via GitHub Releases) | You | `sunshine upgrade --dry-run` |
+The commands the agent calls under the hood are not yours to type; below are the ones you use when you step in manually. For the full reference, see the [tutorial appendix](docs/tutorial.en.md#appendix-command-reference).
 
-`update` vs `upgrade`: `update` refreshes the template files inside your project, while `upgrade` replaces the `sunshine` binary itself. `task create` requires `--description`; before `task start`, the agent organizes the context list with `task add-context`, or passes `--allow-empty-context`.
+| Command | In one line | Most common example |
+| --- | --- | --- |
+| `init` | Initialize a project: generate the Chinese `.sunshine/` skeleton and platform configs; `--registry` installs specs from a template marketplace | `sunshine init -u YourName -y` |
+| `task` | Task management: create, start, finish, archive (the agent calls it under the hood; you check status with `task current` / `task list`) | `sunshine task create "给退款原因加必填校验" --description "退款时原因字段必填"` |
+| `workflow` | View or switch the workflow template used by `.sunshine/workflow.md` | `sunshine workflow --list` |
+| `update` | Sync the Sunshine template files in the project to the current CLI version | `sunshine update --dry-run` |
+| `mem` | Search local AI session history across platforms (read-only) | `sunshine mem search "退款"` |
+| `channel` | Multi-agent collaboration: spawn and coordinate workers through a shared event log | `sunshine channel create review --type chat` |
+| `upgrade` | Upgrade the Sunshine CLI itself (via GitHub Releases) | `sunshine upgrade --dry-run` |
+
+`update` vs `upgrade`: `update` refreshes the template files inside your project, while `upgrade` replaces the `sunshine` binary itself. The commands the agent runs under the hood are in [section 4 of the tutorial](docs/tutorial.en.md#4-what-happened-under-the-hood).
 
 ## Configuration
 

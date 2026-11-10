@@ -2,7 +2,7 @@
 
 The main flow in one line: **run `sunshine init` once in the terminal, then do everything else by talking to the agent in its UI (Claude Code first, Codex / Cursor the same idea) in plain language — the agent drives the work following `.sunshine/workflow.md` and calls `sunshine` commands under the hood; you review the diff, accept, and the work is committed.**
 
-That is the whole point of this tutorial: the terminal is not where you spend your day. You type one setup command, then you talk. The `sunshine task …` / `sunshine channel …` commands still exist, but they are the agent's tools, not your daily interface — they appear in this tutorial only in [section 4](#4-what-happened-under-the-hood) (what the agent actually ran, with real outputs), in [section 12](#12-wrap-up-manual-intervention-cheat-sheet) (when you step in manually), and in [section 13](#13-five-scenarios-from-day-one-to-daily-work) (one walkthrough per scenario).
+That is the whole point of this tutorial: the terminal is not where you spend your day. You type one setup command, then you talk. The `sunshine task …` / `sunshine channel …` commands still exist, but they are the agent's tools, not your daily interface — they appear in this tutorial only in [section 4](#4-what-happened-under-the-hood) (what the agent actually ran, with real outputs), in [section 12](#12-five-scenarios-from-day-one-to-daily-work) (one walkthrough per scenario), and in the [appendix](#appendix-command-reference) (command reference for when you step in manually).
 
 The demo project is the same throughout: **refund reason required** — add a mandatory reason field to the refund flow. The example is small; the workflow is real.
 
@@ -58,75 +58,9 @@ Real output:
 
 (`-u` is the developer name; `-y` skips all prompts and uses the defaults. In English: "Configuring Claude Code… / Configuring Cursor… / Initialization complete, developer: 演示者 / Project type: 全栈 (default) / Installed platforms: Claude Code, Cursor / Next steps: 1. Open the project in the agent UI and state your first requirement in plain language; 2. The specs have been generated in .sunshine/spec/ from the default templates (generated: system.md, frontend.md, backend.md; add your team's specs if you have them); the workflow runs automatically following .sunshine/workflow.md and normally needs no changes.")
 
-Project type is auto-detected at init: `init` reads `package.json` dependencies and common frontend/backend config files (`vite.config.ts`, `go.mod`, etc.) and generates only the matching specs — a frontend project gets `system.md` and `frontend.md`, a backend project gets `system.md` and `backend.md`, a fullstack project gets all three. The demo directory is empty, so nothing is detected; with `-y` skipping the prompt it defaults to fullstack, which is why the output above says `项目类型：全栈（默认）` ("Project type: fullstack (default)"). Without `-y`, an undetected type triggers one question (frontend / backend / fullstack); to specify it explicitly use `--type 前端` (or 后端 / 全栈). With `--registry` (specs from the template marketplace) there is no detection and no question. Without `-y` and without `--template`, init asks one more question after the platform selection — a spec template picker ("请选择规范模板"): "从零开始" (from scratch, the default), or "自定义" (enter a marketplace source and pick from it); with `--registry` the picker lists that marketplace's spec templates, and the picked one replaces the blank specs.
+The demo directory is empty, so nothing is detected; with `-y` skipping the prompt it defaults to fullstack, which is why the output above says `项目类型：全栈（默认）` ("Project type: fullstack (default)"). By default `init` installs Claude Code and Cursor and generates the Chinese `.sunshine/` skeleton with both platforms' configs.
 
-### What init asks (without `-y`, four questions in order)
-
-1. **Pick platforms** ("请选择要配置的 AI 编程平台", "Select the AI programming platforms to configure"): a multi-select of all 22 platforms, with Claude Code and Cursor checked by default; selecting none cancels the init ("未选择任何平台，初始化已取消。", "No platform selected, initialization cancelled.").
-2. **Statusline confirmation** (only when Claude Code is selected): "是否为 Claude Code 安装状态栏……？" ("Install the statusline for Claude Code…?"), default no; pass `--with-statusline` to install it directly.
-3. **Pick a spec template** ("请选择规范模板", "Select a spec template"): "从零开始" (from scratch) by default, or "自定义" (enter a marketplace source and pick from it); with `--registry` the picker lists that marketplace's spec templates, and the picked one is installed instead of the blank specs.
-4. **Pick a project type** (only when nothing is detected): "检测不到项目类型，请选择" ("Project type not detected, please choose"): frontend / backend / fullstack, default fullstack.
-
-`-y` skips all four questions and uses the defaults; passing the matching flag (a platform flag, `--type`, `--template`) skips that question too.
-
-### Common options
-
-| Option | What it does |
-| --- | --- |
-| `-u, --user <name>` | Developer name, written to `.sunshine/.developer`; priority: `-u` > git user.name > `developer`; new tasks default their creator and assignee to it |
-| `-y, --yes` | Skip all prompts: default platforms Claude Code + Cursor, default fullstack, default blank specs, no statusline |
-| `-f, --force` | Rebuild the skeleton and platform files even when already initialized (see "Three modes" below) |
-| `--type <前端/后端/全栈>` | Specify the project type explicitly, skipping detection and the question |
-| `--registry <source>` | Template marketplace source: `gh:owner/repo`, a full git URL, an HTTP(S) URL, a `git@` address, or a local git repository path |
-| `--template <id>` | Marketplace entry id, must be used with `--registry`; when omitted, a marketplace source errors out under `-y` and shows the picker interactively |
-| `--overwrite` / `--append` | Overwrite the target if it exists / only fill in missing files; only with `--template` |
-| `--with-statusline` | Install the statusline for Claude Code; only effective when Claude Code is selected |
-| `--<platform>` | Install only the named platform: `--claude` `--cursor` `--codex` `--kiro` `--gemini` `--qoder` `--pi` `--zcode` `--trae` `--omp` `--snow` `--opencode` `--dsh` `--reasonix` `--grok` `--kimi` `--kilo` `--antigravity` `--devin` `--codebuddy` `--copilot` `--droid` (22 in total; `--windsurf` is a deprecated alias for `--devin` and is converted automatically with a warning) |
-
-### Three modes
-
-- **Fresh init**: no `.sunshine/` in the directory yet; generates the skeleton and platform configs following the flow above.
-- **Rebuild** (`-f`): rebuilds the skeleton and platform files even when already initialized.
-- **Incremental**: running `init` again without `-f` in an initialized project only adds the newly selected platforms (and can also install a marketplace template with `--registry`), leaving existing platform files and the `.sunshine/` skeleton untouched. For example, `sunshine init --codex -y` adds only Codex.
-
-Note: `init` refuses to run in your home directory (set `SUNSHINE_ALLOW_HOMEDIR=1` to bypass). `sunshine platforms` shows which platforms are configured for the current project.
-
-What `init` just installed — 115 files, in two groups:
-
-- **For the agent to read — `.sunshine/` (17 files):** `workflow.md` (714 lines, the full development workflow the agent follows), `spec/` with three spec templates (`system.md`, `backend.md`, `frontend.md`), `config.yaml` (project config with Chinese comments), `AGENTS.md`, and `agents/` (five agent definitions). `AGENTS.md` opens with:
-  ```text
-  # AGENTS.md（Sunshine）
-
-  本文件面向在本仓库工作的 AI 编程助手。
-
-  ## 工作方式
-
-  - 先读 `.sunshine/spec/` 与 `.sunshine/workflow.md`，再动手。
-  ```
-  ("This file is for the AI programming assistant working in this repository. / How to work: first read `.sunshine/spec/` and `.sunshine/workflow.md`, then start.")
-- **For the platforms to load — `.claude/` and `.cursor/` (98 files):** skills, commands (`/sunshine:continue`, `/sunshine:finish-work`), sub-agents (`sunshine-implement`, `sunshine-check`, `sunshine-research`), and hook configs. These are what make the agent know Sunshine's workflow at all.
-
-Check what is configured:
-
-```sh
-sunshine platforms
-# 已配置的平台：
-#   Claude Code (claude-code) — .claude
-#   Cursor (cursor) — .cursor
-```
-
-("Configured platforms: …") By default `init` installs Claude Code and Cursor. To add Codex later, run `init --codex -y` again in the same project — it only adds the new platform and leaves existing files untouched: There are 22 supported platforms in total; install a specific one with `sunshine init --<platform> -y`, e.g. `sunshine init --gemini -y`. With no platform flag, `init` still installs only Claude Code and Cursor.
-
-```text
-正在配置 Codex……
-已安装平台：
-  - Codex
-提示：Codex hooks 须在 ~/.codex/config.toml 中设置 features.hooks = true（Codex 0.129+；旧版为 codex_hooks = true），并在 Codex 里运行一次 /hooks 审批，否则 .codex/hooks.json 不生效。
-```
-
-("Configuring Codex… / Installed platforms: Codex / Note: Codex hooks require `features.hooks = true` in `~/.codex/config.toml` (Codex 0.129+; older versions use `codex_hooks = true`), plus one `/hooks` approval run inside Codex, otherwise `.codex/hooks.json` does not take effect.")
-
-From here on, close the terminal. The rest of this tutorial happens in the agent UI.
+From here on, close the terminal and ask for your first requirement in the agent UI (section 2). All init operations — the interactive questions, the common options, the three modes, project-type detection, and what gets installed — are in the [appendix: command reference](#appendix-command-reference) at the end.
 
 ## 2. Open the agent UI: ask in plain language
 
@@ -150,7 +84,7 @@ Before the work starts, the demo project's conventions need to live in the specs
 - 退款原因必填：用户提交退款时原因字段不能为空，否则拒绝提交。
 ```
 
-(`system.md` is the spec the agent itself maintains in the background; see [section 6](#6-how-specs-are-maintained`).)
+(`system.md` is the spec the agent itself maintains in the background; see [section 6](#6-how-specs-are-maintained).)
 
 `.sunshine/spec/backend.md` — the API contract:
 
@@ -429,11 +363,6 @@ Real output (excerpt):
 会话：1
 标题：退款原因必填校验实现
 提交：-
-
-当前日志文件：journal-1.md
-当前行数：7
-新增行数：21
-追加后总计：28
 
 [OK] 会话已追加到 journal-1.md
 ……
@@ -948,31 +877,9 @@ When a new version exists (output from the default local build, whose version is
 
 A real upgrade (drop `--dry-run`) follows the same flow: check the latest version → pick the asset for the current OS and architecture → download → verify sha256 against `checksums.txt` → back up the current binary (a `.bak` next to it) → replace → run the new `--version` to verify, rolling back to the backup and reporting an error on failure. You can also pin a version or channel: `sunshine upgrade --tag 0.2.1`, `sunshine upgrade --tag beta`.
 
-## 12. Wrap-up: manual-intervention cheat sheet
+## 12. Five scenarios: from day one to daily work
 
-That is the whole mainline: you ran `init` once, asked for the refund validation in plain language in the agent UI, the agent planned, implemented, checked, wrote the lessons back into the spec, and finished with `/sunshine:finish-work`; you reviewed the diff and accepted; the task is archived and the session is in the journal.
-
-Everything else in Sunshine is something you reach for when you step in manually. These are the only commands you ever need to type yourself:
-
-| When | Command | What it does |
-| --- | --- | --- |
-| Where did we get to? | `sunshine task list` / `sunshine task current` / `sunshine task context` | Show active tasks, the current task, and the full session context |
-| Check the next step | `sunshine task list-archive` | Show archived tasks by month |
-| Switch how the agent works | `sunshine workflow --list` / `sunshine workflow --template tdd` | List or switch workflow templates ([section 7](#7-switching-workflows)) |
-| Refresh project templates | `sunshine update --dry-run` (drop `--dry-run` to apply) | Sync template files; user data is never touched ([section 8](#8-update-and-the-template-marketplace)) |
-| Install a spec from a marketplace | `sunshine init --registry <source> --template <id>` | Install a spec template, refreshed by `update` afterwards ([section 8](#8-update-and-the-template-marketplace)); in interactive mode, omit `--template` to pick from a list |
-| All init operations | `sunshine init --help` | Platforms, statusline, template picker, project type, three modes — see section 1 |
-| Look back | `sunshine mem search "退款"` / `sunshine mem list` | Search local session history, read-only ([section 9](#9-mem-look-back-at-sessions)) |
-| Multi-agent work | `sunshine channel list` / `sunshine channel messages <name>` | Inspect channels and their event timelines ([section 10](#10-channel-multi-agent-collaboration)) |
-| Update the CLI itself | `sunshine upgrade --dry-run` (drop `--dry-run` to apply) | Upgrade the `sunshine` binary ([section 11](#11-upgrade-update-the-cli-itself)) |
-| See what is configured | `sunshine platforms` | Show the platforms configured for this project |
-| Remove Sunshine from a project | `sunshine uninstall` / `sunshine ablate` / `sunshine restore` | Delete all Sunshine files, temporarily remove them (reversible), or restore exactly what `ablate` saved |
-
-Everything not listed here — `task create/start/archive`, `task add-context/validate`, `channel create/send/spawn/wait`, `task add-session` — is the agent's job, driven by `workflow.md`. If you find yourself typing those by hand every day, something is wrong: open the agent UI and let it drive.
-
-## 13. Five scenarios: from day one to daily work
-
-Sections 1–12 cover the main flow; this section walks through five real scenarios, each one a complete end-to-end run:
+Sections 1–11 cover the main flow; this section walks through five real scenarios, each one a complete end-to-end run:
 
 | Scenario | When it applies | The point |
 | --- | --- | --- |
@@ -984,7 +891,7 @@ Sections 1–12 cover the main flow; this section walks through five real scenar
 
 This section was verified with **v0.3.0** (the current Release; `sunshine version` prints `Sunshine 版本 0.3.0`). The demo directories all live under `/tmp/scenes/` (`s1-new`, `s2-old`, `s3-cross`, `s4-refactor`, `s5-bug`) — delete them and nothing in any real project is affected. The `11-10` prefix in task directory names is the month-day of the day the commands were run (2026-11-10). Command outputs are real excerpts from runs made for this tutorial (`……` marks omitted lines, not rewritten ones); prompts shown to the agent are labeled as example prompts, not records of a real session. The CLI itself is Chinese-only, so commands and sample outputs below are kept in the original Chinese; the explanations around them are in English.
 
-### 13.1 Starting a new project from zero: a duty-roster tool
+### 12.1 Starting a new project from zero: a duty-roster tool
 
 An empty directory, nothing in it — the cleanest starting point. Create the directory, put it in git, then `init`:
 
@@ -1059,7 +966,7 @@ Wrap-up is the same as section 4: `task finish` clears the pointer, `task archiv
 
 After the first task, the project has three things: code that runs, an archived task record, and specs generated from the default templates. From the second task on, the agent has something to work from.
 
-### 13.2 Adopting an existing project: land the conventions in spec first
+### 12.2 Adopting an existing project: land the conventions in spec first
 
 The repo exists, but the conventions live mostly in people's heads — the most common adoption case. The demo is a refund API that has run for two years (`express` is the only dependency in `package.json`, one file `src/server.js`), with the team's conventions written in `README.md` and nowhere else:
 
@@ -1129,7 +1036,7 @@ grep -c "审计日志" .sunshine/spec/backend.md
 
 From now on the conventions no longer live only in senior engineers' heads: the agent on a new task reads the spec, and the conventions survive people leaving. The acceptance bar for adopting an existing project is one line — **after `init`, `git status` shows no modified old files, and spec has one more convention that used to live only in memory**.
 
-### 13.3 Delivering a product feature: one task across product, API, data, and UI
+### 12.3 Delivering a product feature: one task across product, API, data, and UI
 
 When one task spans four layers, the usual failure is changing one layer and missing another — Sunshine's answer is one task whose context list names the files in all four layers at once, so acceptance checks against the same list. The demo is a refund app (`src/Refund.vue` is the UI, `src/server.js` the API, `data/refunds.json` the data), and the task is making the refund reason mandatory.
 
@@ -1211,7 +1118,7 @@ sunshine workflow --template native --force
 
 The acceptance bar for a cross-layer task is in the same list: all four lines in `list-context` done, and the one spec in `check` verified line by line — whichever layer is missed shows up on the list.
 
-### 13.4 Refactoring a legacy module: pin the behavior first, then change the code
+### 12.4 Refactoring a legacy module: pin the behavior first, then change the code
 
 The code runs, but it is no longer safe to change — the first step of a refactor is not to change anything, but to pin down what the code currently does. The demo module is a price function with all the discount rules hard-coded in `if`s:
 
@@ -1313,9 +1220,9 @@ Still all green — the behavior did not change, so the refactor stands. The red
 
 (In English: "Price calculation: discount rules live in the constants and applyBulk / applyVIP in calc.go; Price only composes them. Change a rule by changing the case table in calc_test.go first.")
 
-Archive the task as usual and switch the workflow back to native (`--force`, same reason as in 13.3).
+Archive the task as usual and switch the workflow back to native (`--force`, same reason as in 12.3).
 
-### 13.5 Fixing a bug that keeps coming back: find the last session first
+### 12.5 Fixing a bug that keeps coming back: find the last session first
 
 When the same class of problem appears again and again, the most expensive part is investigating it from zero every time. The bug in this section really happened: a codex worker failing to connect with a 401 — once on November 9, again in the early hours of November 10, and once more today.
 
@@ -1401,3 +1308,99 @@ Where to go next:
 - [README.en.md](../README.en.md): the doorway — installation, quick start, core commands at a glance, configuration essentials.
 - [PLAN.md](../PLAN.md): the full plan and per-stage implementation notes, including the design decisions behind the commands this tutorial did not expand on (`hook`, `platforms`, `uninstall`, `ablate`, `restore`).
 - [Releases](https://github.com/linrong1982/Sunshine/releases): downloads and release notes for each version.
+
+## Appendix: command reference
+
+That is the whole mainline: you ran `init` once, asked for the refund validation in plain language in the agent UI, the agent planned, implemented, checked, wrote the lessons back into the spec, and finished with `/sunshine:finish-work`; you reviewed the diff and accepted; the task is archived and the session is in the journal.
+
+Everything else in Sunshine is something you reach for when you step in manually. These are the only commands you ever need to type yourself — every one of them was run for real earlier in this tutorial (the one-line descriptions of `uninstall` / `ablate` / `restore` come from their own `--help`, not from a run here).
+
+Everything not listed here — `task create/start/archive`, `task add-context/validate`, `channel create/send/spawn/wait`, `task add-session` — is the agent's job, driven by `workflow.md` (see section 4). If you find yourself typing those by hand every day, something is wrong: open the agent UI and let it drive.
+
+### init reference
+
+#### What init asks (without `-y`, four questions in order)
+
+1. **Pick platforms** ("请选择要配置的 AI 编程平台", "Select the AI programming platforms to configure"): a multi-select of all 22 platforms, with Claude Code and Cursor checked by default; selecting none cancels the init ("未选择任何平台，初始化已取消。", "No platform selected, initialization cancelled.").
+2. **Statusline confirmation** (only when Claude Code is selected): "是否为 Claude Code 安装状态栏……？" ("Install the statusline for Claude Code…?"), default no; pass `--with-statusline` to install it directly.
+3. **Pick a spec template** ("请选择规范模板", "Select a spec template"): "从零开始" (from scratch) by default, or "自定义" (enter a marketplace source and pick from it); with `--registry` the picker lists that marketplace's spec templates, and the picked one is installed instead of the blank specs.
+4. **Pick a project type** (only when nothing is detected): "检测不到项目类型，请选择" ("Project type not detected, please choose"): frontend / backend / fullstack, default fullstack.
+
+`-y` skips all four questions and uses the defaults; passing the matching flag (a platform flag, `--type`, `--template`) skips that question too.
+
+Project-type detection reads `package.json` dependencies and common frontend/backend config files (`vite.config.ts`, `go.mod`, etc.) and generates only the matching specs — a frontend project gets `system.md` and `frontend.md`, a backend project gets `system.md` and `backend.md`, a fullstack project gets all three. With `--registry` (specs from the template marketplace) there is no detection and no question.
+
+#### Common options
+
+| Option | What it does |
+| --- | --- |
+| `-u, --user <name>` | Developer name, written to `.sunshine/.developer`; priority: `-u` > git user.name > `developer`; new tasks default their creator and assignee to it |
+| `-y, --yes` | Skip all prompts: default platforms Claude Code + Cursor, default fullstack, default blank specs, no statusline |
+| `-f, --force` | Rebuild the skeleton and platform files even when already initialized (see "Three modes" below) |
+| `--type <前端/后端/全栈>` | Specify the project type explicitly, skipping detection and the question |
+| `--registry <source>` | Template marketplace source: `gh:owner/repo`, a full git URL, an HTTP(S) URL, a `git@` address, or a local git repository path |
+| `--template <id>` | Marketplace entry id, must be used with `--registry`; when omitted, a marketplace source errors out under `-y` and shows the picker interactively |
+| `--overwrite` / `--append` | Overwrite the target if it exists / only fill in missing files; only with `--template` |
+| `--with-statusline` | Install the statusline for Claude Code; only effective when Claude Code is selected |
+| `--<platform>` | Install only the named platform: `--claude` `--cursor` `--codex` `--kiro` `--gemini` `--qoder` `--pi` `--zcode` `--trae` `--omp` `--snow` `--opencode` `--dsh` `--reasonix` `--grok` `--kimi` `--kilo` `--antigravity` `--devin` `--codebuddy` `--copilot` `--droid` (22 in total; `--windsurf` is a deprecated alias for `--devin` and is converted automatically with a warning) |
+
+#### Three modes
+
+- **Fresh init**: no `.sunshine/` in the directory yet; generates the skeleton and platform configs following the flow above.
+- **Rebuild** (`-f`): rebuilds the skeleton and platform files even when already initialized.
+- **Incremental**: running `init` again without `-f` in an initialized project only adds the newly selected platforms (and can also install a marketplace template with `--registry`), leaving existing platform files and the `.sunshine/` skeleton untouched. For example, `sunshine init --codex -y` adds only Codex.
+
+Note: `init` refuses to run in your home directory (set `SUNSHINE_ALLOW_HOMEDIR=1` to bypass).
+
+#### What init installs
+
+What `init` just installed — 115 files, in two groups:
+
+- **For the agent to read — `.sunshine/` (17 files):** `workflow.md` (714 lines, the full development workflow the agent follows), `spec/` with three spec templates (`system.md`, `backend.md`, `frontend.md`), `config.yaml` (project config with Chinese comments), `AGENTS.md`, and `agents/` (five agent definitions). `AGENTS.md` opens with:
+  ```text
+  # AGENTS.md（Sunshine）
+
+  本文件面向在本仓库工作的 AI 编程助手。
+
+  ## 工作方式
+
+  - 先读 `.sunshine/spec/` 与 `.sunshine/workflow.md`，再动手。
+  ```
+  ("This file is for the AI programming assistant working in this repository. / How to work: first read `.sunshine/spec/` and `.sunshine/workflow.md`, then start.")
+- **For the platforms to load — `.claude/` and `.cursor/` (98 files):** skills, commands (`/sunshine:continue`, `/sunshine:finish-work`), sub-agents (`sunshine-implement`, `sunshine-check`, `sunshine-research`), and hook configs. These are what make the agent know Sunshine's workflow at all.
+
+Check what is configured:
+
+```sh
+sunshine platforms
+# 已配置的平台：
+#   Claude Code (claude-code) — .claude
+#   Cursor (cursor) — .cursor
+```
+
+("Configured platforms: …") By default `init` installs Claude Code and Cursor. To add Codex later, run `init --codex -y` again in the same project — it only adds the new platform and leaves existing files untouched: There are 22 supported platforms in total; install a specific one with `sunshine init --<platform> -y`, e.g. `sunshine init --gemini -y`. With no platform flag, `init` still installs only Claude Code and Cursor.
+
+```text
+正在配置 Codex……
+已安装平台：
+  - Codex
+提示：Codex hooks 须在 ~/.codex/config.toml 中设置 features.hooks = true（Codex 0.129+；旧版为 codex_hooks = true），并在 Codex 里运行一次 /hooks 审批，否则 .codex/hooks.json 不生效。
+```
+
+("Configuring Codex… / Installed platforms: Codex / Note: Codex hooks require `features.hooks = true` in `~/.codex/config.toml` (Codex 0.129+; older versions use `codex_hooks = true`), plus one `/hooks` approval run inside Codex, otherwise `.codex/hooks.json` does not take effect.")
+
+### Manual-intervention cheat sheet
+
+| When | Command | What it does |
+| --- | --- | --- |
+| Where did we get to? | `sunshine task list` / `sunshine task current` / `sunshine task context` | Show active tasks, the current task, and the full session context |
+| Check the next step | `sunshine task list-archive` | Show archived tasks by month |
+| Switch how the agent works | `sunshine workflow --list` / `sunshine workflow --template tdd` | List or switch workflow templates ([section 7](#7-switching-workflows)) |
+| Refresh project templates | `sunshine update --dry-run` (drop `--dry-run` to apply) | Sync template files; user data is never touched ([section 8](#8-update-and-the-template-marketplace)) |
+| Install a spec from a marketplace | `sunshine init --registry <source> --template <id>` | Install a spec template, refreshed by `update` afterwards ([section 8](#8-update-and-the-template-marketplace)); in interactive mode, omit `--template` to pick from a list |
+| All init operations | `sunshine init --help` | Platforms, statusline, template picker, project type, three modes — see the init reference in this appendix |
+| Look back | `sunshine mem search "退款"` / `sunshine mem list` | Search local session history, read-only ([section 9](#9-mem-look-back-at-sessions)) |
+| Multi-agent work | `sunshine channel list` / `sunshine channel messages <name>` | Inspect channels and their event timelines ([section 10](#10-channel-multi-agent-collaboration)) |
+| Update the CLI itself | `sunshine upgrade --dry-run` (drop `--dry-run` to apply) | Upgrade the `sunshine` binary ([section 11](#11-upgrade-update-the-cli-itself)) |
+| See what is configured | `sunshine platforms` | Show the platforms configured for this project |
+| Remove Sunshine from a project | `sunshine uninstall` / `sunshine ablate` / `sunshine restore` | Delete all Sunshine files, temporarily remove them (reversible), or restore exactly what `ablate` saved |
