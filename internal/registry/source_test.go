@@ -103,6 +103,89 @@ func TestParseRegistrySource(t *testing.T) {
 	}
 }
 
+func TestParseRegistrySourceDotGitPaths(t *testing.T) {
+	// 显式 .git 规则：自建来源路径以 .git 结尾时，整个路径就是仓库，
+	// subdir 为空；不带 .git 时保持现有两段式规则；giget 前缀与公开
+	// 域名不受影响，仍按两段式走。
+	cases := []struct {
+		in      string
+		repo    string
+		subdir  string
+		ref     string
+		gitURL  string
+		host    string
+		kind    SourceKind
+		rawBase string
+	}{
+		// 两段式现状不变。
+		{"ssh://git@localhost:2222/git/registry", "git/registry", "", "main",
+			"ssh://git@localhost:2222/git/registry.git", "localhost", SourceKindSSH,
+			"https://localhost/git/registry/-/raw/main"},
+		{"ssh://git@localhost:2222/git/registry/marketplace", "git/registry", "marketplace", "main",
+			"ssh://git@localhost:2222/git/registry.git", "localhost", SourceKindSSH,
+			"https://localhost/git/registry/-/raw/main/marketplace"},
+		// 三段式带 .git：ssh-url / scp / https 三路，含带端口。
+		{"ssh://git@localhost:2222/home/git/registry.git", "home/git/registry", "", "main",
+			"ssh://git@localhost:2222/home/git/registry.git", "localhost", SourceKindSSH,
+			"https://localhost/home/git/registry/-/raw/main"},
+		{"ssh://git@localhost/home/git/registry.git", "home/git/registry", "", "main",
+			"ssh://git@localhost/home/git/registry.git", "localhost", SourceKindSSH,
+			"https://localhost/home/git/registry/-/raw/main"},
+		{"git@localhost:home/git/registry.git", "home/git/registry", "", "main",
+			"git@localhost:home/git/registry.git", "localhost", SourceKindSSH,
+			"https://localhost/home/git/registry/-/raw/main"},
+		{"https://localhost:8443/home/git/registry.git", "home/git/registry", "", "main",
+			"https://localhost:8443/home/git/registry.git", "localhost:8443", SourceKindHTTPS,
+			"https://localhost:8443/home/git/registry/-/raw/main"},
+		// 四段式带 .git。
+		{"ssh://git@localhost:2222/a/b/c/d.git", "a/b/c/d", "", "main",
+			"ssh://git@localhost:2222/a/b/c/d.git", "localhost", SourceKindSSH,
+			"https://localhost/a/b/c/d/-/raw/main"},
+		// 三段式不带 .git：保持现状（前两段是 repo、余下是 subdir）。
+		{"ssh://git@localhost:2222/home/git/registry", "home/git", "registry", "main",
+			"ssh://git@localhost:2222/home/git.git", "localhost", SourceKindSSH,
+			"https://localhost/home/git/-/raw/main/registry"},
+		{"git@localhost:home/git/registry/marketplace", "home/git", "registry/marketplace", "main",
+			"git@localhost:home/git.git", "localhost", SourceKindSSH,
+			"https://localhost/home/git/-/raw/main/registry/marketplace"},
+		// 带 #ref：.git#ref 也要判对；末尾 / 也要判对。
+		{"ssh://git@localhost:2222/home/git/registry.git#dev", "home/git/registry", "", "dev",
+			"ssh://git@localhost:2222/home/git/registry.git", "localhost", SourceKindSSH,
+			"https://localhost/home/git/registry/-/raw/dev"},
+		{"git@localhost:home/git/registry.git#dev", "home/git/registry", "", "dev",
+			"git@localhost:home/git/registry.git", "localhost", SourceKindSSH,
+			"https://localhost/home/git/registry/-/raw/dev"},
+		{"https://localhost:8443/home/git/registry.git#dev", "home/git/registry", "", "dev",
+			"https://localhost:8443/home/git/registry.git", "localhost:8443", SourceKindHTTPS,
+			"https://localhost:8443/home/git/registry/-/raw/dev"},
+		{"ssh://git@localhost:2222/home/git/registry.git/", "home/git/registry", "", "main",
+			"ssh://git@localhost:2222/home/git/registry.git", "localhost", SourceKindSSH,
+			"https://localhost/home/git/registry/-/raw/main"},
+		// 公开域名不受影响，仍按两段式走。
+		{"ssh://git@github.com:2222/home/git/registry.git", "home/git", "registry", "main",
+			"ssh://git@github.com:2222/home/git.git", "", SourceKindSSH,
+			"https://raw.githubusercontent.com/home/git/main/registry"},
+	}
+	for _, c := range cases {
+		got, err := ParseRegistrySource(c.in)
+		if err != nil {
+			t.Errorf("ParseRegistrySource(%q) 失败：%v", c.in, err)
+			continue
+		}
+		if got.Repo != c.repo || got.Subdir != c.subdir || got.Ref != c.ref ||
+			got.GitURL != c.gitURL || got.Host != c.host || got.Kind != c.kind {
+			t.Errorf("ParseRegistrySource(%q) =\n%+v\n想得到 Repo=%q Subdir=%q Ref=%q GitURL=%q Host=%q Kind=%q",
+				c.in, *got, c.repo, c.subdir, c.ref, c.gitURL, c.host, c.kind)
+		}
+		if got.RawBaseURL != c.rawBase {
+			t.Errorf("ParseRegistrySource(%q) RawBaseURL = %q，想得到 %q", c.in, got.RawBaseURL, c.rawBase)
+		}
+		if !got.PreferGit {
+			t.Errorf("ParseRegistrySource(%q) PreferGit 应为真", c.in)
+		}
+	}
+}
+
 func TestParseRegistrySourceErrors(t *testing.T) {
 	for _, in := range []string{
 		"",

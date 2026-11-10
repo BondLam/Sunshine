@@ -1663,3 +1663,31 @@ pre-commit install       # 在仓库根目录执行一次
 - 独立复验：SSH 端到端重跑一次（`init --registry ssh://git@localhost:2222/git/registry/marketplace --template demo-spec`，demo-spec 2 文件装进 `.sunshine/spec`）；迁移五路测试全过；ExtractDialogue 十路测试全过；`mem search` 在 3000 会话 / 30000 消息性能库上三轮 325/291/329ms（30 个命中），库文件 SHA-256 与实测前一致（`abe4feef…2a95d`）。
 - 新增 trellis 字样核查：改动代码与新增文件里无新输出的 trellis 字样；仅有的 1 处是 `0.2.0.json` 的 `notes` 字段（上游出处说明，CLI 不打印，`From`/`To` 路径有测试 guard 锁死不得残留）与 PLAN.md 文档里的出处引用。
 - **后续任务（另立，不在本批次）**：SSH registry 的 `ParseRegistrySource` 只支持两段式路径，三段式绝对路径（如 `ssh://git@localhost:2222/home/git/registry.git`）会被误解析（见第 3 项结论）；要支持任意绝对路径须改解析器。本批次已随 v0.2.0 提交推送并发布（见“v0.2.0 发布记录”）。
+
+## SSH 三段式路径解析 + README 补齐与中英文教程（2026-11-09，用户确认做）
+
+### 实施说明
+
+#### A. SSH 解析：支持任意段数的绝对路径
+
+- **根因**（`internal/registry/parse.go` 的 `ParseRegistrySource`）：解析完把路径按 `/` 切段后写死 `repo = segments[0] + "/" + segments[1]`、其余全当 subdir。这是 GitHub 式 `owner/repo` 的假设；自建服务器上仓库放在绝对路径（如 `/home/git/registry.git`）时就错：`ssh://git@localhost:2222/home/git/registry.git` 被误解析为 Repo=`home/git`、Subdir=`registry`、GitURL=`ssh://git@localhost:2222/home/git.git`（批次 7 第 3 项结论里临时程序实测输出）。两段式与带 subdir 的两段式（`.../git/registry/marketplace`）目前解析正确，修的时候不能改坏这两路。
+- **定下的修法（显式 `.git` 规则）**：路径以 `.git` 结尾（`#ref` 在 `#` 之前判断）时，整个路径就是仓库路径，subdir 为空；不带 `.git` 时保持现有两段式规则（前两段是 repo、其余是 subdir）。理由：`.git` 后缀是用户明确说“这就是仓库”的信号，无歧义；不带后缀的 `.../org/repo/marketplace` 无法区分“repo 是 org/repo、subdir 是 marketplace”还是“repo 就是 org/repo/marketplace”，只能沿用现有约定。
+- **适用范围**：三路输入都要覆盖——`ssh://git@host[:port]/路径`、`git@host:路径`（scp 式）、自建 HTTPS `https://host[:port]/路径`（`httpsUnknownRe` 分支）。giget 前缀（`gh:` 等）与公开域名（github/gitlab/bitbucket）不受影响，仍按两段式走。
+- **注意第二处同款实现**：`internal/workflow/registry.go:126` 的 `ParseRegistrySource`（`workflow -m/--marketplace` 用）第 218 行也是同样的 `segments[0] + "/" + segments[1]`。两处行为要一致：优先让 workflow 版复用 registry 版（若结构允许），否则同规则各修一处；workflow 现有测试不能坏。
+- **测试**：`source_test.go`（与 workflow 侧对应测试）加表驱动用例——两段式现状不变（`.../git/registry`、带 subdir 的 `.../git/registry/marketplace`）；三段式带 `.git`（ssh-url / scp / https 三路，含带端口）：Repo 为完整三段路径、Subdir 为空、GitURL 拼回原路径；四段式带 `.git`；三段式不带 `.git` 保持现状（Repo 前两段、余下为 subdir）；带 `#ref` 时 `.git#ref` 也要判对。
+- **端到端**：复用批次 7 的本地 sshd（配置 `/tmp/ssh-e2e/sshd_config`，重起：`/usr/sbin/sshd -f /tmp/ssh-e2e/sshd_config -E /tmp/ssh-e2e/sshd.log`，`/run/sshd` 须为 root 755；停：`kill $(cat /tmp/ssh-e2e/sshd.pid)`；客户端钥匙 `/tmp/ssh-e2e/home/.ssh/id_ed25519`）。新建一个三段式绝对路径的裸仓（如 `/home/git/registry3.git`，marketplace 结构），跑 `sunshine init --registry ssh://git@localhost:2222/home/git/registry3.git --template demo-spec` 全流程（克隆、marketplace 解析、模板安装、registry.spec、哈希清单）。同时回归两段式老路（`.../git/registry/marketplace`，批次 7 已验过的命令重跑一次）。sshd 验后停掉，配置与密钥保留。
+
+#### B. README 补齐与中英文教程：布局已定
+
+- **README.md（中文，主）**：保持“门口”定位，补齐但不写成手册——安装（已有）、快速上手、核心命令一览（init / task / workflow / update / registry / mem / channel / upgrade，各一行说明 + 一条最常用示例）、配置要点（config.yaml 关键字段）、模板市场（`--registry` 一句话 + 链接）、链接（教程、PLAN.md、Releases）。不塞长篇教程。
+- **README.en.md（英文）**：README.md 的完整英文版，同结构；CLI 本身是中文，英文文档里的命令与输出示例保持中文原文，加一句说明（CLI 输出为中文）。
+- **教程单独成文件，不进 README**：`docs/tutorial.md`（中文）与 `docs/tutorial.en.md`（英文）。内容一条真实主线走到底：init 建项目 → 写 spec（三份规范）→ task 拆任务 → 执行与 workflow 切换 → update 与 registry（模板市场）→ mem 回顾会话 → channel 多 Agent 协同 → upgrade 升级。每一步的命令都要实跑验证（`sunshine --help` 各子命令、临时目录 init 全流程），不编造 flag 与输出；中文教程里的输出示例用真实中文输出，英文教程同命令、输出保留中文原文并加英文解释。
+- **互链**：两份 README 都链向两份教程（中文 README 主链中文教程、附英文版链接；英文 README 反之）。docs 目录下只放这两份教程，不另起别的文档。
+- **不推送**：本批次改动先不提交推送，等用户定夺（是否随下个版本发）。
+
+### 实施记录（2026-11-09）
+
+- **A 路（SSH 解析）**：`internal/registry/parse.go` 与 `internal/workflow/registry.go` 各加 `hasExplicitGitSuffix()`（先切 `#ref`、再去末尾 `/`、判 `.git` 后缀），`dotGit && host != ""` 时整个路径当仓库、subdir 为空；giget 前缀与公开域名仍两段式。workflow 未复用 registry 版：返回结构体（`*Source` vs 值类型 `RegistrySource`）、错误类型与文案不同，复用要加映射层有改坏已断言行为的风险；规则约 10 行，两处用同一用例表保证一致。测试各加 `TestParseRegistrySourceDotGitPaths`（14 用例）：两段式现状不变、三段式带 `.git`（ssh-url/scp/https 三路，含端口）、四段式带 `.git`、三段式不带 `.git` 保持现状、`.git#ref` 三路判对、末尾 `/`、公开域名仍两段式。A 路环境说明：ssh-url 来源的 RawBaseURL 不带端口是既有行为（`host` 只存主机名，端口另存 `sshPort`），改的是测试期望不是代码；git CLI 交叉验证时主机密钥校验失败过一次（服务端优先 ed25519、旧 known_hosts 只有 rsa 记录），在 `/tmp/ssh-e2e/home/.ssh/known_hosts` 追加了 ed25519 记录（现 3 行），go-git 走 accept-new 回调不受影响。
+- **B 路（文档）**：README.md 补齐到 84 行（快速上手、核心命令一览 8 命令、配置要点、模板市场、链接）；README.en.md 新建 86 行；docs/tutorial.md 740 行、docs/tutorial.en.md 781 行，主线 init→spec→task→workflow→update/registry→mem→channel→upgrade；两份 README 都互链两份教程，锚点与第 5 步实际标题对得上。教程命令逐条实跑、输出为真实摘录；未能实跑的部分如实写清未编造：`channel spawn` 真实拉起——claude 二进制不在 `$PATH`（记 `error` 事件）、codex 未登录报 401；mem 无真实会话，先给真实用法、再用手工夹具演示并注明；`update`/`upgrade` 只用 `--dry-run`。
+- **独立复验（主代理）**：`gofmt -l .` 无输出、`go vet` 通过、`go test ./... -count=1` 562 个 PASS、0 FAIL（修前 560）。复验时遇到 `/tmp`（512M tmpfs）满了导致 4 个包链接失败（`no space left on device`），清掉旧验证残留目录（约 400M，多为 v0.1.0/v0.2.0 时期的 /tmp 临时目录）后全过——与代码无关。SSH 端到端用当前树新构建的二进制重跑：三段式 `ssh://git@localhost:2222/home/git/registry3.git --template demo-spec` exit 0（2 文件装好，registry.spec.source 为完整三段式 URL）；两段式回归 `.../git/registry/marketplace` 同样通过；生成文件无 trellis 残留；sshd 验后已停。文档抽查：干净目录 init 正好 115 个文件（与教程一致）、`task create` 不带 `--description` 报“错误：--description 必填”、带上后成功且 task.json 24 字段顺序与清单一致、`workflow --list` 与 `channel create --type chat` 用法与 README 一致、config.yaml 里 README 列的字段与默认值逐项对得上。复验发现一个小问题已直接修掉：README 核心命令表里 `registry` 一行写在“命令”表里，但没有 `sunshine registry` 这个子命令——中英文两份都已改成 `` `init --registry` ``。
+- **本批次改动尚未提交推送**，等用户定夺是否随下个版本发。

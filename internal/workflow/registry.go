@@ -121,6 +121,22 @@ func buildRegistryGitURL(provider, host, repo, kind, sshHost, sshPort, sshStyle 
 	}
 }
 
+// hasExplicitGitSuffix 判断来源是否以 .git 结尾：先切掉 #ref、再去掉末尾
+// 的 /，剩余部分以 .git 结尾即为真。三个正则（scpSSHRe、protocolSSHRe、
+// httpsRe）里的 (?:\.git)? 会把后缀吃掉，所以必须在正则处理之前对原始
+// 来源判断并记下标志，再传到切段逻辑。与 internal/registry 的同名规则
+// 保持一致（两处返回结构体与错误类型不同，故各修一处，不复用）。
+// 以 .git 结尾是用户明确声明“这就是仓库路径”的信号：整个路径都是仓库，
+// subdir 为空；不带 .git 时保持现有两段式规则。
+func hasExplicitGitSuffix(source string) bool {
+	s := source
+	if i := strings.Index(s, "#"); i != -1 {
+		s = s[:i]
+	}
+	s = strings.TrimSuffix(s, "/")
+	return strings.HasSuffix(s, ".git")
+}
+
 // ParseRegistrySource 解析 -m/--marketplace 的来源字符串。
 // 传本地路径（./x、/abs/path、~/x 等）时报错：上游不支持本地路径。
 func ParseRegistrySource(source string) (RegistrySource, error) {
@@ -129,6 +145,9 @@ func ParseRegistrySource(source string) (RegistrySource, error) {
 		strings.HasPrefix(source, "file://") {
 		return RegistrySource{}, fmt.Errorf("无效的市场来源 %q：本地路径不是有效的模板市场来源，请用 gh:user/repo 或 https://github.com/user/repo 这类 Git 仓库地址", source)
 	}
+
+	// .git 后缀要在正则吃掉它之前判断（见 hasExplicitGitSuffix）。
+	dotGit := hasExplicitGitSuffix(source)
 
 	var host string
 	var normalizedInput string
@@ -217,6 +236,13 @@ func ParseRegistrySource(source string) (RegistrySource, error) {
 	}
 	repo := segments[0] + "/" + segments[1]
 	subdir := strings.Join(segments[2:], "/")
+	// 显式 .git 规则（仅自建来源，host 非空才算自建；giget 前缀与公开
+	// 域名仍按两段式走）：整个路径就是仓库，subdir 为空。Join 后再去掉
+	// .git——带 #ref 时正则吃不到后缀，最后一段会仍带 .git。
+	if dotGit && host != "" {
+		repo = strings.TrimSuffix(strings.Join(segments, "/"), ".git")
+		subdir = ""
+	}
 
 	rawBaseURL := strings.ReplaceAll(pattern, "{repo}", repo)
 	rawBaseURL = strings.ReplaceAll(rawBaseURL, "{ref}", ref)
