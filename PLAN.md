@@ -1908,3 +1908,11 @@ pre-commit install       # 在仓库根目录执行一次
 - 内容：教程第 13 节五个场景（中英文，均已实跑验证；上一节的批次），文档-only。提交 `6ba9d0e`（441 个文件），tag v0.3.1 为注释 tag（对象 `887ae1d`）。
 - Release 已发布：https://github.com/linrong1982/Sunshine/releases/tag/v0.3.1，6 个资产；发布与两路 CI 均 success——这次也没有抖动。实测验证：真实一键命令装上 v0.3.1（`--version` 打印 0.3.1）；0.3.0 二进制 `upgrade --dry-run` 正确查到 0.3.1；darwin 包 checksum OK，解出 Mach-O x86_64 二进制；主分支中英文教程均含第 13 节。
 - 未复现的 FAIL 仍未复现（本轮发布三路 CI 全过，本地全量也全过）；若 CI 再抖，先抓完整日志再定。
+
+### install.sh 无参安装报 TAG: unbound variable（2026-11-10，用户截图报障）
+
+- 现象：用户在 Mac 上跑 `curl -fsSL .../install.sh | sh`（不带版本），打印“正在查询最新版本……”后报 `sh: line 68: TAG: unbound variable`，两次一样。带版本参数的装法（`sh -s -- v0.3.1`）不受影响——它跳过查询步骤，之前各版本验证用的都是带版本参数的装法，所以一直没踩到。
+- 复现与核查：沙箱里复现不了——不带参数在 dash、bash、bash --posix（即 macOS 的 /bin/sh）下都能装上 v0.3.1；又用桩 API 模拟了 403 与空 JSON 两种查询失败，旧脚本的 `[ -n "$VERSION" ] || die` 兜底都正常触发，报的是中文“查不到最新版本”，不是 TAG 错。main 上的 install.sh 与工作区一致，且该文件历史上只有一个版本，不存在“用户拿到旧版”的可能。结论：沙箱里无法复现用户 Mac 上的确切触发机制（用户的 Mac 不可达），如实记下，不谎报已定位。
+- 修复（install.sh）：查询最新版不再只走 API——先走 `releases/latest` 的 302 跳转取 Location 头里的 tag（不走 API：不怕限流、不用解析 JSON），拿不到再试 API；两路都拿不到时 die 报中文错；TAG 赋值后加 `[ -n "${TAG:-}" ] || die` 守卫，以后就算版本为空也报中文错，不再出现 `TAG: unbound variable` 这种 shell 报错。另把脚本里的示例版本号 v0.2.0 统一改成 v0.3.1。
+- 验证（新脚本，7 项全过）：① 不带参数真实网络 bash --posix 装上 v0.3.1；② 不带参数 dash 装上 v0.3.1；③ 显式版本 v0.3.0；④ SUNSHINE_VERSION=v0.3.0；⑤ -h；⑥ 跳转 404 + API 正常 → 走 API 兜底装上 v0.3.1；⑦ 两路都 404 → 报“查不到最新版本，请检查网络，或用 SUNSHINE_VERSION=v0.3.1 指定版本”，exit 1，不再是 TAG 错。
+- 本批改动未提交推送，等主代理验收后定夺（提议随 v0.3.2 发版，修安装器）。

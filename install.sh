@@ -5,8 +5,8 @@
 #   curl -fsSL https://raw.githubusercontent.com/linrong1982/Sunshine/main/install.sh | sh
 #
 # 装指定版本（二选一）：
-#   curl -fsSL .../install.sh | sh -s -- v0.2.0
-#   SUNSHINE_VERSION=v0.2.0 sh install.sh
+#   curl -fsSL .../install.sh | sh -s -- v0.3.1
+#   SUNSHINE_VERSION=v0.3.1 sh install.sh
 #
 # 装到指定目录（默认 /usr/local/bin，不可写时退到 ~/.local/bin）：
 #   SUNSHINE_INSTALL_DIR="$HOME/bin" sh install.sh
@@ -31,8 +31,8 @@ case "$VERSION" in
     cat <<'EOF'
 用法：sh install.sh [版本]
   curl -fsSL https://raw.githubusercontent.com/linrong1982/Sunshine/main/install.sh | sh
-  curl -fsSL .../install.sh | sh -s -- v0.2.0
-  SUNSHINE_VERSION=v0.2.0 sh install.sh
+  curl -fsSL .../install.sh | sh -s -- v0.3.1
+  SUNSHINE_VERSION=v0.3.1 sh install.sh
   SUNSHINE_INSTALL_DIR="$HOME/bin" sh install.sh
 只支持 macOS / Linux（amd64 与 arm64）；Windows 请到 Release 页下载 zip。
 EOF
@@ -40,13 +40,20 @@ EOF
 esac
 if [ "$VERSION" = "latest" ]; then
   echo "正在查询最新版本……"
-  VERSION="$(curl -fsSL "https://api.github.com/repos/$REPO/releases/latest" \
-    | grep '"tag_name":' | sed -E 's/.*"tag_name": *"([^"]+)".*/\1/')"
-  [ -n "$VERSION" ] || die "查不到最新版本，请检查网络，或用 SUNSHINE_VERSION=v0.2.0 指定版本"
+  # 先走 releases/latest 的 302 跳转（不走 API：不怕限流、不用解析 JSON）；
+  # 拿不到时再试 API；都拿不到就报错，不让空版本流到后面。
+  VERSION="$(curl -fsSI "https://github.com/$REPO/releases/latest" \
+    | grep -i '^location:' | sed -E 's#.*/tag/([^/[:space:]]+).*#\1#')"
+  if [ -z "$VERSION" ]; then
+    VERSION="$(curl -fsSL "https://api.github.com/repos/$REPO/releases/latest" \
+      | grep '"tag_name":' | sed -E 's/.*"tag_name": *"([^"]+)".*/\1/')"
+  fi
+  [ -n "$VERSION" ] || die "查不到最新版本，请检查网络，或用 SUNSHINE_VERSION=v0.3.1 指定版本"
 fi
-# tag 带 v 前缀（如 v0.2.0），包名里的版本号不带 v（如 sunshine_0.2.0_…）。
+# tag 带 v 前缀（如 v0.3.1），包名里的版本号不带 v（如 sunshine_0.3.1_…）。
 TAG="$VERSION"
 case "$TAG" in v*) ;; *) TAG="v$TAG" ;; esac
+[ -n "${TAG:-}" ] || die "未能确定要安装的版本，请用 SUNSHINE_VERSION=v0.3.1 指定版本"
 VER="${TAG#v}"
 
 # ---- 平台与架构 ----
