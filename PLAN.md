@@ -1984,4 +1984,12 @@ pre-commit install       # 在仓库根目录执行一次
 - 接线细节：无平台选择时先取消（与上游“先验工具再选模板”的顺序一致，原来在 `case !initialized:` 里的检查上提到平台选择之后）；选单结果写回 `initRegistry`/`initTemplate`，已拿到 Target 时不再二次 `ResolveTarget`（探测只跑一次）；`--registry` 显式来源解析/探测失败直接报错退出，自定义输入的才回选单（与上游一致）；选单中断/EOF 返回错误，init 直接失败。
 - 验证：全量 601 个测试全过（19 个包），`gofmt`/`go vet` 干净。真实二进制 pty 三路全过（Python pty 应答 survey 的 DSR 查询）：① 无 registry 选空白 → 四问（平台/状态栏/选模板/项目类型）后空白 spec 三件套；② `--registry` 市场 → 选单只列 `demo-spec（演示规范）`，装进 spec 的是模板的 backend/frontend（无默认 system.md），config.yaml 记 `registry.spec`（模板 demo-spec）；③ 自定义来源 → 下移到自定义、输入本地市场路径、再出模板选单选 demo-spec，同样装好。非交互回归四项全过：`-y` 空白、`-y` 市场无 `--template` 报错 exit 1（列出 demo-spec）、`-y --template` 正常装、管道 stdin（非 TTY）不带 `-y` 不出选单走默认。
 - 验证中的插曲：pty 驱动第一版按累计输出匹配标记，重复出现的“请选择规范模板”在第二轮选单渲染前就误触发，导致自定义那路卡住超时；修成只匹配上一步之后的新输出后通过——是驱动 bug，不是产品 bug（单元测试里自定义那路本来就是通的）。
-- 待用户定夺提交/发版（未提交推送）。
+- 待用户定夺提交/发版——已随 v0.3.4 提交推送并发布（见下“v0.3.4 发布记录”）。
+
+### v0.3.4 发布记录（2026-11-10）
+
+- 内容：init 交互选模板（对齐 Trellis 的 "Select a spec template"，上一节的批次）+ 中英文教程与 README 同步维护。提交 `34aa005`（10 个文件），tag v0.3.4 为注释 tag（对象 `f493bd4`）。
+- Release 已发布：https://github.com/linrong1982/Sunshine/releases/tag/v0.3.4，6 个资产；发布与 CI 均 success，无抖动（发布 run 42780012997、CI run 42780012688，约 2.5 分钟跑完）。
+- 实测验证：用户原先那条不带参数的一键命令装上 v0.3.4（`Sunshine 版本 0.3.4`）；0.3.3 二进制 `upgrade --dry-run` 正确查到 0.3.4；darwin_amd64 包 checksum OK，解出 Mach-O x86_64 二进制。
+- 插曲：本机 git 提交时报 Author identity unknown（沙箱环境无 user.name/user.email 配置），用 `-c user.name=linrong1982 -c user.email=linrong1982@users.noreply.github.com` 显式指定提交，与之前各版作者一致；以后提交都这么带。
+- 未复现的 FAIL 仍未复现（本轮两路 CI 全过，本地全量也全过）；若 CI 再抖，先抓完整日志再定。
