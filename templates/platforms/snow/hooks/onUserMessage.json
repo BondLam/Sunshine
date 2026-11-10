@@ -1,0 +1,15 @@
+{
+  "onUserMessage": [
+    {
+      "description": "在每条用户消息前加 Sunshine 面包屑（界面保留用户原输入）",
+      "hooks": [
+        {
+          "command": "SUNSHINE_HOOK_PLATFORM=snow sunshine hook workflow-state",
+          "enabled": true,
+          "timeout": 15000,
+          "type": "command"
+        }
+      ]
+    }
+  ]
+}

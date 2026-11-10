@@ -12,10 +12,9 @@ const (
 	SunshineBlockEnd = "<!-- SUNSHINE:END -->"
 )
 
-// Copilot instructions 文件（上游同名常量；Sunshine 暂无 Copilot 平台，
-// 该文件不会由任何平台模板生成，下面的合并函数目前只在“用户已有此文件
-// 且 update 模板集合包含它”时才生效——现阶段是休眠路径，
-// 实现与测试先行，待 Copilot 平台接入时启用）。
+// Copilot instructions 文件（上游同名常量；E 路起 Copilot 平台已接入，
+// .github/copilot-instructions.md 由 Copilot 模板生成，update 收集模板
+// 时按托管块合并，不直接覆盖用户已有文件）。
 const (
 	// CopilotInstructionsPath 是 Copilot instructions 文件的相对路径。
 	CopilotInstructionsPath = ".github/copilot-instructions.md"

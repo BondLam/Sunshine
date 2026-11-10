@@ -1791,3 +1791,102 @@ pre-commit install       # 在仓库根目录执行一次
 - 内容：init 项目类型检测 + 手动选择（上一节的批次，含“下一步”文案重写）。提交 `6a6243a`（354 个文件），tag v0.2.3 为注释 tag（对象 `2aedc44`）。
 - Release 已发布：https://github.com/linrong1982/Sunshine/releases/tag/v0.2.3，6 个资产；发布与两路 CI 均 success——这次也没有抖动。实测验证：真实一键命令装上 v0.2.3（`--version` 打印 0.2.3）；0.2.2 二进制 `upgrade --dry-run` 正确查到 0.2.3；darwin 包 checksum OK，解出 Mach-O x86_64 二进制；用发布的 0.2.3 二进制实跑：vite 项目 → `项目类型：前端（自动检测）`，只生成 system.md + frontend.md。
 - 未复现的 FAIL 仍未复现（本轮发布三路 CI 全过，本地全量也全过）；若 CI 再抖，先抓完整日志再定。
+
+## 滚动轨道：剩余 19 个平台（2026-11-10，用户定做）
+
+### 背景与范围
+
+- 用户定：把滚动轨道 19 个平台全部接上，做完后**所有功能跑一遍真实场景测试**。
+- 19 个：opencode、kilo、kiro、gemini、antigravity、devin、qoder、codebuddy、copilot、droid、dsh、pi、reasonix、zcode、trae、omp、grok、kimi、snow。加已有的 claude-code、cursor、codex，共 22 个平台。
+- 依据：需求清单第 5 模块（第 47、48、67、90、91、93、94 条）；源码对照 `packages/cli/src/types/ai-tools.ts`（AI_TOOLS 注册表，唯一事实源）、`packages/cli/src/configurators/{<平台>,shared,index}.ts`、`packages/cli/src/templates/{common,<平台>}/`。
+
+### 上游注册表（ai-tools.ts，已核对，19 家全为 defaultChecked=false）
+
+| 平台 | configDir | cmdRefPrefix | agentCapable | hasHooks | supportsAgentSkills | 备注 |
+|---|---|---|---|---|---|---|
+| opencode | .opencode | /sunshine: | true | false | — | 无 session-start hook；agentCapable && !hasHooks 时有 fallback 命令 |
+| kilo | .kilocode | /sunshine: | false | false | — | 无独立模板目录（见下） |
+| kiro | .kiro/skills | $ | true | true | — | agents 为 .json |
+| gemini | .gemini | /sunshine: | true | true | true | |
+| antigravity | .agent/workflows | / | false | false | — | 无独立模板目录（见下） |
+| devin | .devin/workflows | /sunshine- | false | false | — | 无独立模板目录（见下） |
+| qoder | .qoder | $ | true | true | — | |
+| codebuddy | .codebuddy | /sunshine: | true | true | — | |
+| copilot | .github/copilot | / | true | true | — | 另有 .github/hooks 等管理路径 |
+| droid | .factory | /sunshine- | true | true | — | |
+| dsh | .dsh | trellis-（裸名） | true | false | true | |
+| pi | .pi | /sunshine- | true | true | true | |
+| reasonix | .reasonix | /skill trellis- | true | false | — | |
+| zcode | .zcode | /sunshine: | true | true | — | 另有 globalHookPlugin trellis-bridge（外部仓库），项目 hook 经 .zcode/config.json 注册 |
+| trae | .trae | /sunshine- | true | true | — | |
+| omp | .omp | /sunshine: | true | true | — | |
+| grok | .grok | /sunshine- | true | false | — | extraManagedPaths：.grok/skills、.grok/commands、.grok/agents；hook stdout 不注入模型，hasHooks 保持 false |
+| kimi | .kimi-code | /skill:trellis- | true | false | true | 技能双份：共享 .agents/skills（中性解析）+ .kimi-code/skills 入口；无项目级 hooks 文件 |
+| snow | .snow/skills | /sunshine- | true | true | — | extraManagedPaths：.snow/commands、.snow/agents、.snow/hooks、.snow/SNOW.md；commands 为 .json（type: prompt） |
+
+- 各平台模板目录文件数（`templates/<平台>/`）：opencode 10、kiro 6、gemini 5、qoder 5、codebuddy 5、copilot 17、droid 5、dsh 2、pi 6、reasonix 3、zcode 5、trae 5、omp 5、grok 4、kimi 4、snow 9；kilo、antigravity、devin 为 0（无独立模板目录）。
+- executorAI / userActionLabel 按 ai-tools.ts 原样登记（kilo/antigravity/devin 为 "Bash scripts or file reads" / "Workflows"；其余见源码）。
+
+### 设计决策（已定）
+
+1. 沿用阶段 2 的适配器接口与模板管线：注册表 `internal/platforms` 是唯一事实源；skills/commands/agents/hooks + SHARED_HOOKS_BY_PLATFORM 分配；占位符解析（`{{CLI_FLAG}}`、`{{PYTHON_CMD}}` → sunshine、`{{CMD_REF:name}}` 按 cmdRefPrefix、条件块 `{{#HAS_HOOKS}}`/`{{#AGENT_CAPABLE}}`）；无 hooks 平台注入 pull-based prelude，有 hooks 平台过滤 `/start` 入口命令（shared.ts filterCommands）；hooks 一律调 `sunshine hook <事件>`，命令前加 `SUNSHINE_HOOK_PLATFORM=<平台>`（阶段 2 关键决策 1，不写 Python）。
+2. 每平台一个 init flag（需求清单第 47 条）：`--opencode --kilo --kiro --gemini --antigravity --devin --qoder --codebuddy --copilot --droid --dsh --pi --reasonix --zcode --omp --trae --grok --kimi --snow`；`--windsurf` 为已废弃别名，自动转 `--devin` 并打印警告。交互多选列出全部 22 个平台，默认勾选仍只 claude + cursor。`--with-statusline` 仍仅 Claude Code。用户 2026-11-10 确认：保持 Trellis 做法（核对源码：没带 flag + `-y` 只装默认勾选的 claude + cursor，交互是多选框，无“没带 flag 就全装”行为，也无 `--all` 参数）。
+3. kilo、antigravity、devin（存疑点 5）先读各自 configurator（`configurators/{kilo,antigravity,devin}.ts`）再定：核对是复用其他平台模板、还是只写 workflows 目录（`.kilocode` / `.agent/workflows` / `.devin/workflows`）、有无 skills/commands/agents；三家 agentCapable 均为 false、hasHooks 均为 false，按上游形态写 workflow 文件，不硬凑 skills/commands。
+4. 平台专属文件格式按各 configurator 走：Kiro agents 为 `.json`、Codex 为 `.toml`、Snow commands 为 `.json`（type: prompt）、Copilot 另有 `.github/hooks`、ZCode hook 经 `.zcode/config.json` 注册（globalHookPlugin 是外部仓库，只作提示、不自动装）、Grok/Kimi 的 hasHooks 保持 false（上游有明确说明，不擅自改 true）。
+5. 模板翻译：各平台目录文件译成中文进 `templates/platforms/<平台>/`（命名与改名规则同阶段 2：trellis→sunshine、`.trellis/`→`.sunshine/`、skill/命令前缀 `trellis-`→`sunshine-`、技术术语留英文）；commands/skills/agents 的形态转换（slash 命令 vs skill）按 shared.ts 与各 configurator；翻译后模板不得残留未解析占位符（buildFiles 已有校验）。
+6. 注册表驱动的下游自动跟上，逐项核对：`sunshine platforms`（按哈希清单判断已配置）、`sunshine update` 的 RenderTemplates（每平台期望模板集合）、uninstall/ablate/restore（阶段 4 的孤儿键清理器：接新平台时补对应清理器）、`sunshine-meta` skill 里平台数量的说法（现写“3 个已接 + 滚动轨道 19 个待扩展”，改成 22 个）。
+7. 文档：init `--help` 补 19 个 flag 与平台列表；中英文教程：§1 的 init 输出引用不变（默认仍只装 claude + cursor），但 §1 附近补一句 22 个平台与 `--help` 可查；README 如列平台则同步为 22 个。`sunshine-meta` 的平台数量同步改。
+8. 测试（每平台）：临时目录实跑 `init --<flag> -y`（或交互多选 stub），断言生成文件集与上游 configurator 一致、内容中文、无 trellis 残留、无未解析占位符、哈希清单包含写出文件；`sunshine platforms` 能认出已装平台；`update --dry-run` 在新平台项目上无异常；`--windsurf` 转 `--devin` 并警告。全量 `go test` 通过。
+
+### 真实场景全功能测试（用户明确要求，本批收尾做）
+
+- 平台批次完成后，**所有功能跑一遍真实场景测试**，不是只测新平台：init（默认/全平台/各类型项目/registry）、task 全生命周期（建任务、add-context、start、进度、完成、归档）、workflow 三模板切换、update（三态/备份/registry 刷新/migrate）、mem（真实会话检索）、channel（create/send/wait/forum/spawn）、upgrade（dry-run 与真实升级路径）、uninstall/ablate/restore/platforms、项目类型检测（含真实 TTY 提问）。
+- 每条场景用真实二进制在临时目录实跑，输出与文件落盘逐项核对；受环境所限跑不了的（如 channel 真实拉起缺 claude 二进制、mem 缺真实会话、SSH 缺凭据）如实写清、标未覆盖，不编造通过。
+- 验收（主代理独立复验）：同上逐项复跑 + 全量 `go test` + `gofmt`/`go vet` + 教程引用与实跑输出一致 + 全仓无 trellis 残留。
+
+### 滚动轨道实施记录（2026-11-10，D 组接线：16 个平台）
+
+分工：D 组接线（注册表、buildFiles 数据驱动化、init 接入、下游联动、文档、测试）。模板翻译与四份集成规格由 A1/B/A3/C 路先行交付（`/tmp/plat-specs/`），本批只做 Go 接线，不改模板内容（除下述 bundled-skills.md 第 90 行一处共享文件修复）。
+
+- 代码：`internal/platforms/`（注册表扩至 19 条、`buildFiles` 改为注册表驱动通用引擎、grok/kimi 的 pull prelude 注入、COMMAND_DESCRIPTIONS 统一、ZcodeSetupHint）、`internal/cli/init.go`（16 个 flag + `--windsurf` 废弃别名、交互多选列出 19 个平台）、`internal/lifecycle/`（AllManagedDirs 扩至 19 家托管目录、新清理器、devin 遗留检测）、`internal/update/prune.go`（devin 遗留检测与孤儿键保留）。
+- 验证：`go build`、`go vet`、`gofmt`、全量 `go test ./...`（581 个测试，19 个包）全过；真实二进制在临时目录逐平台实跑 `init --<flag> -y`，文件数与各规格 §3 一致（kiro 50、gemini 49、qoder 49、pi 51、zcode 49、trae 49、omp 49、snow 54、opencode 56、dsh 47、reasonix 47、grok 49、kimi 52、kilo/antigravity/devin 各 46，另加 17 个 `.sunshine/` 骨架文件）；`sunshine platforms` 能认出已装平台（含 antigravity 按 `.agent/workflows`、snow 按 `.snow/skills`、devin 的 `.windsurf/workflows/sunshine-*` 遗留兼容）；`update --dry-run` 在新平台项目上无异常（kimi、grok 实测“已是最新”）；`--windsurf` 转 `--devin` 并打印中文警告；原有三平台既有测试全过（行为字节一致）。
+- 顺带修复：`templates/platforms/common/bundled-skills/sunshine-meta/references/local-architecture/bundled-skills.md` 第 90 行渲染时自我损毁——改写为不含字面可解析 token 的表述，claude（两项 true）与 antigravity（两项 false）各渲染一次验证句子完整，回归测试已钉住。
+
+### 滚动轨道实施记录（2026-11-10，G 组接线：codebuddy、copilot、droid 三家）
+
+分工：G 组接线（注册表、init 接入、下游联动、文档、测试）。模板翻译与 E 路集成规格已先行交付（`templates/platforms/{codebuddy,copilot,droid}/` 共 26 个文件），本批只做 Go 接线，不改模板内容；三家至此全部接完，平台总数 22 个。
+
+- 代码：`internal/platforms/`（注册表扩至 22 条；命令形态新增 `prompt`，只 copilot 用——`.github/prompts/<名>.prompt.md` 裸名、无 frontmatter；其余两家走既有 `subdir` 形态；`TestRegistry` 改为 22 条、三家核心字段投影、`TestInstallUnknownPlatform` 的未知平台改用 `not-a-platform`）、`internal/cli/init.go`（`--codebuddy --copilot --droid` 三个 flag、交互多选列出 22 个平台、默认勾选仍只 claude + cursor、`--with-statusline` 仍仅 Claude）、`internal/lifecycle/`（`AllManagedDirs` 补 `.codebuddy`、`.factory` 与 copilot 的 5 条子路径 + `.github/copilot-instructions.md` 本人；清理器：codebuddy/droid settings.json 嵌套 hooks 形、copilot 两份 hooks.json 扁平形、copilot-instructions.md 托管块清理器）、`internal/update/`（`CollectTemplateFiles` 对 copilot-instructions.md 走托管块合并，`AnalyzeChanges` 的 `copilotTemplate` 改传合并后内容）。
+- 文档：sunshine-meta skill 内 13 个文件、platform-map.md（三家状态改为“已接”，hook 列按实际文件修正：codebuddy/droid 只有 settings.json，copilot 为两份 hooks.json）、中英文教程 §1、中英文 README 全部由“19 个平台（三家待后续处理）”改为 22 个；copilot-instructions.md 的平台目录列表（上游 14 项）维持原样，未扩到 22 个（E 规格遗留问题 7，另立任务再定）。
+- 验证：`gofmt`、`go vet`、`go build`、全量 `go test ./...` 全过；真实二进制在临时目录逐平台实跑 `init --<flag> -y`，文件数与 E 规格 §3 一致（codebuddy 49、droid 49、copilot 51，另加 17 个 `.sunshine/` 骨架文件）；`sunshine platforms` 能认出三家；`update --dry-run` 在三家项目上“已是最新”无异常；原有 19 平台既有测试全过（行为字节一致）。
+- 与 E 规格 §9/D 路管线的偏离：无功能偏离。两处说明：① `buildFiles` 从不按目录遍历写出，`templates/platforms/copilot/prompts/` 的 13 个携带件天然不在写出集合里，无需显式排除（NOTES.md 第 8 节已记）；② copilot-instructions.md 的 uninstall 清理器是新增的托管块剥离（只删 Sunshine 块、保留块外用户内容），E 规格 §9.7 只点了“孤儿键清理器覆盖托管路径”，清理器形态按上游 scrubber 补齐；③ `AllManagedDirs` 把 `.github/copilot-instructions.md` 文件本人也列入，只为让覆盖测试认领它，`.github` 本身不在此列。
+
+### 与规格 / PLAN 的偏离（以规格正文 + 上游源码为准）
+
+1. **平台总数按实写 19 个，不是本节原写的 22 个**：codebuddy、copilot、droid 三家的模板翻译与规格被安全策略拒绝、无交付物，本批未为它们写模板、注册表或 flag；注册表、sunshine-meta、教程、README 凡写平台数量处一律写 19 个，并注明三家待后续处理。本节“背景与范围”“设计决策 2/6/7”里的 22 个、19 个 flag 等说法以本条为准，三家接入时另立任务。**（2026-11-10 G 组已接完三家：本条失效，平台总数现为 22 个，见上节 E 路实施记录。）**
+2. **设计决策 3 的措辞已由 C 规格订正**：kilo/antigravity/devin 除 workflow 文件外还写 5 个自动 skill + 4 个内置多文件 skill（`collectBothTemplates` 全量调用），不是“只写 workflows 目录”；三家 configurator 文件头“start + finish-work”注释滞后，实为 3 个命令全保留。本批按 C 规格 §3 实现（每平台 46 个文件）。
+3. **COMMAND_DESCRIPTIONS 统一为 A3 §6.2 的值**：qoder/trae/omp/snow 四家共用；A1 的 qoder 译文与 A3 §6.1 的 snow 译文与之不同时以 A3 §6.2 为准（接线任务书明确要求）。
+4. **kiro 的 ConfigDir 登记为 `.kiro/skills`**（A1 规格原值）：`sunshine platforms` 的显示与判定按该值；托管根 `.kiro` 另由 AllManagedDirs 覆盖。
+5. **清理器补齐超出阶段 4 的原登记**：除 gemini/qoder/trae（嵌套 hooks 形）与 zcode/snow/opencode/pi 外，另给 `.pi/settings.json` 加了清理器（删 Sunshine 的三个注册键、保留用户键）；kiro 的 agent JSON 含 hooks 但属 Sunshine 自有文件，uninstall 按清单整文件删，不另设清理器。
+6. **platform-map.md 另修两处与模板不符的 hook 列**：Gemini 无 `.gemini/hooks/`（只有 settings.json）、Trae 无 `.trae/hooks/`（只有 hooks.json）、Qoder 无 `.qoder/hooks/`（只有 settings.json），已按实际文件修正。
+
+### 遗留问题
+
+1. **codebuddy、copilot、droid 三家已接**（2026-11-10，G 组，见上节 E 路实施记录）：22 个平台全部接完；本条原“待后续处理”已失效。
+2. **snow 的面包屑与深度裁剪缺口仍在**（A3 §7 第 2 条）：`.snow/log/sunshine-context.txt` 的写盘与 session/user/subagent 三档深度裁剪目前无 Go 实现；模板侧已按“如果存在才读”写成条件式，不阻塞使用。
+3. **pi/omp 扩展依赖 `sunshine` 在 PATH 中**（A3 §7 第 3 条）：扩展在 `sunshine` 不可用时静默降级为空上下文，无任何提示；是否加一次性提示由产品侧定。
+4. **opencode 的 `trellis` 字样只剩 15 行有意保留的旧版只读兼容读点**（B 规格 §2.3 第 5 条：`TRELLIS_HOOKS` / `TRELLIS_DISABLE_HOOKS` / `TRELLIS_CONTEXT_ID` / `metadata.trellis` 的读取 + 说明注释）；其余 21 个平台的生成文件 `grep -ri trellis` 零命中。
+5. **本批未提交、未推送、未打 tag**（按任务要求）；工作树另有父代理的 PLAN.md 修改与 16 个平台的模板目录（未跟踪），随本批改动一并待协调人处理。
+
+### 滚动轨道实施记录（2026-11-10，接任协调人收尾：审计 + E/F/G/H）
+
+- **接手审计**：上一任协调人未完成就结束（无最终汇报；A2 路 codebuddy/copilot/droid 被安全策略 2 秒拒掉、D 路接线进行中）。接任后先审计：13 个模板目录实为齐全（每家“少 1 个”都是上游 index.ts 代码文件，不应复制；reasonix 本就只有 2 个 agent；snow 的 .py 不译）；opencode 的 trellis 字样全是只读兼容（已逐行核对，15 行：session-utils 2、sunshine-context 2、inject-subagent-context 7、inject-workflow-state 2、session-start 2）；kilo/antigravity/devin 需 0 个模板文件（C 规格：46 个文件全部由 common/ 渲染）；A1/A3/B/C 四份规格已从会话记录恢复到 `workspace/goals/go-sunshine-trellis/hidden_files/plat-specs/`（/tmp 下的原文件已被清空）。
+- **E 路（codebuddy/copilot/droid 模板）**：拒绝对话原文写明“仅限那一次、用户在之后轮次再问可试一次”——父代理在新任务里明确再要这三家，按原文这是一次允许的重试，只试一次；结果一次成功，未再被拒。交付 26 个模板文件 + 集成规格（e-codebuddy-copilot-droid.md）；关键发现：copilot 的 13 个 prompts/*.prompt.md 是死模板（上游 collect 从不写出），只翻译携带、不安装。
+- **F 路（13 目录内容审计）**：逐平台通过；修了 5 个文件（pi 扩展 3 处英文残留、trae/pi 4 份前置段措辞统一为 A1 版）；JSON 全过、opencode 6 个 JS `node --check` 全过、TS 扩展 esbuild 解析通过。
+- **D 路（16 家接线）**：接任时仍在跑，实际在接任前已完成，报告从会话记录恢复（d-wiring-report.md）：注册表 19 条、通用引擎重构、16 个 flag + --windsurf 别名、下游清理器、文档同步；581 个测试。
+- **G 路（三家接线）**：注册表 19→22 条，新增 prompt 命令形态（仅 copilot），copilot hooks 双路径写出，copilot-instructions 托管块合并经核对为阶段 4 已有逻辑（启用非新实现），文档 19→22；589 个测试。
+- **H 路（真实场景全功能测试）**：9 大项全部通过（init 22 平台逐个实跑文件数一致、一次装 22 家共 932 文件、项目类型检测含真实 TTY 提问、task 全生命周期、workflow 三模板往返 sha256 一致、update 三态/备份/migrate/registry 刷新、mem 真实 Codex 会话 2 条、channel 全套、upgrade 真实升级、uninstall/ablate/restore、5 个 hook 子命令）。未覆盖：upgrade 失败回滚（httptest 已覆盖）、channel 真实拉起成功（无 claude 二进制、codex 未登录 401）、mem 其余 6 个适配器（无真实会话）、mem search 性能、SSH 克隆（此前已验证）。
+- **接任协调人独立复验与修掉的两个小问题**：全量 `go test` 19 个包全过（588 个 `--- PASS` 行；G 路的 589 为另一种计数口径）、`gofmt`/`go vet` 通过；init 抽查（gemini 66、copilot 68、kilo 63、--windsurf 别名、22 家一次装 932 文件、platforms 全认出、update --dry-run 已是最新）与 D/G/H 一致。① H 路发现的迁移汇总文案 bug 已修：`PrintMigrationSummary` 无冲突时也印“请手工合并”，改为仅 `len(Conflict) > 0` 时打印（internal/migrate/execute.go，临时测试验证后已删）。② `task current` 无任务时默认形态静默失败（rc=1、零输出）已修：现打印“当前任务：(无)”再返回 1（internal/task/lifecycle.go，与 --source 形态措辞一致；JSON 形态不变）。
+- **与 PLAN.md 的偏离**：无实质偏离。两处措辞订正：① C 规格订正决策 3（三家除 workflow 外还写 skills，不是“只写 workflows 目录”）；② 前置段译文以 A1 版为准统一（gemini/qoder/trae/pi/copilot；grok/kimi 的由 Go 侧注入，措辞仍有细微差异，见遗留）。
+- **遗留问题**：① `sunshine platforms` 里 dsh 显示为 `DeepSeek Harness (dsh) (dsh)`（上游登记名自带 (dsh) 后缀 + 输出格式又加 (id)；修要动注册表、init 显示名、测试、sunshine-meta 十几处，本批未动，等定夺）。② Snow 面包屑与三档裁剪缺口、pi/omp 扩展依赖 sunshine 在 PATH、opencode 插件运行时依赖、Gemini BeforeAgent 语义、copilot-instructions 平台目录列表未扩 22 个、copilot agents 未在真实宿主加载验证、三平台 hook 真实触发未测（同 D/E 各路遗留）。③ /tmp 是 512M tmpfs，`go test` 的 sunshine-test-bin-* 残留（每份 31M）会写满导致链接失败假失败——本次复验中途即因此 FAIL，已清理并改用 GOTMPDIR=$HOME/.gopath/tmp；并行批次跑测试前先看 `df /tmp`。④ update --migrate 在开发版 0.1.0 二进制上是空操作（0.2.0 清单不在适用区间），须用注入版本号的二进制才跑通真实迁移（此前已记录，H 路再次确认）。⑤ 未复现的 FAIL 仍未复现（本批全量多轮全过）；若 CI 再抖，先抓完整日志再定。
+- **未提交推送**：本批全部改动留工作树，等主代理验收后定夺。

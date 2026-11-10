@@ -45,8 +45,8 @@ type structuredFileSpec struct {
 	scrub     func(content string) ScrubResult
 }
 
-// structuredFileSpecs 是 Go 版的结构化文件登记（只含三平台实际
-// 写出的文件；新平台接入时在此补登记）。
+// structuredFileSpecs 是 Go 版的结构化文件登记（22 个已接平台
+// 实际写出的结构化文件；新平台接入时在此补登记）。
 func structuredFileSpecs() map[string]structuredFileSpec {
 	specs := []structuredFileSpec{
 		{
@@ -68,6 +68,76 @@ func structuredFileSpecs() map[string]structuredFileSpec {
 			posixPath: ".codex/config.toml",
 			reason:    "移除 Sunshine 的 project_doc_fallback_filenames 与说明",
 			scrub:     scrubCodexConfigToml,
+		},
+		{
+			posixPath: ".gemini/settings.json",
+			reason:    "剥离 Sunshine hooks，保留用户字段",
+			scrub:     func(content string) ScrubResult { return scrubHooksJSON(content, "nested") },
+		},
+		{
+			posixPath: ".qoder/settings.json",
+			reason:    "剥离 Sunshine hooks，保留用户字段",
+			scrub:     func(content string) ScrubResult { return scrubHooksJSON(content, "nested") },
+		},
+		{
+			posixPath: ".trae/hooks.json",
+			reason:    "剥离 Sunshine hooks，保留用户字段",
+			scrub:     func(content string) ScrubResult { return scrubHooksJSON(content, "nested") },
+		},
+		{
+			posixPath: ".zcode/config.json",
+			reason:    "剥离 Sunshine hooks，保留用户字段",
+			scrub:     scrubZcodeConfigJSON,
+		},
+		{
+			posixPath: ".snow/hooks/onSessionStart.json",
+			reason:    "剥离 Sunshine hooks，保留用户字段",
+			scrub:     scrubSnowHookJSON,
+		},
+		{
+			posixPath: ".snow/hooks/onUserMessage.json",
+			reason:    "剥离 Sunshine hooks，保留用户字段",
+			scrub:     scrubSnowHookJSON,
+		},
+		{
+			posixPath: ".snow/hooks/beforeSubAgentStart.json",
+			reason:    "剥离 Sunshine hooks，保留用户字段",
+			scrub:     scrubSnowHookJSON,
+		},
+		{
+			posixPath: ".opencode/package.json",
+			reason:    "移除 Sunshine 的 @opencode-ai/plugin 依赖，保留用户字段",
+			scrub:     scrubOpencodePackageJSON,
+		},
+		{
+			posixPath: ".pi/settings.json",
+			reason:    "移除 Sunshine 的扩展与提示词注册，保留用户字段",
+			scrub:     scrubPiSettingsJSON,
+		},
+		{
+			posixPath: ".codebuddy/settings.json",
+			reason:    "剥离 Sunshine hooks，保留用户字段",
+			scrub:     func(content string) ScrubResult { return scrubHooksJSON(content, "nested") },
+		},
+		{
+			posixPath: ".factory/settings.json",
+			reason:    "剥离 Sunshine hooks，保留用户字段",
+			scrub:     func(content string) ScrubResult { return scrubHooksJSON(content, "nested") },
+		},
+		{
+			posixPath: ".github/copilot/hooks.json",
+			reason:    "剥离 Sunshine hooks，保留用户字段",
+			scrub:     func(content string) ScrubResult { return scrubHooksJSON(content, "flat") },
+		},
+		{
+			posixPath: ".github/hooks/sunshine.json",
+			reason:    "剥离 Sunshine hooks，保留用户字段",
+			scrub:     func(content string) ScrubResult { return scrubHooksJSON(content, "flat") },
+		},
+		{
+			posixPath: ".github/copilot-instructions.md",
+			reason:    "剥离 Sunshine 托管块，保留块外用户内容",
+			scrub:     scrubCopilotInstructions,
 		},
 	}
 	out := make(map[string]structuredFileSpec, len(specs))

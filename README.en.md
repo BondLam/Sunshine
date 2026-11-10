@@ -43,7 +43,7 @@ sunshine init -u YourName -y   # Generate the Chinese .sunshine/ skeleton (specs
 
 That is the only terminal command you need. Then open the project in Claude Code (Codex / Cursor work the same way) and ask for what you want in plain language — the agent drives the work following `.sunshine/workflow.md` and calls `sunshine` commands under the hood. See the [tutorial](docs/tutorial.en.md) for the full storyline.
 
-`init` installs Claude Code and Cursor platform configs by default. To install only Codex, use `sunshine init --codex -y`; running `init --codex -y` again in an already initialized project only adds the new platform and leaves existing files untouched. `sunshine platforms` shows which platforms are configured for the current project.
+`init` installs Claude Code and Cursor platform configs by default. To install only Codex, use `sunshine init --codex -y`; running `init --codex -y` again in an already initialized project only adds the new platform and leaves existing files untouched. There are 22 supported platforms in total; install a specific one with `sunshine init --<platform> -y`. `sunshine platforms` shows which platforms are configured for the current project.
 
 ## The main flow, in one line
 

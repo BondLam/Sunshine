@@ -1,0 +1,52 @@
+{
+  "hooks": {
+    "enabled": true,
+    "events": {
+      "PreToolUse": [
+        {
+          "hooks": [
+            {
+              "command": "SUNSHINE_HOOK_PLATFORM=zcode sunshine hook subagent-context",
+              "timeout": 30,
+              "type": "command"
+            }
+          ],
+          "matcher": "Agent|Task"
+        },
+        {
+          "hooks": [
+            {
+              "command": "SUNSHINE_HOOK_PLATFORM=zcode sunshine hook shell-session",
+              "timeout": 5,
+              "type": "command"
+            }
+          ],
+          "matcher": "Bash"
+        }
+      ],
+      "SessionStart": [
+        {
+          "hooks": [
+            {
+              "command": "SUNSHINE_HOOK_PLATFORM=zcode sunshine hook session-start",
+              "timeout": 30,
+              "type": "command"
+            }
+          ],
+          "matcher": "startup|clear|compact"
+        }
+      ],
+      "UserPromptSubmit": [
+        {
+          "hooks": [
+            {
+              "command": "SUNSHINE_HOOK_PLATFORM=zcode sunshine hook workflow-state",
+              "timeout": 15,
+              "type": "command"
+            }
+          ]
+        }
+      ]
+    }
+  }
+}

@@ -1,0 +1,15 @@
+{
+  "onSessionStart": [
+    {
+      "description": "在 Snow 会话启动时注入 Sunshine 会话上下文（additionalContext）",
+      "hooks": [
+        {
+          "command": "SUNSHINE_HOOK_PLATFORM=snow sunshine hook session-start",
+          "enabled": true,
+          "timeout": 20000,
+          "type": "command"
+        }
+      ]
+    }
+  ]
+}

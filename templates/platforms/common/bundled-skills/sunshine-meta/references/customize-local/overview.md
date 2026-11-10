@@ -17,7 +17,7 @@
 
 ## 通用操作顺序
 
-1. **确认平台和目录**：检查存在哪些目录，例如 `.claude/`、`.cursor/`、`.codex/`（Go 版目前只接这三家；其余平台在滚动轨道待扩展）。
+1. **确认平台和目录**：检查存在哪些目录，例如 `.claude/`、`.cursor/`、`.codex/`（Go 版目前已接 22 个平台）。
 2. **确认当前活跃任务**：运行 `sunshine task current --source`。
 3. **阅读本地事实来源**：优先读 `.sunshine/workflow.md`、`.sunshine/config.yaml` 和相关平台文件。
 4. **窄幅修改**：只编辑与用户请求相关的文件。
@@ -32,7 +32,7 @@
 | 任务材料 | `.sunshine/tasks/<task>/` |
 | 项目规范 | `.sunshine/spec/` |
 | CLI 子命令 | `sunshine task` / `sunshine hook`（Go 二进制内实现，不在项目内改） |
-| 平台集成 | `.claude/`、`.cursor/`、`.codex/`（Go 版已接的三家；其余平台待扩展） |
+| 平台集成 | 22 个已接平台的目录 |
 | 共享 skill | `.agents/skills/` |
 
 ## 默认不要做的事

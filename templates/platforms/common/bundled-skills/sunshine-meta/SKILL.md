@@ -14,7 +14,7 @@ Sunshine 是 Go 单二进制发布的 CLI（无 npm 包、无 Python 运行时�
 默认的操作范围是用户项目内的本地文件：
 
 - `.sunshine/`：工作流、配置、任务、规范、工作区、内置运行时 agent 和运行时状态。
-- 平台目录：`.claude/`、`.cursor/`、`.codex/`（Go 版已接的三家；其余平台在滚动轨道待扩展）。
+- 平台目录：`.claude/`、`.cursor/`、`.codex/` 等 22 个已接平台的目录（见 `references/platform-files/platform-map.md`）。
 - 共享 skill 层：`.agents/skills/`（Codex 与后续支持 Agent Skills 的平台共用）。
 - 项目树之外的用户自有 channel store：`~/.sunshine/channels/<project>/<channel>/events.jsonl`。
 - 可通过 `sunshine mem` 查询的原始平台对话日志：`~/.claude/projects/` 和 `~/.codex/sessions/`。
@@ -46,7 +46,7 @@ Sunshine 是 Go 单二进制发布的 CLI（无 npm 包、无 Python 运行时�
 ### 平台文件
 
 - `references/platform-files/overview.md`：共享的 `.sunshine/` 文件与平台目录的关系，以及四种平台集成模式（hook 驱动、agent 前奏、主会话工作流、channel 运行时）。
-- `references/platform-files/platform-map.md`：已接平台与待扩展平台的目标形态：各平台的目录与 skill、agent、hook、扩展路径。
+- `references/platform-files/platform-map.md`：各平台的目录与 skill、agent、hook、扩展路径。
 - `references/platform-files/hooks-and-settings.md`：设置/配置文件、hook、插件和扩展如何连接到 Sunshine；覆盖 `channel.worker_guard.*` 和 `codex.dispatch_mode`。
 - `references/platform-files/agents.md`：各平台的 `sunshine-research` / `sunshine-implement` / `sunshine-check` 子 Agent 文件，以及 channel 运行时用的内置 `.sunshine/agents/{check,implement}.md`。
 - `references/platform-files/skills-and-commands.md`：skill、命令、提示词和工作流的区别，以及如何修改它们。

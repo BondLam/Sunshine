@@ -110,6 +110,14 @@ func CollectTemplateFiles(w io.Writer, cwd string, hashes map[string]string, opt
 	// statusline 保留：新模板不带 statusLine，已有值带进新内容。
 	PreserveExistingClaudeStatusLine(cwd, files)
 
+	// Copilot instructions 托管块合并（上游 buildCopilotInstructionsTemplate）：
+	// 磁盘已有该文件时，期望内容是“已有内容 + 模板托管块”的合并结果，
+	// 不是模板全文直接覆盖；不存在时返回模板全文。
+	// E 路起 Copilot 已接入，模板集合里有该文件即走合并。
+	if template, ok := files[CopilotInstructionsPath]; ok {
+		files[CopilotInstructionsPath] = BuildManagedBlockTemplate(cwd, CopilotInstructionsPath, template, CopilotBlockStart, CopilotBlockEnd)
+	}
+
 	// 根级 AGENTS.md：只管理已存在且带 Sunshine 托管块的文件。
 	if data, err := os.ReadFile(filepath.Join(cwd, "AGENTS.md")); err == nil {
 		if GetSunshineManagedBlock(string(data)) != "" {

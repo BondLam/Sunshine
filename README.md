@@ -43,7 +43,7 @@ sunshine init -u 你的名字 -y   # 生成中文 .sunshine/ 骨架（规范、�
 
 然后在 Claude Code 里打开这个项目，直接用自然语言提需求，例如“给退款流程加一个必填的原因字段”——agent 会按 `.sunshine/workflow.md` 建任务、写 prd、派 implement/check 子代理、核查、把学到的写回 spec，最后用 `/sunshine:finish-work` 收尾；你检查 diff、验收、提交。
 
-`init` 默认安装 Claude Code 与 Cursor 两套平台配置；只想装 Codex 时用 `sunshine init --codex -y`，已初始化的项目里再跑 `init --codex -y` 是增量追加，不动已有文件。`sunshine platforms` 可查看当前项目已配置的平台。
+`init` 默认安装 Claude Code 与 Cursor 两套平台配置；只想装 Codex 时用 `sunshine init --codex -y`，已初始化的项目里再跑 `init --codex -y` 是增量追加，不动已有文件。目前共支持 22 个平台，用 `sunshine init --<平台> -y` 装指定平台。`sunshine platforms` 可查看当前项目已配置的平台。
 
 ## 核心命令一览
 

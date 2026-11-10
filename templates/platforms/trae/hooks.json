@@ -1,0 +1,39 @@
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "hooks": [
+          {
+            "command": "SUNSHINE_HOOK_PLATFORM=trae sunshine hook shell-session",
+            "timeout": 5,
+            "type": "command"
+          }
+        ],
+        "matcher": "RunCommand|Bash"
+      }
+    ],
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "command": "SUNSHINE_HOOK_PLATFORM=trae sunshine hook session-start",
+            "timeout": 30,
+            "type": "command"
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "command": "SUNSHINE_HOOK_PLATFORM=trae sunshine hook workflow-state",
+            "timeout": 15,
+            "type": "command"
+          }
+        ]
+      }
+    ]
+  },
+  "version": 1
+}

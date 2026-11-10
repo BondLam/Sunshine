@@ -29,6 +29,30 @@ func TestConfiguredPlatforms(t *testing.T) {
 	}
 }
 
+func TestConfiguredPlatformsDevinLegacy(t *testing.T) {
+	dir := setupProject(t)
+	hashes := LoadHashes(dir)
+	hashes[".windsurf/workflows/sunshine-start.md"] = "abc"
+	got := ConfiguredPlatforms(dir, hashes)
+	found := false
+	for _, id := range got {
+		if id == "devin" {
+			found = true
+		}
+	}
+	if !found {
+		t.Errorf(".windsurf/workflows/sunshine-* 在清单里时 update 应判定 devin 已配置，得到 %v", got)
+	}
+	// 孤儿键清理也不应剪掉 devin 遗留键。
+	pruned, err := PruneOrphanManifestKeys(dir, got, hashes, nil, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := pruned.Hashes[".windsurf/workflows/sunshine-start.md"]; !ok {
+		t.Errorf("devin 已配置时孤儿键清理不应剪 .windsurf 遗留键，剪掉的键：%v", pruned.Pruned)
+	}
+}
+
 func TestPruneOrphanManifestKeys(t *testing.T) {
 	dir := setupProject(t)
 	hashes := LoadHashes(dir)

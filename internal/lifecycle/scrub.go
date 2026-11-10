@@ -12,14 +12,21 @@ import (
 // 每个清理器接收文件内容，返回清理后的内容与“清理后是否只剩
 // 空壳”（fullyEmpty 为真时调用方直接删文件）。
 //
-// Go 版只覆盖三平台实际写出的结构化文件：
-//   - .claude/settings.json、.codex/hooks.json（嵌套 hooks 形）
+// Go 版覆盖 22 个已接平台实际写出的结构化文件：
+//   - .claude/settings.json、.codex/hooks.json、.gemini/settings.json、
+//     .qoder/settings.json、.trae/hooks.json（嵌套 hooks 形）
 //   - .cursor/hooks.json（扁平 hooks 形）
-//   - .codex/config.toml
-// 上游其余平台的清理器（opencode package.json、pi settings.json、
-// copilot instructions 托管块、根 AGENTS.md 托管块）在 Go 版没有
-// 对应文件——Go 版 init 不写这些文件，清单里出现即视为孤儿键剪掉。
-// 滚动轨道接入新平台时在此补对应的清理器。
+//   - .zcode/config.json（工作区 hooks 形：hooks.events）
+//   - .snow/hooks/*.json（单事件 hooks 形）
+//   - .codex/config.toml、.opencode/package.json、.pi/settings.json
+//   - .codebuddy/settings.json、.factory/settings.json（嵌套 hooks 形）
+//   - .github/copilot/hooks.json、.github/hooks/sunshine.json
+//     （Copilot 扁平 hooks 形：SessionStart 与 userPromptSubmitted
+//     均为直接条目，后者用 bash/powershell 双键）
+//   - .github/copilot-instructions.md（托管块形：只剥离 Sunshine
+//     托管块，块外用户内容保留；只剩块时整文件删）
+// 上游其余平台的清理器（根 AGENTS.md 托管块）在 Go 版没有对应文件——
+// Go 版 init 不写根 AGENTS.md，清单里出现即视为孤儿键剪掉。
 
 // ScrubResult 是清理器的返回：清理后的内容与是否已空。
 type ScrubResult struct {
@@ -160,6 +167,37 @@ func scrubHooksJSON(content, mode string) ScrubResult {
 	return ScrubResult{Content: string(out) + "\n", FullyEmpty: len(root.keys) == 0}
 }
 
+// copilot 托管块标记（与 internal/update 的 CopilotBlockStart/End
+// 同值；lifecycle 不依赖 update 包，此处自备一份）。
+const (
+	copilotBlockStart = "<!-- SUNSHINE:COPILOT-GUIDANCE:START -->"
+	copilotBlockEnd   = "<!-- SUNSHINE:COPILOT-GUIDANCE:END -->"
+)
+
+// scrubCopilotInstructions 剥离 copilot-instructions.md 里的 Sunshine
+// 托管块（对照上游 uninstall-scrubbers 的同名清理器）：块外用户内容
+// 原样保留；无托管块时原样不动；只剩托管块（或空）时判空，
+// 调用方直接删文件。块前后多余的空行一并压掉，避免留下
+// 大段空白。
+func scrubCopilotInstructions(content string) ScrubResult {
+	start := strings.Index(content, copilotBlockStart)
+	if start < 0 {
+		return ScrubResult{Content: content, FullyEmpty: false}
+	}
+	end := strings.Index(content[start:], copilotBlockEnd)
+	if end < 0 {
+		return ScrubResult{Content: content, FullyEmpty: false}
+	}
+	endPos := start + end + len(copilotBlockEnd)
+	rest := content[:start] + content[endPos:]
+	rest = regexp.MustCompile(`\n{3,}`).ReplaceAllString(rest, "\n\n")
+	rest = strings.Trim(rest, "\n")
+	if strings.TrimSpace(rest) == "" {
+		return ScrubResult{Content: "", FullyEmpty: true}
+	}
+	return ScrubResult{Content: rest + "\n", FullyEmpty: false}
+}
+
 var (
 	reCodexFallbackFilenames = regexp.MustCompile(`^\s*project_doc_fallback_filenames\s*=`)
 	reCodexAgentsHeader      = regexp.MustCompile(`^\s*\[agents\]\s*$`)
@@ -282,4 +320,205 @@ func scrubCodexConfigToml(content string) ScrubResult {
 		result = strings.Join(collapsed, "\n") + "\n"
 	}
 	return ScrubResult{Content: result, FullyEmpty: strings.TrimSpace(result) == ""}
+}
+
+// ---------------------------------------------------------------------------
+// zcode / snow / opencode / pi 的清理器（滚动轨道新增）
+// ---------------------------------------------------------------------------
+
+// filterNestedHookBlocks 过滤嵌套形 hook 条目数组：删每条 Sunshine
+// 托管的 hook 子条目；子条目全删的 matcher 块整个去掉。
+// 返回过滤后的条目（可能为空）与“是否删掉了点东西”。
+func filterNestedHookBlocks(eventArr []any) ([]any, bool) {
+	var filtered []any
+	changed := false
+	for _, entry := range eventArr {
+		block, ok := entry.(*orderedObject)
+		if !ok {
+			filtered = append(filtered, entry)
+			continue
+		}
+		innerVal, ok := block.get("hooks")
+		if !ok {
+			filtered = append(filtered, entry)
+			continue
+		}
+		innerArr, ok := innerVal.([]any)
+		if !ok {
+			filtered = append(filtered, entry)
+			continue
+		}
+		var filteredInner []any
+		for _, sub := range innerArr {
+			if cmd := entryCommand(sub); cmd != "" && isSunshineHookCommand(cmd) {
+				changed = true
+				continue
+			}
+			filteredInner = append(filteredInner, sub)
+		}
+		if len(filteredInner) == 0 {
+			changed = true
+			continue // 整个 matcher 块已空，删块。
+		}
+		rebuilt := &orderedObject{vals: make(map[string]any)}
+		for _, k := range block.keys {
+			if k == "hooks" {
+				rebuilt.set(k, filteredInner)
+			} else {
+				v, _ := block.get(k)
+				rebuilt.set(k, v)
+			}
+		}
+		filtered = append(filtered, rebuilt)
+	}
+	return filtered, changed
+}
+
+// scrubZcodeConfigJSON 清理 .zcode/config.json（工作区 hooks 形）：
+// hooks.events.{事件}.[ {matcher?, hooks: [...]} ] 里删 Sunshine
+// 托管条目；事件全空时删事件；事件全空时整个 hooks 键删掉
+// （只剩 {enabled: true} 的空壳没有意义）。
+// hooks 之外的键一律保留；JSON 非法时原样不动。
+func scrubZcodeConfigJSON(content string) ScrubResult {
+	root, err := parseOrderedJSON([]byte(content))
+	if err != nil {
+		return ScrubResult{Content: content, FullyEmpty: false}
+	}
+	hooksVal, ok := root.get("hooks")
+	if !ok {
+		out, _ := root.marshalIndent()
+		return ScrubResult{Content: string(out) + "\n", FullyEmpty: len(root.keys) == 0}
+	}
+	hooksObj, ok := hooksVal.(*orderedObject)
+	if !ok {
+		return ScrubResult{Content: content, FullyEmpty: false}
+	}
+	eventsVal, ok := hooksObj.get("events")
+	if !ok {
+		return ScrubResult{Content: content, FullyEmpty: false}
+	}
+	eventsObj, ok := eventsVal.(*orderedObject)
+	if !ok {
+		return ScrubResult{Content: content, FullyEmpty: false}
+	}
+	for _, eventName := range append([]string(nil), eventsObj.keys...) {
+		eventVal, _ := eventsObj.get(eventName)
+		eventArr, ok := eventVal.([]any)
+		if !ok {
+			continue
+		}
+		filtered, _ := filterNestedHookBlocks(eventArr)
+		if len(filtered) == 0 {
+			eventsObj.delete(eventName)
+		} else {
+			eventsObj.set(eventName, filtered)
+		}
+	}
+	if len(eventsObj.keys) == 0 {
+		root.delete("hooks")
+	}
+	out, err := root.marshalIndent()
+	if err != nil {
+		return ScrubResult{Content: content, FullyEmpty: false}
+	}
+	return ScrubResult{Content: string(out) + "\n", FullyEmpty: len(root.keys) == 0}
+}
+
+// scrubSnowHookJSON 清理 .snow/hooks/*.json（单事件形）：
+// 顶层键即事件名（onSessionStart 等），值是 [{description?, hooks: [...]}]。
+// 删 Sunshine 托管条目；块全空时删块；事件全空时删键。
+func scrubSnowHookJSON(content string) ScrubResult {
+	root, err := parseOrderedJSON([]byte(content))
+	if err != nil {
+		return ScrubResult{Content: content, FullyEmpty: false}
+	}
+	for _, eventName := range append([]string(nil), root.keys...) {
+		eventVal, _ := root.get(eventName)
+		eventArr, ok := eventVal.([]any)
+		if !ok {
+			continue
+		}
+		filtered, _ := filterNestedHookBlocks(eventArr)
+		if len(filtered) == 0 {
+			root.delete(eventName)
+		} else {
+			root.set(eventName, filtered)
+		}
+	}
+	out, err := root.marshalIndent()
+	if err != nil {
+		return ScrubResult{Content: content, FullyEmpty: false}
+	}
+	return ScrubResult{Content: string(out) + "\n", FullyEmpty: len(root.keys) == 0}
+}
+
+// scrubOpencodePackageJSON 清理 .opencode/package.json：
+// 删 dependencies 里的 @opencode-ai/plugin；依赖全空时删
+// dependencies 键；其余键（scripts 等用户自加内容）保留。
+func scrubOpencodePackageJSON(content string) ScrubResult {
+	root, err := parseOrderedJSON([]byte(content))
+	if err != nil {
+		return ScrubResult{Content: content, FullyEmpty: false}
+	}
+	depsVal, ok := root.get("dependencies")
+	if !ok {
+		out, _ := root.marshalIndent()
+		return ScrubResult{Content: string(out) + "\n", FullyEmpty: len(root.keys) == 0}
+	}
+	depsObj, ok := depsVal.(*orderedObject)
+	if !ok {
+		return ScrubResult{Content: content, FullyEmpty: false}
+	}
+	depsObj.delete("@opencode-ai/plugin")
+	if len(depsObj.keys) == 0 {
+		root.delete("dependencies")
+	}
+	out, err := root.marshalIndent()
+	if err != nil {
+		return ScrubResult{Content: content, FullyEmpty: false}
+	}
+	return ScrubResult{Content: string(out) + "\n", FullyEmpty: len(root.keys) == 0}
+}
+
+// scrubPiSettingsJSON 清理 .pi/settings.json：删 Sunshine 的三个键——
+// enableSkillCommands（模板值 true）、extensions 里的
+// ./extensions/sunshine/index.ts、prompts 里的 ./prompts；
+// 数组删空时删键；用户自加的键保留。
+func scrubPiSettingsJSON(content string) ScrubResult {
+	root, err := parseOrderedJSON([]byte(content))
+	if err != nil {
+		return ScrubResult{Content: content, FullyEmpty: false}
+	}
+	root.delete("enableSkillCommands")
+	for _, key := range []string{"extensions", "prompts"} {
+		v, ok := root.get(key)
+		if !ok {
+			continue
+		}
+		arr, ok := v.([]any)
+		if !ok {
+			continue
+		}
+		want := "./extensions/sunshine/index.ts"
+		if key == "prompts" {
+			want = "./prompts"
+		}
+		var kept []any
+		for _, item := range arr {
+			if s, ok := item.(string); ok && s == want {
+				continue
+			}
+			kept = append(kept, item)
+		}
+		if len(kept) == 0 {
+			root.delete(key)
+		} else {
+			root.set(key, kept)
+		}
+	}
+	out, err := root.marshalIndent()
+	if err != nil {
+		return ScrubResult{Content: content, FullyEmpty: false}
+	}
+	return ScrubResult{Content: string(out) + "\n", FullyEmpty: len(root.keys) == 0}
 }

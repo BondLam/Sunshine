@@ -2,12 +2,12 @@
 
 Sunshine 把同一套本地架构连接到不同的 AI 工具。`.sunshine/` 存储共享运行时；平台目录存储 adapter 文件，定义每个 AI 工具如何进入 Sunshine。
 
-> Go 版目前只接 Claude Code、Cursor、Codex 三家；下文其余平台的目录是目标形态，待滚动轨道扩展。
+> Go 版目前已接 22 个平台（Claude Code、Cursor、Codex、Kiro Code、Gemini CLI、Qoder、Pi Agent、ZCode、Trae、Oh My Pi、Snow CLI、OpenCode、DeepSeek Harness (dsh)、Reasonix、Grok Build、Kimi Code、Kilo CLI、Antigravity、Devin、CodeBuddy、GitHub Copilot、Factory Droid）；下文三家平台的目录。
 
 当本地 AI 修改 Sunshine 时，应当先区分两类文件：
 
 - **共享文件**：`.sunshine/workflow.md`、`.sunshine/config.yaml`、`.sunshine/tasks/`、`.sunshine/spec/`、`.sunshine/agents/`。
-- **平台文件**：`.claude/`、`.cursor/`、`.codex/`（Go 版已接的三家）。
+- **平台文件**：19 个已接平台的目录（见 `platform-map.md`）。
 
 平台文件不存储业务状态。它们让对应的 AI 工具读取 Sunshine 状态、调用 `sunshine` 子命令、加载 Sunshine skill/agent/hook。
 

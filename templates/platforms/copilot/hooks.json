@@ -1,0 +1,19 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "type": "command",
+        "command": "SUNSHINE_HOOK_PLATFORM=copilot sunshine hook session-start",
+        "timeout": 30
+      }
+    ],
+    "userPromptSubmitted": [
+      {
+        "type": "command",
+        "bash": "SUNSHINE_HOOK_PLATFORM=copilot sunshine hook workflow-state",
+        "powershell": "SUNSHINE_HOOK_PLATFORM=copilot sunshine hook workflow-state",
+        "timeoutSec": 15
+      }
+    ]
+  }
+}

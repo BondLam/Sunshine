@@ -1,0 +1,9 @@
+{
+  "enableSkillCommands": true,
+  "extensions": [
+    "./extensions/sunshine/index.ts"
+  ],
+  "prompts": [
+    "./prompts"
+  ]
+}

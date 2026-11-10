@@ -56,6 +56,13 @@ func PruneOrphanManifestKeys(cwd string, configuredPlatformIDs []string, hashes 
 			kept[posixKey] = value
 			continue
 		}
+		// devin 的 Windsurf 遗留键：.windsurf/workflows/sunshine-* 是
+		// devin 已配置的兼容形态，Install 不重写它们，但清单里有
+		// 就是 devin 的托管内容，devin 已配置时不剪。
+		if devinLegacyKey(posixKey) && containsString(configuredPlatformIDs, "devin") {
+			kept[posixKey] = value
+			continue
+		}
 		pruned = append(pruned, posixKey)
 	}
 	if persist && len(pruned) > 0 {
@@ -64,6 +71,12 @@ func PruneOrphanManifestKeys(cwd string, configuredPlatformIDs []string, hashes 
 		}
 	}
 	return PruneResult{Pruned: pruned, Hashes: kept}, nil
+}
+
+// devinLegacyKey 报告清单键是否为 devin 的 Windsurf 遗留键
+// （.windsurf/workflows/sunshine-*，C 规格 §5.2）。
+func devinLegacyKey(posixKey string) bool {
+	return strings.HasPrefix(posixKey, ".windsurf/workflows/sunshine-")
 }
 
 // knownTemplatePaths 返回已配置平台实际写出的文件集合

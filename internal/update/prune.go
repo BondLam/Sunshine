@@ -27,6 +27,22 @@ func ConfiguredPlatforms(cwd string, hashes map[string]string) []string {
 			}
 		}
 	}
+	// devin 的 Windsurf 遗留兼容（C 规格 §5.2）：.windsurf/workflows/
+	// 下有 sunshine- 前缀的被追踪模板时，同样判定 devin 已配置。
+	found := false
+	for _, id := range configured {
+		if id == "devin" {
+			found = true
+		}
+	}
+	if !found {
+		for key := range hashes {
+			if strings.HasPrefix(key, ".windsurf/workflows/sunshine-") {
+				configured = append(configured, "devin")
+				break
+			}
+		}
+	}
 	return configured
 }
 
@@ -84,6 +100,19 @@ func PruneOrphanManifestKeys(cwd string, configured []string, hashes map[string]
 		if known[key] {
 			kept[key] = value
 			continue
+		}
+		// devin 的 Windsurf 遗留键：devin 已配置时不剪
+		// （见 lifecycle 的同款保留逻辑）。
+		if strings.HasPrefix(key, ".windsurf/workflows/sunshine-") {
+			for _, id := range configured {
+				if id == "devin" {
+					kept[key] = value
+					break
+				}
+			}
+			if _, ok := kept[key]; ok {
+				continue
+			}
 		}
 		pruned = append(pruned, key)
 	}

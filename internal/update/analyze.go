@@ -45,9 +45,10 @@ type ChangeAnalysis struct {
 //     模板、或可安全合并的 Copilot 文件）→ autoUpdateFiles；
 //   - 其余（哈希不同或无清单记录）→ changedFiles，需交互确认。
 //
-// copilotTemplate 是 Copilot instructions 的模板内容（Sunshine 暂无
-// Copilot 平台时传 ""；isSafeUntrackedCopilotInstructionsMerge
-// 只在模板集合包含该文件时才可能命中）。
+// copilotTemplate 是 Copilot instructions 的模板内容（取自本次收集的
+// 模板集合里合并后的 .github/copilot-instructions.md；Copilot 未配置
+// 时传 ""；isSafeUntrackedCopilotInstructionsMerge 只在模板集合
+// 包含该文件时才可能命中）。
 func AnalyzeChanges(cwd string, hashes map[string]string, templates map[string]string, copilotTemplate string) ChangeAnalysis {
 	result := ChangeAnalysis{ProtectedPaths: append([]string(nil), ProtectedPaths...)}
 	keys := make([]string, 0, len(templates))

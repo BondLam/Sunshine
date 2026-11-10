@@ -10,20 +10,21 @@ import (
 
 func TestExplicitPlatformIDs(t *testing.T) {
 	cases := []struct {
-		claude, cursor, codex bool
-		want                  []string
+		flags map[string]bool
+		want  []string
 	}{
-		{false, false, false, nil},
-		{true, false, false, []string{"claude-code"}},
-		{false, false, true, []string{"codex"}},
-		{true, true, true, []string{"claude-code", "cursor", "codex"}},
-		{false, true, true, []string{"cursor", "codex"}},
+		{map[string]bool{}, nil},
+		{map[string]bool{"claude-code": true}, []string{"claude-code"}},
+		{map[string]bool{"codex": true}, []string{"codex"}},
+		{map[string]bool{"claude-code": true, "cursor": true, "codex": true}, []string{"claude-code", "cursor", "codex"}},
+		{map[string]bool{"cursor": true, "codex": true}, []string{"cursor", "codex"}},
+		{map[string]bool{"devin": true}, []string{"devin"}},
+		{map[string]bool{"kiro": true, "gemini": true, "devin": true}, []string{"kiro", "gemini", "devin"}},
 	}
 	for _, c := range cases {
-		got := explicitPlatformIDs(c.claude, c.cursor, c.codex)
+		got := explicitPlatformIDs(c.flags)
 		if !reflect.DeepEqual(got, c.want) {
-			t.Errorf("explicitPlatformIDs(%v,%v,%v) = %v，想得到 %v",
-				c.claude, c.cursor, c.codex, got, c.want)
+			t.Errorf("explicitPlatformIDs(%v) = %v，想得到 %v", c.flags, got, c.want)
 		}
 	}
 }

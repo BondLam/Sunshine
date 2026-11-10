@@ -31,15 +31,31 @@ Sunshine CLI 绝不触碰任何不是由其自身模板加载器产生的内容�
 
 ## 各平台内置 Skill 的落点
 
-Go 版目前只接 Claude Code、Cursor、Codex 三家；其余 19 个平台（opencode、kilo、kiro、gemini、antigravity、devin、qoder、codebuddy、copilot、droid、dsh、pi、reasonix、zcode、trae、omp、grok、kimi、snow）在滚动轨道待扩展。已接平台都会收到完整的内置 skill 集合：
+Go 版目前已接 22 个平台（Claude Code、Cursor、Codex、Kiro Code、Gemini CLI、Qoder、Pi Agent、ZCode、Trae、Oh My Pi、Snow CLI、OpenCode、DeepSeek Harness (dsh)、Reasonix、Grok Build、Kimi Code、Kilo CLI、Antigravity、Devin、CodeBuddy、GitHub Copilot、Factory Droid）。已接平台都会收到完整的内置 skill 集合：
 
 | 平台 | 内置 skill 根目录 |
 | --- | --- |
 | Claude Code | `.claude/skills/<skill>/` |
 | Cursor | `.cursor/skills/<skill>/` |
 | Codex | `.agents/skills/<skill>/` |
+| Kiro Code | `.kiro/skills/<skill>/` |
+| Gemini CLI | `.agents/skills/<skill>/` |
+| Qoder | `.qoder/skills/<skill>/` |
+| Pi Agent | `.agents/skills/<skill>/` |
+| ZCode | `.zcode/skills/<skill>/` |
+| Trae | `.trae/skills/<skill>/` |
+| Oh My Pi | `.omp/skills/<skill>/` |
+| Snow CLI | `.snow/skills/<skill>/` |
+| OpenCode | `.opencode/skills/<skill>/` |
+| DeepSeek Harness (dsh) | `.agents/skills/<skill>/` |
+| Reasonix | `.reasonix/skills/<skill>/` |
+| Grok Build | `.grok/skills/<skill>/` |
+| Kimi Code | `.agents/skills/<skill>/` |
+| Kilo CLI | `.kilocode/skills/<skill>/` |
+| Antigravity | `.agent/skills/<skill>/` |
+| Devin | `.devin/skills/<skill>/` |
 
-Codex 与后续支持 Agent Skills 的平台共享 `.agents/skills/` 根目录。多个平台共同写入同一文件时，内容必须字节相同（Codex 侧用中性解析，见 `internal/platforms` 的占位符处理）。
+Codex、Gemini CLI、Pi Agent、DeepSeek Harness (dsh)、Kimi Code 五家共享 `.agents/skills/` 根目录。多个平台共同写入同一文件时，内容必须字节相同（这五家用中性解析，见 `internal/platforms` 的占位符处理）。
 
 一份描述，两个消费者：
 
@@ -87,7 +103,7 @@ Codex 与后续支持 Agent Skills 的平台共享 `.agents/skills/` 根目录�
 
    `description` 是每个平台自动触发机制匹配的内容，所以它应当描述用户意图触发条件，而不是 skill 的内部机制。
 
-3. **在适当的地方使用占位符。** 内置 skill 内容会经过平台占位符解析。支持的 token 只有：`{{CMD_REF:name}}`、`{{CLI_FLAG}}`、`{{PYTHON_CMD}}`（Go 版解析为 `sunshine`，无 Python 运行时）、`{{EXECUTOR_AI}}`、`{{USER_ACTION_LABEL}}`，以及条件块 `{{#AGENT_CAPABLE}}…{{/AGENT_CAPABLE}}` / `{{#HAS_HOOKS}}…{{/HAS_HOOKS}}`（含 `{{^…}}` 取反）。其他 `{{...}}` 字样（例如文档措辞里的 `{{platform_name}}`、`{{python_cmd}}`）不是可解析 token，会原样保留。
+3. **在适当的地方使用占位符。** 内置 skill 内容会经过平台占位符解析。支持的 token 只有：`CMD_REF:name`、`CLI_FLAG`、`PYTHON_CMD`（Go 版解析为 `sunshine`，无 Python 运行时）、`EXECUTOR_AI`、`USER_ACTION_LABEL`，以及条件块 `AGENT_CAPABLE` / `HAS_HOOKS`（含 `^` 取反形式）。其他双花括号字样（例如文档措辞里的 `platform_name`、`python_cmd`）不是可解析 token，会原样保留。（注：此处 token 名特意不写双花括号——写成字面形式会在渲染时被解析器替换、把本句掏空。）
 
 4. **不需要分发接线。** 内嵌模板的目录枚举会自动发现新目录，所以所有已接平台都会在下一次 `sunshine init` 或 `sunshine update` 时收到它。
 
@@ -126,7 +142,7 @@ Codex 与后续支持 Agent Skills 的平台共享 `.agents/skills/` 根目录�
 
 2. **固定一个未发布该 skill 的 Sunshine 版本。** 内置 skill 集合在构建时确定，所以安装旧版二进制是永久排除当前版本所带 skill 的唯一方法。
 
-第三种选择——全局禁用全部内置 skill——不受支持。分发是无条件的：平台安装器不接受“跳过内置 skill”的参数。添加一个开关意味着要改全部已接平台与待扩展平台的安装签名。
+第三种选择——全局禁用全部内置 skill——不受支持。分发是无条件的：平台安装器不接受“跳过内置 skill”的参数。添加一个开关意味着要改全部 19 个已接平台的安装签名。
 
 ## 运行规则
 

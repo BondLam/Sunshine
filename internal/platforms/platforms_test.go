@@ -10,13 +10,38 @@ import (
 
 func TestRegistry(t *testing.T) {
 	reg := Registry()
-	if len(reg) != 3 {
-		t.Fatalf("注册表应有 3 个平台，实际 %d", len(reg))
+	if len(reg) != 22 {
+		t.Fatalf("注册表应有 22 个平台，实际 %d", len(reg))
 	}
-	want := map[string]Platform{
-		"claude-code": {ID: "claude-code", Name: "Claude Code", Flag: "claude", ConfigDir: ".claude", DefaultChecked: true, CmdRefPrefix: "/sunshine:", AgentCapable: true, HasHooks: true, SupportsAgentSkills: false, executorAI: "Bash scripts or Task calls", userActionLabel: "Slash commands"},
-		"cursor":      {ID: "cursor", Name: "Cursor", Flag: "cursor", ConfigDir: ".cursor", DefaultChecked: true, CmdRefPrefix: "/sunshine-", AgentCapable: true, HasHooks: true, SupportsAgentSkills: false, executorAI: "Bash scripts or Task calls", userActionLabel: "Slash commands"},
-		"codex":       {ID: "codex", Name: "Codex", Flag: "codex", ConfigDir: ".codex", DefaultChecked: false, CmdRefPrefix: "$", AgentCapable: true, HasHooks: false, SupportsAgentSkills: true, executorAI: "Bash scripts or tool calls", userActionLabel: "Skills"},
+	// 只比核心登记字段（布局字段另由 TestInstall* 覆盖行为）；
+	// Platform 含 slice 字段，不能直接用 != 比较。
+	type core struct {
+		Name, Flag, ConfigDir, CmdRefPrefix, executorAI, userActionLabel string
+		DefaultChecked, AgentCapable, HasHooks, SupportsAgentSkills      bool
+	}
+	want := map[string]core{
+		"claude-code": {"Claude Code", "claude", ".claude", "/sunshine:", "Bash scripts or Task calls", "Slash commands", true, true, true, false},
+		"cursor":      {"Cursor", "cursor", ".cursor", "/sunshine-", "Bash scripts or Task calls", "Slash commands", true, true, true, false},
+		"codex":       {"Codex", "codex", ".codex", "$", "Bash scripts or tool calls", "Skills", false, true, false, true},
+		"kiro":        {"Kiro Code", "kiro", ".kiro/skills", "$", "Bash scripts or tool calls", "Skills", false, true, true, false},
+		"gemini":      {"Gemini CLI", "gemini", ".gemini", "/sunshine:", "Bash scripts or tool calls", "Slash commands", false, true, true, true},
+		"qoder":       {"Qoder", "qoder", ".qoder", "$", "Bash scripts or tool calls", "Skills", false, true, true, false},
+		"pi":          {"Pi Agent", "pi", ".pi", "/sunshine-", "Bash scripts or tool calls", "Slash commands", false, true, true, true},
+		"zcode":       {"ZCode", "zcode", ".zcode", "/sunshine:", "Bash scripts or Agent calls", "Skills", false, true, true, false},
+		"trae":        {"Trae", "trae", ".trae", "/sunshine-", "Bash scripts or tool calls", "Commands", false, true, true, false},
+		"omp":         {"Oh My Pi", "omp", ".omp", "/sunshine:", "Bash scripts or Task calls", "Slash commands", false, true, true, false},
+		"snow":        {"Snow CLI", "snow", ".snow/skills", "/sunshine-", "Bash scripts or Agent calls", "Skills", false, true, true, false},
+		"opencode":    {"OpenCode", "opencode", ".opencode", "/sunshine:", "Bash scripts or Task calls", "Slash commands", false, true, false, false},
+		"dsh":         {"DeepSeek Harness (dsh)", "dsh", ".dsh", "sunshine-", "Bash scripts or tool calls", "Skills", false, true, false, true},
+		"reasonix":    {"Reasonix", "reasonix", ".reasonix", "/skill sunshine-", "Bash scripts or tool calls", "Skills", false, true, false, false},
+		"grok":        {"Grok Build", "grok", ".grok", "/sunshine-", "Bash scripts or Agent calls", "Skills", false, true, false, false},
+		"kimi":        {"Kimi Code", "kimi", ".kimi-code", "/skill:sunshine-", "Bash scripts or Agent calls", "Slash commands", false, true, false, true},
+		"kilo":        {"Kilo CLI", "kilo", ".kilocode", "/sunshine:", "Bash scripts or file reads", "Workflows", false, false, false, false},
+		"antigravity": {"Antigravity", "antigravity", ".agent/workflows", "/", "Bash scripts or file reads", "Workflows", false, false, false, false},
+		"devin":       {"Devin", "devin", ".devin/workflows", "/sunshine-", "Bash scripts or file reads", "Workflows", false, false, false, false},
+		"codebuddy":   {"CodeBuddy", "codebuddy", ".codebuddy", "/sunshine:", "Bash scripts or Task calls", "Slash commands", false, true, true, false},
+		"copilot":     {"GitHub Copilot", "copilot", ".github/copilot", "/", "Bash scripts or tool calls", "Prompts", false, true, true, false},
+		"droid":       {"Factory Droid", "droid", ".factory", "/sunshine-", "Bash scripts or Task calls", "Slash commands", false, true, true, false},
 	}
 	for _, p := range reg {
 		w, ok := want[p.ID]
@@ -24,15 +49,27 @@ func TestRegistry(t *testing.T) {
 			t.Errorf("注册表出现未知平台 %q", p.ID)
 			continue
 		}
-		if p != w {
-			t.Errorf("平台 %s 的注册信息不对：%+v，期望 %+v", p.ID, p, w)
+		got := core{p.Name, p.Flag, p.ConfigDir, p.CmdRefPrefix, p.executorAI, p.userActionLabel, p.DefaultChecked, p.AgentCapable, p.HasHooks, p.SupportsAgentSkills}
+		if got != w {
+			t.Errorf("平台 %s 的注册信息不对：%+v，期望 %+v", p.ID, got, w)
+		}
+		if p.SkillsDir == "" {
+			t.Errorf("平台 %s 未登记 SkillsDir", p.ID)
+		}
+		if p.CmdForm == "" {
+			t.Errorf("平台 %s 未登记 CmdForm", p.ID)
 		}
 	}
 	if got, ok := ByID("cursor"); !ok || got.Name != "Cursor" {
 		t.Errorf("ByID(cursor) = %+v, %v", got, ok)
 	}
-	if _, ok := ByID("opencode"); ok {
-		t.Error("ByID(opencode) 不应找到（阶段 2 只做三平台）")
+	if _, ok := ByID("opencode"); !ok {
+		t.Error("ByID(opencode) 应找到（滚动轨道已接）")
+	}
+	for _, id := range []string{"codebuddy", "copilot", "droid"} {
+		if _, ok := ByID(id); !ok {
+			t.Errorf("ByID(%s) 应找到（E 路已接）", id)
+		}
 	}
 }
 
@@ -210,7 +247,7 @@ func TestHookCommandPlatformPrefix(t *testing.T) {
 }
 
 func TestInstallUnknownPlatform(t *testing.T) {
-	if _, err := Install(t.TempDir(), "opencode", InstallOptions{}); err == nil {
+	if _, err := Install(t.TempDir(), "not-a-platform", InstallOptions{}); err == nil {
 		t.Error("未知平台应报错")
 	}
 }

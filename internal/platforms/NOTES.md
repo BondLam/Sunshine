@@ -209,3 +209,22 @@ Go 版无 `.sunshine/scripts/`（PLAN.md 关键决策 1：hooks 不用 Python；
   需同步修改 `common/skills/` 与 `common/commands/` 下的模板。
 - **阶段 4 update 的 settings.json 策略待定**（见第 3 节末尾）。
 - **Codex `session-start.py` 未接线**（见第 2 节）：是否补接线需另行决策。
+
+## 7. 滚动轨道 16 平台接线（2026-11-10，D 组）
+
+- **注册表驱动重构**：`Platform` 增加布局字段（`SkillsDir`、`AutoSkillsNeutral`、`CmdForm`/`CmdDir`/`CmdPrefix`/`CmdAll`/`CmdNeutral`/`CmdJSONDir`、`AgentFiles`/`AgentSkillCopies`、`ExtraFiles`、`ExtraManagedPaths`、`ExcludeCheckSkill`），`buildFiles` 改为通用引擎（自动 skill → bundled skill → 命令 → agent → 平台专属文件五段），16 个平台全部走同一引擎；仅剩的平台特例是 Codex 的 agent model 保留与 `.codex/skills/` 空目录保证。原有三平台的行为字节一致（既有 `TestInstallClaude/Cursor/Codex` 等全过；`TestRegistry` 改为核心字段投影比较，因 Platform 含 slice 字段不可直接 `!=`）。
+- **命令形态**：`subdir`（claude/opencode/zcode）、`flat`（cursor/grok/pi）、`toml`（gemini）、`frontmatter`（qoder/trae）、`omp`（omp，去 H1 + finish-work 加 argument-hint）、`skill`（codex/kiro/dsh/kimi/reasonix/snow）、`workflow`（kilo/antigravity/devin，无 frontmatter）。pi 的 start 兜底结果即三个全写（`CmdAll=true`）。
+- **Prelude 只在 buildFiles 里注入**：grok、kimi 的 implement/check 按 B 规格 §8 注入（`injectPullBasedPrelude`，frontmatter 之后、正文之前，末尾 `---` 分隔行）；gemini/qoder/pi/trae 的 prelude 已 baked 进模板文件，原样写出、不重复注入（测试钉住出现次数恰为 1）。
+- **COMMAND_DESCRIPTIONS 统一为 A3 §6.2 的值**（continue“在正确的阶段恢复当前任务。”、finish-work“收尾当前会话：质量关卡、提交提醒、归档、日志。”），qoder/trae/omp/snow 四家共用；A1 的 qoder 译文与 A3 §6.1 的 snow 译文与之不同时以此处为准。
+- **bundled-skills.md 第 90 行自我损毁已修**（C 规格 §4 遗留问题 1）：句子改写为不含字面可解析 token 的表述（token 名去掉花括号写成 `CMD_REF:name` 等，条件块写成 `AGENT_CAPABLE` / `HAS_HOOKS`），并加注说明原因；claude（两项 true）与 antigravity（两项 false）各渲染一次验证句子完整，回归测试 `TestBundledSkillsDocLine90NotSelfDestructing` 已钉住。
+- **kiro 的 ConfigDir 登记为 `.kiro/skills`**（A1 规格原值，ai-tools.ts 登记）：`sunshine platforms` 的显示与“已配置”判定都按该值；托管根目录 `.kiro`（含 agents/hooks）另由 `AllManagedDirs` 与 `ExtraManagedPaths` 覆盖。
+- **snow 的 ConfigDir 登记为 `.snow/skills`**（A3 规格原值）：`platforms` 判定只认 `.snow/skills` 下有 Sunshine 模板哈希的情形，不按 `.snow` 目录存在判定（A3 §5.3）。
+
+## 8. 滚动轨道 E 路接线：codebuddy、copilot、droid（2026-11-10，G 组）
+
+- **注册表**：三家按 E 规格 §1 全量值追加，`DefaultChecked` 均为 false；`CmdRefPrefix` 用 Sunshine 侧值（codebuddy `/sunshine:`、copilot `/`、droid `/sunshine-`）；`extraManagedPaths` 只 copilot 有 5 条；copilot 的 `ConfigDir` 登记为 `.github/copilot`（`sunshine platforms` 按该目录下有被追踪模板判定）。
+- **命令形态新增 `prompt`**（只 copilot）：`.github/prompts/<名>.prompt.md`，裸名、无 frontmatter；其余两家走既有 `subdir` 形态（`.codebuddy/commands/sunshine/`、`.factory/commands/sunshine/`）。三家均 `agentCapable && hasHooks`，只写 continue、finish-work。
+- **prompts 携带件不安装**：`buildFiles` 只按名读取 `common/commands/` 与登记的专属模板文件，从不按目录遍历写出；`templates/platforms/copilot/prompts/`（13 个）因此天然不在写出集合里，无需显式排除——但 embed 是 `all:platforms`，它们仍会编进二进制（只占体积，不落盘）。如协调人决定废弃，直接删目录即可。
+- **agents/settings 原样写出**：codebuddy 读 `agents/`、droid 读 `droids/`（落盘 `.factory/droids/`，不是 `agents/`）、copilot 读 `agents/*.agent.md`（前置段与归一化已 baked 进模板，Go 不再变换）；copilot 的 `hooks.json` 写两份（`.github/copilot/hooks.json` 与 `.github/hooks/sunshine.json`，同一份内容）。
+- **copilot-instructions.md 走托管块合并**：`sunshine update` 的 `CollectTemplateFiles` 对该文件用 `BuildManagedBlockTemplate` 合并（标记 `<!-- SUNSHINE:COPILOT-GUIDANCE:START/END -->`），不直接覆盖；`AnalyzeChanges` 的 `copilotTemplate` 参数改传集合里合并后的内容（Copilot 未配置时传 `""`，与之前一致）。该文件的平台目录列表（上游 14 项）维持原样，未扩到 22 个（E 规格遗留问题 7，另立任务再定）。
+- **清理器**：`.codebuddy/settings.json`、`.factory/settings.json` 走嵌套 hooks 形；`.github/copilot/hooks.json`、`.github/hooks/sunshine.json` 走扁平形（`userPromptSubmitted` 的 bash/powershell 双键由 `entryCommand` 识别）；`.github/copilot-instructions.md` 新增托管块清理器（只剥离 Sunshine 块，块外用户内容保留；只剩块时整文件删）。`AllManagedDirs` 补 `.codebuddy`、`.factory` 与 copilot 的 5 条子路径，另把 `.github/copilot-instructions.md` 本人列入（供覆盖测试认领该文件；`.github` 本身不在此列，用户自有工作流不受影响）。

@@ -635,6 +635,7 @@ func (r *Runner) Current(showSource, asJSON bool) int {
 		fmt.Fprintln(r.out(), active.TaskPath)
 		return 0
 	}
+	fmt.Fprintln(r.out(), "当前任务：(无)")
 	return 1
 }
 

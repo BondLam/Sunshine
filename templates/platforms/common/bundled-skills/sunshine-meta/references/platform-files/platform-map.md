@@ -2,7 +2,7 @@
 
 本页按平台列出用户项目中常见的 Sunshine 文件位置。实际项目中是否存在某个平台目录，取决于用户运行过哪些 `sunshine init --<platform>` 命令。
 
-> Go 版现状：已接 Claude Code、Cursor、Codex 三家（状态列标“已接”）；其余 19 家在滚动轨道待扩展（状态列标“待扩展”，其行描述的是目标形态）。不要把“待扩展”平台的目录当作已生成的文件。
+> Go 版现状：已接 22 个平台（状态列标“已接”）。
 
 ## 矩阵
 
@@ -10,25 +10,25 @@
 | --- | --- | --- | --- | --- | --- | --- |
 | Claude Code | `--claude` | `.claude/` | `.claude/skills/` | `.claude/agents/` | `.claude/settings.json`（注册 `sunshine hook` 调用） | 已接 |
 | Cursor | `--cursor` | `.cursor/` | `.cursor/skills/` | `.cursor/agents/` | `.cursor/hooks.json`（注册 `sunshine hook` 调用） | 已接 |
-| OpenCode | `--opencode` | `.opencode/` | `.opencode/skills/` | `.opencode/agents/` | `.opencode/plugins/` | 待扩展 |
+| OpenCode | `--opencode` | `.opencode/` | `.opencode/skills/` | `.opencode/agents/` | `.opencode/plugins/` | 已接 |
 | Codex | `--codex` | `.codex/` | `.agents/skills/` | `.codex/agents/` | `.codex/hooks.json`（注册 `sunshine hook` 调用） | 已接 |
-| Kilo | `--kilo` | `.kilocode/` | `.kilocode/skills/` | 通常无 | `.kilocode/workflows/` | 待扩展 |
-| Kiro | `--kiro` | `.kiro/` | `.kiro/skills/` | `.kiro/agents/` | `.kiro/hooks/` | 待扩展 |
-| Gemini CLI | `--gemini` | `.gemini/` | `.agents/skills/` | `.gemini/agents/` | `.gemini/settings.json` + `.gemini/hooks/` | 待扩展 |
-| Antigravity | `--antigravity` | `.agent/` | `.agent/skills/` | 通常无 | `.agent/workflows/` | 待扩展 |
-| Devin | `--devin` | `.devin/` | `.devin/skills/` | 通常无 | `.devin/workflows/` | 待扩展 |
-| Qoder | `--qoder` | `.qoder/` | `.qoder/skills/` | `.qoder/agents/` | `.qoder/hooks/` + `.qoder/settings.json` | 待扩展 |
-| CodeBuddy | `--codebuddy` | `.codebuddy/` | `.codebuddy/skills/` | `.codebuddy/agents/` | `.codebuddy/hooks/` + `.codebuddy/settings.json` | 待扩展 |
-| GitHub Copilot | `--copilot` | `.github/` | `.github/skills/` | `.github/agents/` | `.github/copilot/hooks/` + prompts | 待扩展 |
-| Factory Droid | `--droid` | `.factory/` | `.factory/skills/` | `.factory/droids/` | `.factory/hooks/` + settings | 待扩展 |
-| DeepSeek Harness (dsh) | `--dsh` | `.dsh/` | `.agents/skills/`（共享）+ `.dsh/skills/`（入口 skill） | 无（工作流 skill 内联运行 implement/check） | 无（class-2 拉取式；无项目 hook/设置） | 待扩展 |
-| Pi Agent | `--pi` | `.pi/` | `.agents/skills/` | `.pi/agents/` | `.pi/extensions/sunshine/`（原生 `sunshine_subagent` 工具）+ `.pi/settings.json` | 待扩展 |
-| Trae IDE | `--trae` | `.trae/` | `.trae/skills/` | `.trae/agents/` | `.trae/hooks/` + `.trae/hooks.json` | 待扩展 |
-| Reasonix | `--reasonix` | `.reasonix/` | `.reasonix/skills/` | 无——子 Agent 是带 `runAs: subagent` frontmatter 的 skill | 无 | 待扩展 |
-| ZCode | `--zcode` | `.zcode/` | `.zcode/skills/` | `.zcode/agents/` | `.zcode/hooks/` + `.zcode/config.json`（SessionStart + UserPromptSubmit + PreToolUse Agent/Task）；子 Agent 使用 hook 注入的上下文 | 待扩展 |
-| Grok Build | `--grok` | `.grok/` | `.grok/skills/` | `.grok/agents/` | 拉取式前奏（无 hook；扁平的 `.grok/commands/sunshine-*.md`） | 待扩展 |
-| Kimi Code | `--kimi` | `.kimi-code/` | `.agents/skills/`（共享）+ `.kimi-code/skills/` | `.kimi-code/agents/`（自定义子 Agent；相同的提示词也作为 skill 发布） | 无（拉取式前奏；无项目 hook/设置） | 待扩展 |
-| Snow CLI | `--snow` | `.snow/` | `.snow/skills/` | `.snow/agents/`（自动发现；主要路径） | class-1：自动注入 + 项目 agent + `beforeSubAgentStart`（`.snow/hooks/` 的 `session`/`user`/`subagent` 模式 -> `additionalContext` JSON）；无旧版子 Agent JSON；命令 `.snow/commands/sunshine-*.json` | 待扩展 |
+| Kilo | `--kilo` | `.kilocode/` | `.kilocode/skills/` | 通常无 | `.kilocode/workflows/` | 已接 |
+| Kiro | `--kiro` | `.kiro/` | `.kiro/skills/` | `.kiro/agents/` | `.kiro/hooks/` | 已接 |
+| Gemini CLI | `--gemini` | `.gemini/` | `.agents/skills/` | `.gemini/agents/` | `.gemini/settings.json` | 已接 |
+| Antigravity | `--antigravity` | `.agent/` | `.agent/skills/` | 通常无 | `.agent/workflows/` | 已接 |
+| Devin | `--devin` | `.devin/` | `.devin/skills/` | 通常无 | `.devin/workflows/` | 已接 |
+| Qoder | `--qoder` | `.qoder/` | `.qoder/skills/` | `.qoder/agents/` | `.qoder/settings.json` | 已接 |
+| CodeBuddy | `--codebuddy` | `.codebuddy/` | `.codebuddy/skills/` | `.codebuddy/agents/` | `.codebuddy/settings.json` | 已接 |
+| GitHub Copilot | `--copilot` | `.github/` | `.github/skills/` | `.github/agents/` | `.github/copilot/hooks.json` + `.github/hooks/sunshine.json` | 已接 |
+| Factory Droid | `--droid` | `.factory/` | `.factory/skills/` | `.factory/droids/` | `.factory/settings.json` | 已接 |
+| DeepSeek Harness (dsh) | `--dsh` | `.dsh/` | `.agents/skills/`（共享）+ `.dsh/skills/`（入口 skill） | 无（工作流 skill 内联运行 implement/check） | 无（class-2 拉取式；无项目 hook/设置） | 已接 |
+| Pi Agent | `--pi` | `.pi/` | `.agents/skills/` | `.pi/agents/` | `.pi/extensions/sunshine/`（原生 `sunshine_subagent` 工具）+ `.pi/settings.json` | 已接 |
+| Trae IDE | `--trae` | `.trae/` | `.trae/skills/` | `.trae/agents/` | `.trae/hooks.json` | 已接 |
+| Reasonix | `--reasonix` | `.reasonix/` | `.reasonix/skills/` | 无——子 Agent 是带 `runAs: subagent` frontmatter 的 skill | 无 | 已接 |
+| ZCode | `--zcode` | `.zcode/` | `.zcode/skills/` | `.zcode/agents/` | `.zcode/hooks/` + `.zcode/config.json`（SessionStart + UserPromptSubmit + PreToolUse Agent/Task）；子 Agent 使用 hook 注入的上下文 | 已接 |
+| Grok Build | `--grok` | `.grok/` | `.grok/skills/` | `.grok/agents/` | 拉取式前奏（无 hook；扁平的 `.grok/commands/sunshine-*.md`） | 已接 |
+| Kimi Code | `--kimi` | `.kimi-code/` | `.agents/skills/`（共享）+ `.kimi-code/skills/` | `.kimi-code/agents/`（自定义子 Agent；相同的提示词也作为 skill 发布） | 无（拉取式前奏；无项目 hook/设置） | 已接 |
+| Snow CLI | `--snow` | `.snow/` | `.snow/skills/` | `.snow/agents/`（自动发现；主要路径） | class-1：自动注入 + 项目 agent + `beforeSubAgentStart`（`.snow/hooks/` 的 `session`/`user`/`subagent` 模式 -> `additionalContext` JSON）；无旧版子 Agent JSON；命令 `.snow/commands/sunshine-*.json` | 已接 |
 
 ## 能力分组
 
@@ -56,11 +56,11 @@
 
 修改实现/检查/研究行为时，先找对应的平台 agent 文件。
 
-### 原生 Sunshine 子 Agent 工具（目标形态，相关平台待扩展）
+### 原生 Sunshine 子 Agent 工具
 
 有些平台暴露宿主运行时理解的一等工具。模型像调用任何其他工具一样调用它，宿主渲染进度卡片、对照 `.<platform>/agents/` 校验 agent 名，并强制执行分发模式。
 
-- Pi Agent——`sunshine_subagent` 工具，定义在 `.pi/extensions/sunshine/index.ts`。支持 `single` / `parallel` / `chain` 分发模式，并发出实时的 `sunshine-subagent-progress` 事件。Pi 在 Go 版滚动轨道待扩展。
+- Pi Agent——`sunshine_subagent` 工具，定义在 `.pi/extensions/sunshine/index.ts`。支持 `single` / `parallel` / `chain` 分发模式，并发出实时的 `sunshine-subagent-progress` 事件。Pi 已接。
 
 修改这些平台上的子 Agent 分发行为时，编辑扩展文件，**而不是** agent markdown——agent markdown 定义职责，但宿主扩展拥有分发、校验和进度渲染。
 
@@ -111,4 +111,4 @@ Codex、Gemini CLI、Pi Agent、Kimi Code 和 DeepSeek Harness (dsh) 写入共�
 ```
 
 无 `settings.json`——OMP 自动扫描 `.omp/` 子目录。
-无项目 hook——与 hook 等价的行为由 `sunshine hook` 子命令实现（Go 二进制内，无需 Python 运行时）；OMP 本身在滚动轨道待扩展，见本页开头的平台状态。
+无项目 hook——与 hook 等价的行为由 `sunshine hook` 子命令实现（Go 二进制内，无需 Python 运行时）；OMP 已接，见本页开头的平台状态。

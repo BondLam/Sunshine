@@ -1,0 +1,14 @@
+{
+  "version": "1.0.0",
+  "enabled": true,
+  "name": "sunshine-workflow-state",
+  "description": "每轮提示词提交时注入 Sunshine 工作流状态",
+  "when": {
+    "type": "promptSubmit"
+  },
+  "then": {
+    "type": "runCommand",
+    "command": "SUNSHINE_HOOK_PLATFORM=kiro sunshine hook workflow-state",
+    "timeout": 30
+  }
+}

@@ -1,0 +1,40 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "SUNSHINE_HOOK_PLATFORM=gemini sunshine hook session-start",
+            "timeout": 30000
+          }
+        ]
+      }
+    ],
+    "BeforeAgent": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "SUNSHINE_HOOK_PLATFORM=gemini sunshine hook workflow-state",
+            "timeout": 15000
+          }
+        ]
+      }
+    ],
+    "BeforeTool": [
+      {
+        "matcher": "run_shell_command|ShellTool",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "SUNSHINE_HOOK_PLATFORM=gemini sunshine hook shell-session",
+            "timeout": 5000
+          }
+        ]
+      }
+    ]
+  }
+}

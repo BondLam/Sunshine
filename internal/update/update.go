@@ -211,7 +211,7 @@ func Run(cwd string, opts Options) (Summary, error) {
 	}
 
 	// 变更分析。
-	changes := AnalyzeChanges(cwd, hashes, templates, "")
+	changes := AnalyzeChanges(cwd, hashes, templates, templates[CopilotInstructionsPath])
 	unchangedRepairs := CollectUnchangedFileHashRepairs(changes, hashes)
 	PrintChangeSummary(w, cwd, changes)
 	if isFirstHashTracking && len(changes.ChangedFiles) > 0 {

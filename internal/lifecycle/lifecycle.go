@@ -10,9 +10,8 @@
 // 与上游的关键区别（逐条见 PLAN.md 阶段 4 实施记录 D 组）：
 //   - 清单格式沿用 Go 版约定：{"__version": 2, "files": {...}}
 //     （上游是 "hashes" 键；Go 版 scaffold / workflow 已定为 "files"）。
-//   - 只接了 claude-code、cursor、codex 三个平台，结构化清理
-//     （scrubber）只覆盖这三家实际写出的文件；其余 19 个平台
-//     待滚动轨道接入后补。
+//   - 22 个平台已接（claude-code、cursor、codex + 滚动轨道 19 家），
+//     结构化清理（scrubber）覆盖各家实际写出的共享配置文件。
 //   - Hook 不再是 Python 脚本：settings/hooks.json 里的托管命令是
 //     `SUNSHINE_HOOK_PLATFORM=<平台> sunshine hook <事件>`，
 //     scrubber 按“命令含 sunshine hook”判定托管条目，而不是
@@ -52,13 +51,41 @@ const ManifestVersion = 2
 
 // AllManagedDirs 是 Sunshine 管理的全部目录（含 .sunshine/ 本身）。
 // 对照上游 ALL_MANAGED_DIRS（[工程目录, ...各平台托管目录]）；
-// Go 版目前只有三平台，共享 .agents/skills/ 只由 codex 写入。
+// 共享 .agents/skills/ 由 codex、gemini、dsh、pi、kimi 五家写入。
+// Copilot 的 .github/copilot-instructions.md 是托管文件（非目录），
+// 为让覆盖测试认领它也列入本表；空目录清理时只删空目录，
+// .github 本身不在此列（用户自有工作流等文件不受影响）。
 var AllManagedDirs = []string{
 	SunshineDir,
 	".claude",
 	".cursor",
 	".codex",
 	".agents/skills",
+	".kiro",
+	".gemini",
+	".qoder",
+	".pi",
+	".zcode",
+	".zcode/cli/agents",
+	".trae",
+	".omp",
+	".snow",
+	".opencode",
+	".dsh",
+	".reasonix",
+	".grok",
+	".kimi-code",
+	".kilocode",
+	".agent",
+	".devin",
+	".codebuddy",
+	".factory",
+	".github/copilot",
+	".github/agents",
+	".github/hooks",
+	".github/prompts",
+	".github/skills",
+	".github/copilot-instructions.md",
 }
 
 // stdinIsTTY 判断标准输入是否为交互终端。
@@ -279,7 +306,26 @@ func ConfiguredPlatformIDs(hashes map[string]string) []string {
 			}
 		}
 	}
+	// devin 的 Windsurf 遗留兼容（C 规格 §5.2）：.windsurf/workflows/
+	// 下有 sunshine- 前缀的被追踪模板时，同样判定 devin 已配置。
+	if !containsString(ids, "devin") {
+		for key := range hashes {
+			if strings.HasPrefix(key, ".windsurf/workflows/sunshine-") {
+				ids = append(ids, "devin")
+				break
+			}
+		}
+	}
 	return ids
+}
+
+func containsString(list []string, want string) bool {
+	for _, s := range list {
+		if s == want {
+			return true
+		}
+	}
+	return false
 }
 
 // ---------------------------------------------------------------------------

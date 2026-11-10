@@ -5,7 +5,7 @@
 因此，当 AI 使用本 skill 时，默认的定制目标是用户项目内的本地文件：
 
 - `.sunshine/`：工作流、任务、规范、记忆和运行时状态。
-- 平台目录：`.claude/`、`.cursor/`、`.codex/`（Go 版已接的三家；其余平台在滚动轨道待扩展）。
+- 平台目录：22 个已接平台的目录（见 `references/platform-files/platform-map.md`）。
 - 共享 skill 层：`.agents/skills/`（Codex 与后续支持 Agent Skills 的平台共用）。
 
 不要默认引导用户 fork Sunshine CLI 仓库。只有当用户明确说想改 Sunshine 上游源码、发布新版本或贡献 PR 时，才把上游源码当作操作目标。

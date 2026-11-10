@@ -321,7 +321,9 @@ func PrintMigrationSummary(classified ClassifiedMigrations, w io.Writer) {
 	for _, item := range classified.Conflict {
 		fmt.Fprintf(w, "  ⊘ 冲突（新旧文件都存在）：%s\n", describeItem(item))
 	}
-	fmt.Fprintln(w, "    → 请手工合并或删除其中一个，再重新运行更新。")
+	if len(classified.Conflict) > 0 {
+		fmt.Fprintln(w, "    → 请手工合并或删除其中一个，再重新运行更新。")
+	}
 	for _, item := range classified.Skip {
 		fmt.Fprintf(w, "  ○ 跳过（不存在、受保护或不属于模板）：%s\n", item.From)
 	}

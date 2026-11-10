@@ -23,18 +23,65 @@ var (
 	initClaude         bool
 	initCursor         bool
 	initCodex          bool
+	initKiro           bool
+	initGemini         bool
+	initQoder          bool
+	initPi             bool
+	initZcode          bool
+	initTrae           bool
+	initOmp            bool
+	initSnow           bool
+	initOpencode       bool
+	initDsh            bool
+	initReasonix       bool
+	initGrok           bool
+	initKimi           bool
+	initKilo           bool
+	initAntigravity    bool
+	initDevin          bool
+	initWindsurf       bool
+	initCodebuddy      bool
+	initCopilot        bool
+	initDroid          bool
 	initWithStatusline bool
 	initType           string
 )
 
-// platformIDs 是 init 支持的三个平台，按安装顺序排列。
-var platformIDs = []string{"claude-code", "cursor", "codex"}
+// platformIDs 是 init 支持的全部 22 个平台，按安装顺序排列
+// （与 internal/platforms 注册表顺序一致）。
+var platformIDs = []string{
+	"claude-code", "cursor", "codex",
+	"kiro", "gemini", "qoder",
+	"pi", "zcode", "trae", "omp", "snow",
+	"opencode", "dsh", "reasonix", "grok", "kimi",
+	"kilo", "antigravity", "devin",
+	"codebuddy", "copilot", "droid",
+}
 
 // platformDisplayNames 是平台 ID 到中文展示名的映射。
 var platformDisplayNames = map[string]string{
 	"claude-code": "Claude Code",
 	"cursor":      "Cursor",
 	"codex":       "Codex",
+	"kiro":        "Kiro Code",
+	"gemini":      "Gemini CLI",
+	"qoder":       "Qoder",
+	"pi":          "Pi Agent",
+	"zcode":       "ZCode",
+	"trae":        "Trae",
+	"omp":         "Oh My Pi",
+	"snow":        "Snow CLI",
+	"opencode":    "OpenCode",
+	"dsh":         "DeepSeek Harness (dsh)",
+	"reasonix":    "Reasonix",
+	"grok":        "Grok Build",
+	"kimi":        "Kimi Code",
+	"kilo":        "Kilo CLI",
+	"antigravity": "Antigravity",
+	"devin":       "Devin",
+	"codebuddy":   "CodeBuddy",
+	"copilot":     "GitHub Copilot",
+	"droid":       "Factory Droid",
 }
 
 var initCmd = &cobra.Command{
@@ -48,7 +95,10 @@ var initCmd = &cobra.Command{
   - tasks/、workspace/：任务与协作区
 
 并按选择的平台安装对应的 AI 编程助手配置
-（Claude Code、Cursor、Codex）。
+（22 个平台：Claude Code、Cursor、Codex、Kiro、Gemini、Qoder、
+Pi、ZCode、Trae、Oh My Pi、Snow、OpenCode、DeepSeek Harness、
+Reasonix、Grok、Kimi、Kilo、Antigravity、Devin、CodeBuddy、
+GitHub Copilot、Factory Droid）。
 
 重复执行 init 时进入增量模式：只追加新选的平台，
 不动已有平台文件与 .sunshine/ 骨架。
@@ -192,6 +242,26 @@ func init() {
 	initCmd.Flags().BoolVar(&initClaude, "claude", false, "安装 Claude Code 平台配置")
 	initCmd.Flags().BoolVar(&initCursor, "cursor", false, "安装 Cursor 平台配置")
 	initCmd.Flags().BoolVar(&initCodex, "codex", false, "安装 Codex 平台配置")
+	initCmd.Flags().BoolVar(&initKiro, "kiro", false, "安装 Kiro Code 平台配置")
+	initCmd.Flags().BoolVar(&initGemini, "gemini", false, "安装 Gemini CLI 平台配置")
+	initCmd.Flags().BoolVar(&initQoder, "qoder", false, "安装 Qoder 平台配置")
+	initCmd.Flags().BoolVar(&initPi, "pi", false, "安装 Pi Agent 平台配置")
+	initCmd.Flags().BoolVar(&initZcode, "zcode", false, "安装 ZCode 平台配置")
+	initCmd.Flags().BoolVar(&initTrae, "trae", false, "安装 Trae 平台配置")
+	initCmd.Flags().BoolVar(&initOmp, "omp", false, "安装 Oh My Pi 平台配置")
+	initCmd.Flags().BoolVar(&initSnow, "snow", false, "安装 Snow CLI 平台配置")
+	initCmd.Flags().BoolVar(&initOpencode, "opencode", false, "安装 OpenCode 平台配置")
+	initCmd.Flags().BoolVar(&initDsh, "dsh", false, "安装 DeepSeek Harness 平台配置")
+	initCmd.Flags().BoolVar(&initReasonix, "reasonix", false, "安装 Reasonix 平台配置")
+	initCmd.Flags().BoolVar(&initGrok, "grok", false, "安装 Grok Build 平台配置")
+	initCmd.Flags().BoolVar(&initKimi, "kimi", false, "安装 Kimi Code 平台配置")
+	initCmd.Flags().BoolVar(&initKilo, "kilo", false, "安装 Kilo CLI 平台配置")
+	initCmd.Flags().BoolVar(&initAntigravity, "antigravity", false, "安装 Antigravity 平台配置")
+	initCmd.Flags().BoolVar(&initDevin, "devin", false, "安装 Devin 平台配置")
+	initCmd.Flags().BoolVar(&initWindsurf, "windsurf", false, "已废弃的 --devin 别名（Windsurf 已更名为 Devin）")
+	initCmd.Flags().BoolVar(&initCodebuddy, "codebuddy", false, "安装 CodeBuddy 平台配置")
+	initCmd.Flags().BoolVar(&initCopilot, "copilot", false, "安装 GitHub Copilot 平台配置")
+	initCmd.Flags().BoolVar(&initDroid, "droid", false, "安装 Factory Droid 平台配置")
 	initCmd.Flags().BoolVar(&initWithStatusline, "with-statusline", false, "为 Claude Code 安装状态栏（仅 Claude Code 入选时有效）")
 	initCmd.Flags().StringVar(&initType, "type", "", "项目类型：前端、后端、全栈（默认自动检测，检测不到时交互选择）")
 	registerRegistryFlags(initCmd)
@@ -356,14 +426,9 @@ func specNextStepLine(specType projecttype.Type) string {
 	return fmt.Sprintf("  2. 规范已按默认模板生成在 .sunshine/spec/（已生成 %s；有团队规范时再补充），工作流按 .sunshine/workflow.md 自动推进，一般不用改。", generated)
 }
 
-// explicitPlatformIDs 把 --claude/--cursor/--codex 三个 flag 转成平台 ID
+// explicitPlatformIDs 把各平台 flag（以平台 ID 为键）转成平台 ID
 // （按 platformIDs 的固定顺序；未传任何 flag 时返回空）。
-func explicitPlatformIDs(claude, cursor, codex bool) []string {
-	flags := map[string]bool{
-		"claude-code": claude,
-		"cursor":      cursor,
-		"codex":       codex,
-	}
+func explicitPlatformIDs(flags map[string]bool) []string {
 	var ids []string
 	for _, id := range platformIDs {
 		if flags[id] {
@@ -371,6 +436,34 @@ func explicitPlatformIDs(claude, cursor, codex bool) []string {
 		}
 	}
 	return ids
+}
+
+// explicitPlatformFlags 收集当前命令行传入的全部平台 flag。
+func explicitPlatformFlags() map[string]bool {
+	return map[string]bool{
+		"claude-code": initClaude,
+		"cursor":      initCursor,
+		"codex":       initCodex,
+		"kiro":        initKiro,
+		"gemini":      initGemini,
+		"qoder":       initQoder,
+		"pi":          initPi,
+		"zcode":       initZcode,
+		"trae":        initTrae,
+		"omp":         initOmp,
+		"snow":        initSnow,
+		"opencode":    initOpencode,
+		"dsh":         initDsh,
+		"reasonix":    initReasonix,
+		"grok":        initGrok,
+		"kimi":        initKimi,
+		"kilo":        initKilo,
+		"antigravity": initAntigravity,
+		"devin":       initDevin,
+		"codebuddy":   initCodebuddy,
+		"copilot":     initCopilot,
+		"droid":       initDroid,
+	}
 }
 
 // stdinIsTTY 判断标准输入是否为交互终端（用 term.IsTerminal 做 ioctl 判断，
@@ -389,8 +482,15 @@ func stdinIsTTY() bool {
 // statusline：仅 Claude Code 入选时有效；已传 --with-statusline 或 -y 时不追问，
 // 否则在交互终端上用 survey Confirm 追问（默认不安装）。
 func resolvePlatformSelection(cmd *cobra.Command) (selected []string, withStatusline bool, err error) {
+	// --windsurf 是 --devin 的废弃别名：收到时自动转 --devin
+	// 并打印中文警告（与 --devin 同时给时只转一次、只警告一次）。
+	flags := explicitPlatformFlags()
+	if initWindsurf {
+		fmt.Println("警告：--windsurf 已废弃（Windsurf 已更名为 Devin），已自动转为 --devin，请改用 --devin。")
+		flags["devin"] = true
+	}
 	in := platformSelectionInput{
-		explicit:            explicitPlatformIDs(initClaude, initCursor, initCodex),
+		explicit:            explicitPlatformIDs(flags),
 		yes:                 initYes,
 		withStatusline:      initWithStatusline,
 		withStatuslineGiven: cmd.Flags().Changed("with-statusline"),
@@ -513,6 +613,9 @@ func printPlatformSummary(installed []string, withStatusline bool) {
 	for _, id := range installed {
 		if id == "codex" {
 			fmt.Println(platforms.CodexHooksHint())
+		}
+		if id == "zcode" {
+			fmt.Println(platforms.ZcodeSetupHint())
 		}
 	}
 }

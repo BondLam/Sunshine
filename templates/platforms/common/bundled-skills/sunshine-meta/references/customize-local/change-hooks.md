@@ -6,7 +6,7 @@ Go 版没有本地 hook 脚本：全部 hook 行为都在 Sunshine 二进制内�
 
 ## 先读这些文件
 
-1. 目标平台的设置/配置，例如 `.claude/settings.json`、`.codex/hooks.json`、`.cursor/hooks.json`（Go 版目前只接 Claude Code、Cursor、Codex 三家）
+1. 目标平台的设置/配置，例如 `.claude/settings.json`、`.codex/hooks.json`、`.cursor/hooks.json`（Go 版目前已接 22 个平台，见平台文件地图）
 2. `.sunshine/workflow.md`
 3. `sunshine hook --help`（列出全部 hook 子命令）
 

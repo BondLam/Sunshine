@@ -15,6 +15,7 @@
 package platforms
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"io/fs"
@@ -31,16 +32,49 @@ import (
 // 字段取值以 Trellis types/ai-tools.ts 的 AI_TOOLS 登记为准，
 // 其中 Name 一律用短名（Codex 在 Trellis 登记里带有一段
 // “.agents/skills/” 说明性后缀，见 NOTES.md）。
+//
+// 布局字段（滚动轨道重构后新增）：Install 的写出形态全部由
+// 注册表驱动，buildFiles 只剩一个通用引擎 + Codex 两个特例
+// （agent model 保留、.codex/skills/ 空目录保证）。
+// 字段含义：
+//   - SkillsDir：5 个自动触发 skill + 4 个 bundled skill 的根目录，
+//     为空表示该平台不写 skill（如无此形态的平台不填）。
+//   - AutoSkillsNeutral：自动触发 skill 是否用中性解析写共享目录。
+//   - CmdForm：命令形态（见 CmdForm 常量）；CmdDir 为命令落盘目录，
+//     CmdPrefix 为扁平/workflow 形态的文件名前缀，CmdAll 为真时
+//     保留 start（否则只写 continue、finish-work），CmdNeutral
+//     为真时命令转 skill 用中性解析（仅 codex）。
+//   - CmdJSONDir：非空时另写一份命令 JSON（仅 snow）。
+//   - AgentFiles：子代理定义（原样写出；Prelude 为真时对
+//     implement/check 注入 pull-based prelude）。
+//   - AgentSkillCopies：与 AgentFiles 同源的 skill 副本（仅 kimi）。
+//   - ExtraFiles：平台专属配置/扩展等原样写出的文件。
+//   - ExtraManagedPaths：configDir 之外的托管路径
+//     （供 lifecycle/update 划定清理范围）。
 type Platform struct {
-	ID                  string // "claude-code" | "cursor" | "codex"
-	Name                string // "Claude Code" | "Cursor" | "Codex"
-	Flag                string // "claude" | "cursor" | "codex"
-	ConfigDir           string // 平台配置目录：".claude" | ".cursor" | ".codex"
-	DefaultChecked      bool   // claude/cursor 为 true，codex 为 false
-	CmdRefPrefix        string // "/sunshine:" | "/sunshine-" | "$"
-	AgentCapable        bool   // 三家均为 true
-	HasHooks            bool   // claude/cursor 为 true，codex 为 false
-	SupportsAgentSkills bool   // 仅 codex 为 true
+	ID                  string // "claude-code" | "cursor" | "codex" | …
+	Name                string // "Claude Code" | "Cursor" | "Codex" | …
+	Flag                string // "claude" | "cursor" | "codex" | …
+	ConfigDir           string // 平台配置目录：".claude" | ".cursor" | ".codex" | …
+	DefaultChecked      bool   // claude/cursor 为 true，其余为 false
+	CmdRefPrefix        string // "/sunshine:" | "/sunshine-" | "$" | …
+	AgentCapable        bool
+	HasHooks            bool
+	SupportsAgentSkills bool
+	ExtraManagedPaths   []string
+
+	SkillsDir         string
+	AutoSkillsNeutral bool
+	CmdForm           string
+	CmdDir            string
+	CmdPrefix         string
+	CmdAll            bool
+	CmdNeutral        bool
+	CmdJSONDir        string
+	AgentFiles        []PlatformFile
+	AgentSkillCopies  []PlatformFile
+	ExtraFiles        []PlatformFile
+	ExcludeCheckSkill bool // 为真时不写 common 的 check 自动触发 skill（仅 reasonix：check 被子代理版顶替）
 
 	// 以下两项是 Trellis templateContext 的其余字段，模板内目前
 	// 没有占位符引用它们，但占位符解析器按 shared.ts 实现它们，
@@ -49,29 +83,352 @@ type Platform struct {
 	userActionLabel string
 }
 
+// PlatformFile 是一条“模板源路径 → 项目内目标路径”的原样写出登记。
+// Src 为 templates.Platforms 内的相对路径，Dst 为项目根相对路径。
+// Prelude 为真时只对 implement/check agent 在 frontmatter 之后
+// 注入 pull-based prelude（grok、kimi；见 injectPullBasedPrelude）。
+type PlatformFile struct {
+	Src     string
+	Dst     string
+	Prelude bool
+}
+
+// 命令形态（Platform.CmdForm 的取值）。
+const (
+	// CmdFormSubdir：子目录 + 裸名，如 .claude/commands/sunshine/<名>.md。
+	CmdFormSubdir = "subdir"
+	// CmdFormFlat：扁平 sunshine-<名>.md，如 .cursor/commands/。
+	CmdFormFlat = "flat"
+	// CmdFormTOML：TOML 包装，如 .gemini/commands/sunshine/<名>.toml。
+	CmdFormTOML = "toml"
+	// CmdFormFrontmatter：YAML frontmatter 包装的扁平命令（qoder、trae）。
+	CmdFormFrontmatter = "frontmatter"
+	// CmdFormOMP：OMP frontmatter（只有 description，finish-work 加
+	// argument-hint，正文去 H1 行）。
+	CmdFormOMP = "omp"
+	// CmdFormSkill：命令转 skill 写 SKILL.md（codex、kiro、dsh、kimi、
+	// reasonix、snow）。
+	CmdFormSkill = "skill"
+	// CmdFormWorkflow：workflow 文件，无 frontmatter（kilo、antigravity、
+	// devin）。
+	CmdFormWorkflow = "workflow"
+	// CmdFormPrompt：Copilot 提示词文件，无 frontmatter、裸名
+	// （.github/prompts/<名>.prompt.md，不带 sunshine- 前缀）。
+	CmdFormPrompt = "prompt"
+)
+
+// mdAgents 返回某平台三个 md agent 定义的登记
+// （src：templates/platforms/<tmplDir>/agents/；dst：<agentsDir>/）。
+func mdAgents(tmplDir, agentsDir string) []PlatformFile {
+	var out []PlatformFile
+	for _, name := range agentNames {
+		out = append(out, PlatformFile{
+			Src: "platforms/" + tmplDir + "/agents/sunshine-" + name + ".md",
+			Dst: agentsDir + "/sunshine-" + name + ".md",
+		})
+	}
+	return out
+}
+
+// pullAgents 返回 grok/kimi 的 agent 登记：implement/check 带 prelude。
+func pullAgents(tmplDir, agentsDir string) []PlatformFile {
+	files := mdAgents(tmplDir, agentsDir)
+	for i, f := range files {
+		if f.Dst == agentsDir+"/sunshine-implement.md" || f.Dst == agentsDir+"/sunshine-check.md" {
+			files[i].Prelude = true
+		}
+	}
+	return files
+}
+
+// agentSkillCopies 返回 kimi 的 agent skill 副本登记：同一份 agent
+// 内容写到 <skillsDir>/sunshine-<名>/SKILL.md，与 agents/ 下的
+// 定义逐字节相同（含 prelude）。
+func agentSkillCopies(tmplDir, skillsDir string) []PlatformFile {
+	var out []PlatformFile
+	for _, name := range agentNames {
+		out = append(out, PlatformFile{
+			Src:     "platforms/" + tmplDir + "/agents/sunshine-" + name + ".md",
+			Dst:     skillsDir + "/sunshine-" + name + "/SKILL.md",
+			Prelude: name == "implement" || name == "check",
+		})
+	}
+	return out
+}
+
 // registry 是平台注册表，唯一事实源；后续平台按同一结构扩展。
+// 顺序：claude-code、cursor、codex（阶段 2），随后是滚动轨道
+// 批次的 19 个平台（含 E 路的 codebuddy、copilot、droid）。
 var registry = []Platform{
 	{
 		ID: "claude-code", Name: "Claude Code", Flag: "claude", ConfigDir: ".claude",
 		DefaultChecked: true, CmdRefPrefix: "/sunshine:",
 		AgentCapable: true, HasHooks: true, SupportsAgentSkills: false,
+		SkillsDir: ".claude/skills",
+		CmdForm:   CmdFormSubdir, CmdDir: ".claude/commands/sunshine",
+		AgentFiles: mdAgents("claude", ".claude/agents"),
+		ExtraFiles: []PlatformFile{{Src: "platforms/claude/settings.json", Dst: ".claude/settings.json"}},
 		executorAI: "Bash scripts or Task calls", userActionLabel: "Slash commands",
 	},
 	{
 		ID: "cursor", Name: "Cursor", Flag: "cursor", ConfigDir: ".cursor",
 		DefaultChecked: true, CmdRefPrefix: "/sunshine-",
 		AgentCapable: true, HasHooks: true, SupportsAgentSkills: false,
+		SkillsDir: ".cursor/skills",
+		CmdForm:   CmdFormFlat, CmdDir: ".cursor/commands",
+		AgentFiles: mdAgents("cursor", ".cursor/agents"),
+		ExtraFiles: []PlatformFile{{Src: "platforms/cursor/hooks.json", Dst: ".cursor/hooks.json"}},
 		executorAI: "Bash scripts or Task calls", userActionLabel: "Slash commands",
 	},
 	{
 		ID: "codex", Name: "Codex", Flag: "codex", ConfigDir: ".codex",
 		DefaultChecked: false, CmdRefPrefix: "$",
 		AgentCapable: true, HasHooks: false, SupportsAgentSkills: true,
+		SkillsDir: ".agents/skills", AutoSkillsNeutral: true,
+		CmdForm: CmdFormSkill, CmdDir: ".agents/skills", CmdAll: true, CmdNeutral: true,
+		AgentFiles: []PlatformFile{
+			{Src: "platforms/codex/agents/sunshine-implement.toml", Dst: ".codex/agents/sunshine-implement.toml"},
+			{Src: "platforms/codex/agents/sunshine-check.toml", Dst: ".codex/agents/sunshine-check.toml"},
+			{Src: "platforms/codex/agents/sunshine-research.toml", Dst: ".codex/agents/sunshine-research.toml"},
+		},
+		ExtraFiles: []PlatformFile{
+			{Src: "platforms/codex/hooks.json", Dst: ".codex/hooks.json"},
+			{Src: "platforms/codex/config.toml", Dst: ".codex/config.toml"},
+		},
 		executorAI: "Bash scripts or tool calls", userActionLabel: "Skills",
+	},
+	{
+		ID: "kiro", Name: "Kiro Code", Flag: "kiro", ConfigDir: ".kiro/skills",
+		DefaultChecked: false, CmdRefPrefix: "$",
+		AgentCapable: true, HasHooks: true, SupportsAgentSkills: false,
+		ExtraManagedPaths: []string{".kiro/agents", ".kiro/hooks"},
+		SkillsDir:         ".kiro/skills",
+		CmdForm:           CmdFormSkill, CmdDir: ".kiro/skills",
+		AgentFiles: []PlatformFile{
+			{Src: "platforms/kiro/agents/sunshine.json", Dst: ".kiro/agents/sunshine.json"},
+			{Src: "platforms/kiro/agents/sunshine-implement.json", Dst: ".kiro/agents/sunshine-implement.json"},
+			{Src: "platforms/kiro/agents/sunshine-check.json", Dst: ".kiro/agents/sunshine-check.json"},
+			{Src: "platforms/kiro/agents/sunshine-research.json", Dst: ".kiro/agents/sunshine-research.json"},
+		},
+		ExtraFiles: []PlatformFile{
+			{Src: "platforms/kiro/hooks/sunshine-workflow-state.kiro.hook", Dst: ".kiro/hooks/sunshine-workflow-state.kiro.hook"},
+		},
+		executorAI: "Bash scripts or tool calls", userActionLabel: "Skills",
+	},
+	{
+		ID: "gemini", Name: "Gemini CLI", Flag: "gemini", ConfigDir: ".gemini",
+		DefaultChecked: false, CmdRefPrefix: "/sunshine:",
+		AgentCapable: true, HasHooks: true, SupportsAgentSkills: true,
+		SkillsDir: ".agents/skills", AutoSkillsNeutral: true,
+		CmdForm: CmdFormTOML, CmdDir: ".gemini/commands/sunshine",
+		AgentFiles: mdAgents("gemini", ".gemini/agents"),
+		ExtraFiles: []PlatformFile{{Src: "platforms/gemini/settings.json", Dst: ".gemini/settings.json"}},
+		executorAI: "Bash scripts or tool calls", userActionLabel: "Slash commands",
+	},
+	{
+		ID: "qoder", Name: "Qoder", Flag: "qoder", ConfigDir: ".qoder",
+		DefaultChecked: false, CmdRefPrefix: "$",
+		AgentCapable: true, HasHooks: true, SupportsAgentSkills: false,
+		SkillsDir: ".qoder/skills",
+		CmdForm:   CmdFormFrontmatter, CmdDir: ".qoder/commands",
+		AgentFiles: mdAgents("qoder", ".qoder/agents"),
+		ExtraFiles: []PlatformFile{{Src: "platforms/qoder/settings.json", Dst: ".qoder/settings.json"}},
+		executorAI: "Bash scripts or tool calls", userActionLabel: "Skills",
+	},
+	{
+		ID: "pi", Name: "Pi Agent", Flag: "pi", ConfigDir: ".pi",
+		DefaultChecked: false, CmdRefPrefix: "/sunshine-",
+		AgentCapable: true, HasHooks: true, SupportsAgentSkills: true,
+		SkillsDir: ".agents/skills", AutoSkillsNeutral: true,
+		CmdForm: CmdFormFlat, CmdDir: ".pi/prompts", CmdAll: true,
+		AgentFiles: mdAgents("pi", ".pi/agents"),
+		ExtraFiles: []PlatformFile{
+			{Src: "platforms/pi/settings.json", Dst: ".pi/settings.json"},
+			{Src: "platforms/pi/extensions/sunshine/index.ts", Dst: ".pi/extensions/sunshine/index.ts"},
+		},
+		executorAI: "Bash scripts or tool calls", userActionLabel: "Slash commands",
+	},
+	{
+		ID: "zcode", Name: "ZCode", Flag: "zcode", ConfigDir: ".zcode",
+		DefaultChecked: false, CmdRefPrefix: "/sunshine:",
+		AgentCapable: true, HasHooks: true, SupportsAgentSkills: false,
+		ExtraManagedPaths: []string{".zcode/cli/agents", ".zcode/agents", ".zcode/commands", ".zcode/skills", ".zcode/hooks"},
+		SkillsDir:         ".zcode/skills",
+		CmdForm:           CmdFormSubdir, CmdDir: ".zcode/commands/sunshine",
+		AgentFiles: mdAgents("zcode", ".zcode/agents"),
+		ExtraFiles: []PlatformFile{{Src: "platforms/zcode/config.json", Dst: ".zcode/config.json"}},
+		executorAI: "Bash scripts or Agent calls", userActionLabel: "Skills",
+	},
+	{
+		ID: "trae", Name: "Trae", Flag: "trae", ConfigDir: ".trae",
+		DefaultChecked: false, CmdRefPrefix: "/sunshine-",
+		AgentCapable: true, HasHooks: true, SupportsAgentSkills: false,
+		SkillsDir: ".trae/skills",
+		CmdForm:   CmdFormFrontmatter, CmdDir: ".trae/commands",
+		AgentFiles: mdAgents("trae", ".trae/agents"),
+		ExtraFiles: []PlatformFile{{Src: "platforms/trae/hooks.json", Dst: ".trae/hooks.json"}},
+		executorAI: "Bash scripts or tool calls", userActionLabel: "Commands",
+	},
+	{
+		ID: "omp", Name: "Oh My Pi", Flag: "omp", ConfigDir: ".omp",
+		DefaultChecked: false, CmdRefPrefix: "/sunshine:",
+		AgentCapable: true, HasHooks: true, SupportsAgentSkills: false,
+		SkillsDir: ".omp/skills",
+		CmdForm:   CmdFormOMP, CmdDir: ".omp/commands",
+		AgentFiles: mdAgents("omp", ".omp/agents"),
+		ExtraFiles: []PlatformFile{
+			{Src: "platforms/omp/extensions/sunshine/index.ts", Dst: ".omp/extensions/sunshine/index.ts"},
+		},
+		executorAI: "Bash scripts or Task calls", userActionLabel: "Slash commands",
+	},
+	{
+		ID: "snow", Name: "Snow CLI", Flag: "snow", ConfigDir: ".snow/skills",
+		DefaultChecked: false, CmdRefPrefix: "/sunshine-",
+		AgentCapable: true, HasHooks: true, SupportsAgentSkills: false,
+		ExtraManagedPaths: []string{".snow/commands", ".snow/agents", ".snow/hooks", ".snow/SNOW.md"},
+		SkillsDir:         ".snow/skills",
+		CmdForm:           CmdFormSkill, CmdDir: ".snow/skills", CmdJSONDir: ".snow/commands",
+		AgentFiles: mdAgents("snow", ".snow/agents"),
+		ExtraFiles: []PlatformFile{
+			{Src: "platforms/snow/hooks/beforeSubAgentStart.json", Dst: ".snow/hooks/beforeSubAgentStart.json"},
+			{Src: "platforms/snow/hooks/onSessionStart.json", Dst: ".snow/hooks/onSessionStart.json"},
+			{Src: "platforms/snow/hooks/onUserMessage.json", Dst: ".snow/hooks/onUserMessage.json"},
+			{Src: "platforms/snow/SNOW.md", Dst: ".snow/SNOW.md"},
+		},
+		executorAI: "Bash scripts or Agent calls", userActionLabel: "Skills",
+	},
+	{
+		ID: "opencode", Name: "OpenCode", Flag: "opencode", ConfigDir: ".opencode",
+		DefaultChecked: false, CmdRefPrefix: "/sunshine:",
+		AgentCapable: true, HasHooks: false, SupportsAgentSkills: false,
+		SkillsDir: ".opencode/skills",
+		CmdForm:   CmdFormSubdir, CmdDir: ".opencode/commands/sunshine", CmdAll: true,
+		AgentFiles: mdAgents("opencode", ".opencode/agents"),
+		ExtraFiles: []PlatformFile{
+			{Src: "platforms/opencode/lib/context-visibility.js", Dst: ".opencode/lib/context-visibility.js"},
+			{Src: "platforms/opencode/lib/session-utils.js", Dst: ".opencode/lib/session-utils.js"},
+			{Src: "platforms/opencode/lib/sunshine-context.js", Dst: ".opencode/lib/sunshine-context.js"},
+			{Src: "platforms/opencode/plugins/session-start.js", Dst: ".opencode/plugins/session-start.js"},
+			{Src: "platforms/opencode/plugins/inject-workflow-state.js", Dst: ".opencode/plugins/inject-workflow-state.js"},
+			{Src: "platforms/opencode/plugins/inject-subagent-context.js", Dst: ".opencode/plugins/inject-subagent-context.js"},
+			{Src: "platforms/opencode/package.json", Dst: ".opencode/package.json"},
+		},
+		executorAI: "Bash scripts or Task calls", userActionLabel: "Slash commands",
+	},
+	{
+		ID: "dsh", Name: "DeepSeek Harness (dsh)", Flag: "dsh", ConfigDir: ".dsh",
+		DefaultChecked: false, CmdRefPrefix: "sunshine-",
+		AgentCapable: true, HasHooks: false, SupportsAgentSkills: true,
+		SkillsDir: ".agents/skills", AutoSkillsNeutral: true,
+		CmdForm: CmdFormSkill, CmdDir: ".dsh/skills", CmdAll: true,
+		ExtraFiles: []PlatformFile{{Src: "platforms/dsh/DSH.md", Dst: ".dsh/DSH.md"}},
+		executorAI: "Bash scripts or tool calls", userActionLabel: "Skills",
+	},
+	{
+		ID: "reasonix", Name: "Reasonix", Flag: "reasonix", ConfigDir: ".reasonix",
+		DefaultChecked: false, CmdRefPrefix: "/skill sunshine-",
+		AgentCapable: true, HasHooks: false, SupportsAgentSkills: false,
+		SkillsDir: ".reasonix/skills", ExcludeCheckSkill: true,
+		CmdForm: CmdFormSkill, CmdDir: ".reasonix/skills", CmdAll: true,
+		AgentFiles: []PlatformFile{
+			{Src: "platforms/reasonix/agents/sunshine-implement.md", Dst: ".reasonix/skills/sunshine-implement/SKILL.md"},
+			{Src: "platforms/reasonix/agents/sunshine-check.md", Dst: ".reasonix/skills/sunshine-check/SKILL.md"},
+		},
+		executorAI: "Bash scripts or tool calls", userActionLabel: "Skills",
+	},
+	{
+		ID: "grok", Name: "Grok Build", Flag: "grok", ConfigDir: ".grok",
+		DefaultChecked: false, CmdRefPrefix: "/sunshine-",
+		AgentCapable: true, HasHooks: false, SupportsAgentSkills: false,
+		ExtraManagedPaths: []string{".grok/skills", ".grok/commands", ".grok/agents"},
+		SkillsDir:         ".grok/skills",
+		CmdForm:           CmdFormFlat, CmdDir: ".grok/commands", CmdAll: true,
+		AgentFiles: pullAgents("grok", ".grok/agents"),
+		executorAI: "Bash scripts or Agent calls", userActionLabel: "Skills",
+	},
+	{
+		ID: "kimi", Name: "Kimi Code", Flag: "kimi", ConfigDir: ".kimi-code",
+		DefaultChecked: false, CmdRefPrefix: "/skill:sunshine-",
+		AgentCapable: true, HasHooks: false, SupportsAgentSkills: true,
+		SkillsDir: ".agents/skills", AutoSkillsNeutral: true,
+		CmdForm: CmdFormSkill, CmdDir: ".kimi-code/skills", CmdAll: true,
+		AgentFiles:       pullAgents("kimi", ".kimi-code/agents"),
+		AgentSkillCopies: agentSkillCopies("kimi", ".kimi-code/skills"),
+		executorAI:       "Bash scripts or Agent calls", userActionLabel: "Slash commands",
+	},
+	{
+		ID: "kilo", Name: "Kilo CLI", Flag: "kilo", ConfigDir: ".kilocode",
+		DefaultChecked: false, CmdRefPrefix: "/sunshine:",
+		AgentCapable: false, HasHooks: false, SupportsAgentSkills: false,
+		SkillsDir: ".kilocode/skills",
+		CmdForm:   CmdFormWorkflow, CmdDir: ".kilocode/workflows", CmdAll: true,
+		executorAI: "Bash scripts or file reads", userActionLabel: "Workflows",
+	},
+	{
+		ID: "antigravity", Name: "Antigravity", Flag: "antigravity", ConfigDir: ".agent/workflows",
+		DefaultChecked: false, CmdRefPrefix: "/",
+		AgentCapable: false, HasHooks: false, SupportsAgentSkills: false,
+		ExtraManagedPaths: []string{".agent/skills"},
+		SkillsDir:         ".agent/skills",
+		CmdForm:           CmdFormWorkflow, CmdDir: ".agent/workflows", CmdAll: true,
+		executorAI: "Bash scripts or file reads", userActionLabel: "Workflows",
+	},
+	{
+		ID: "devin", Name: "Devin", Flag: "devin", ConfigDir: ".devin/workflows",
+		DefaultChecked: false, CmdRefPrefix: "/sunshine-",
+		AgentCapable: false, HasHooks: false, SupportsAgentSkills: false,
+		ExtraManagedPaths: []string{".devin/skills"},
+		SkillsDir:         ".devin/skills",
+		CmdForm:           CmdFormWorkflow, CmdDir: ".devin/workflows", CmdPrefix: "sunshine-", CmdAll: true,
+		executorAI: "Bash scripts or file reads", userActionLabel: "Workflows",
+	},
+	{
+		ID: "codebuddy", Name: "CodeBuddy", Flag: "codebuddy", ConfigDir: ".codebuddy",
+		DefaultChecked: false, CmdRefPrefix: "/sunshine:",
+		AgentCapable: true, HasHooks: true, SupportsAgentSkills: false,
+		SkillsDir: ".codebuddy/skills",
+		CmdForm:   CmdFormSubdir, CmdDir: ".codebuddy/commands/sunshine",
+		AgentFiles: mdAgents("codebuddy", ".codebuddy/agents"),
+		ExtraFiles: []PlatformFile{{Src: "platforms/codebuddy/settings.json", Dst: ".codebuddy/settings.json"}},
+		executorAI: "Bash scripts or Task calls", userActionLabel: "Slash commands",
+	},
+	{
+		ID: "copilot", Name: "GitHub Copilot", Flag: "copilot", ConfigDir: ".github/copilot",
+		DefaultChecked: false, CmdRefPrefix: "/",
+		AgentCapable: true, HasHooks: true, SupportsAgentSkills: false,
+		ExtraManagedPaths: []string{".github/agents", ".github/copilot-instructions.md", ".github/hooks", ".github/prompts", ".github/skills"},
+		SkillsDir:         ".github/skills",
+		CmdForm:           CmdFormPrompt, CmdDir: ".github/prompts",
+		AgentFiles: []PlatformFile{
+			{Src: "platforms/copilot/agents/sunshine-implement.agent.md", Dst: ".github/agents/sunshine-implement.agent.md"},
+			{Src: "platforms/copilot/agents/sunshine-check.agent.md", Dst: ".github/agents/sunshine-check.agent.md"},
+			{Src: "platforms/copilot/agents/sunshine-research.agent.md", Dst: ".github/agents/sunshine-research.agent.md"},
+		},
+		ExtraFiles: []PlatformFile{
+			{Src: "platforms/copilot/copilot-instructions.md", Dst: ".github/copilot-instructions.md"},
+			{Src: "platforms/copilot/hooks.json", Dst: ".github/copilot/hooks.json"},
+			{Src: "platforms/copilot/hooks.json", Dst: ".github/hooks/sunshine.json"},
+		},
+		executorAI: "Bash scripts or tool calls", userActionLabel: "Prompts",
+	},
+	{
+		ID: "droid", Name: "Factory Droid", Flag: "droid", ConfigDir: ".factory",
+		DefaultChecked: false, CmdRefPrefix: "/sunshine-",
+		AgentCapable: true, HasHooks: true, SupportsAgentSkills: false,
+		SkillsDir: ".factory/skills",
+		CmdForm:   CmdFormSubdir, CmdDir: ".factory/commands/sunshine",
+		AgentFiles: []PlatformFile{
+			{Src: "platforms/droid/droids/sunshine-implement.md", Dst: ".factory/droids/sunshine-implement.md"},
+			{Src: "platforms/droid/droids/sunshine-check.md", Dst: ".factory/droids/sunshine-check.md"},
+			{Src: "platforms/droid/droids/sunshine-research.md", Dst: ".factory/droids/sunshine-research.md"},
+		},
+		ExtraFiles: []PlatformFile{{Src: "platforms/droid/settings.json", Dst: ".factory/settings.json"}},
+		executorAI: "Bash scripts or Task calls", userActionLabel: "Slash commands",
 	},
 }
 
-// Registry 返回全部已注册平台（按 claude-code、cursor、codex 顺序）。
+// Registry 返回全部已注册平台（按注册表顺序：claude-code、cursor、codex，
+// 随后是滚动轨道的 19 个平台）。
 func Registry() []Platform {
 	out := make([]Platform, len(registry))
 	copy(out, registry)
@@ -128,18 +485,142 @@ var agentNames = []string{"implement", "check", "research"}
 // 该目录不存在时 Install 跳过这一步（见 BundledSkillsPresent）。
 var bundledSkillNames = []string{"channel", "meta", "spec-bootstrap", "session-insight"}
 
-// skillsRoot 返回平台的 skill 根目录（相对项目根，正斜杠）。
+// skillsRoot 返回平台的 skill 根目录（相对项目根，正斜杠），
+// 取自注册表的 SkillsDir 布局字段。
 func skillsRoot(p Platform) string {
-	switch p.ID {
-	case "claude-code":
-		return ".claude/skills"
-	case "cursor":
-		return ".cursor/skills"
-	case "codex":
-		return ".agents/skills"
-	default:
-		return ""
+	return p.SkillsDir
+}
+
+// ZcodeSetupHint 返回 init 完成后打印的 ZCode trellis-bridge 提示
+// （A3 规格 §5.2 的双语文案）：只提示用户手动安装，不代装。
+func ZcodeSetupHint() string {
+	return "ℹ️ ZCode: if project Hooks are disabled, install trellis-bridge, then start a new session.\n" +
+		"ZCode：若项目 Hooks 被禁用，请安装 trellis-bridge，然后新建会话。\n" +
+		"请手动在 ZCode 插件市场中添加 https://github.com/CNHLAIA/ZCode-Trellis-Plugin.git，并手动安装 ZCode 补丁插件 trellis-bridge"
+}
+
+// commandDescriptions 是命令的中文描述（A3 规格 §6.2 的统一值，
+// qoder/trae/omp/snow 四家与 COMMAND_DESCRIPTIONS 译文共用；
+// A1 的 qoder 译文与 A3 §6.1 的 snow 译文与之不同时以此处为准）。
+var commandDescriptions = map[string]string{
+	"start":       "初始化 Sunshine 开发会话。",
+	"continue":    "在正确的阶段恢复当前任务。",
+	"finish-work": "收尾当前会话：质量关卡、提交提醒、归档、日志。",
+}
+
+// wrapWithCommandFrontmatter 给命令包 YAML frontmatter（qoder、trae；
+// shared.ts wrapWithCommandFrontmatter）：name + JSON 双引号 description。
+func wrapWithCommandFrontmatter(name, content string) (string, error) {
+	desc, ok := commandDescriptions[strings.TrimPrefix(name, "sunshine-")]
+	if !ok {
+		return "", fmt.Errorf("命令 %q 没有登记描述，请在 commandDescriptions 中补充", name)
 	}
+	quoted, err := json.Marshal(desc)
+	if err != nil {
+		return "", err
+	}
+	return "---\nname: " + name + "\ndescription: " + string(quoted) + "\n---\n\n" + content, nil
+}
+
+var reOmpH1 = regexp.MustCompile(`^# [^\n]+\n\n`)
+
+// wrapWithOmpFrontmatter 给命令包 OMP frontmatter（shared.ts
+// wrapWithOmpFrontmatter）：只有 description；finish-work 加
+// argument-hint "[task-name]"；去掉正文开头的 H1 行（由 frontmatter 替代）。
+func wrapWithOmpFrontmatter(name, content string) (string, error) {
+	desc, ok := commandDescriptions[strings.TrimPrefix(name, "sunshine-")]
+	if !ok {
+		return "", fmt.Errorf("命令 %q 没有登记描述，请在 commandDescriptions 中补充", name)
+	}
+	quoted, err := json.Marshal(desc)
+	if err != nil {
+		return "", err
+	}
+	out := "---\ndescription: " + string(quoted) + "\n"
+	if strings.TrimPrefix(name, "sunshine-") == "finish-work" {
+		out += "argument-hint: \"[task-name]\"\n"
+	}
+	return out + "---\n\n" + reOmpH1.ReplaceAllString(content, ""), nil
+}
+
+// buildSnowCommandJSON 生成 snow 的命令 JSON（snow.ts
+// buildSnowCommandJson）：type prompt、location project，
+// 2 空格缩进 + 末尾换行；不用 HTML 转义（与 JSON.stringify 一致）。
+func buildSnowCommandJSON(name, content string) (string, error) {
+	desc, ok := commandDescriptions[name]
+	if !ok {
+		return "", fmt.Errorf("命令 %q 没有登记描述，请在 commandDescriptions 中补充", name)
+	}
+	obj := struct {
+		Type        string `json:"type"`
+		Description string `json:"description"`
+		Command     string `json:"command"`
+		Location    string `json:"location"`
+	}{Type: "prompt", Description: desc, Command: content, Location: "project"}
+	var buf bytes.Buffer
+	enc := json.NewEncoder(&buf)
+	enc.SetEscapeHTML(false)
+	enc.SetIndent("", "  ")
+	if err := enc.Encode(obj); err != nil {
+		return "", err
+	}
+	return buf.String(), nil
+}
+
+// wrapGeminiCommandTOML 生成 gemini 的命令 TOML（gemini.ts）：
+// description = "Sunshine: <name>"，prompt 为三引号包裹的命令全文。
+func wrapGeminiCommandTOML(name, content string) string {
+	return "description = \"Sunshine: " + name + "\"\n\nprompt = \"\"\"\n" + content + "\n\"\"\"\n"
+}
+
+// pullPrelude 返回 pull-based prelude 的中文全文（B 规格 §8；
+// shared.ts buildPullBasedPrelude）。{jsonl} 处按 agent 取
+// implement.jsonl 或 check.jsonl；末尾保留 "---" 分隔行。
+// 只由 buildFiles 在 grok/kimi 的 implement/check 上注入；
+// gemini/qoder/pi/trae 的 prelude 已 baked 进模板文件，不走这里。
+func pullPrelude(jsonl string) string {
+	return "## 必须先加载 Sunshine 上下文\n\n" +
+		"本平台不会通过 hook 自动注入任务上下文。做其他任何事之前，你必须先自行加载上下文。\n\n" +
+		"### 第 1 步：找到当前任务路径\n\n" +
+		"按顺序尝试——找到任务路径就停下：\n\n" +
+		"1. **看派发提示**：如果你收到的派发提示第一行是 `Active task: <path>`（例如 `Active task: .sunshine/tasks/04-17-foo`），就用这个路径。主会话必须在 class-2 平台上写上这一行。\n" +
+		"2. **运行** `sunshine task current --source`，读 `Current task:` 这一行。\n" +
+		"3. **两处都失败**（派发提示里没有 `Active task:` 行，`sunshine task current` 也没有返回任务），问用户要做哪个任务；不要猜。\n\n" +
+		"### 第 2 步：从解析出的路径加载任务上下文\n\n" +
+		"1. 读 `<task-path>/" + jsonl + "`——与本 agent 相关的规范/调研文件 JSONL 清单。\n" +
+		"2. 对 JSONL 里的每一条，Read 它的 `file` 路径——这些是你必须遵循的规范与调研笔记。**跳过没有 `\"file\"` 字段的行**（例如旧版 `sunshine task create` 留下的 `{\"_example\": \"...\"}` 占位行）。\n" +
+		"3. 读任务的 `prd.md`（需求），然后读 `design.md`（如果有，技术设计），再读 `implement.md`（如果有，执行计划）。\n\n" +
+		"如果 `" + jsonl + "` 里没有整理好的条目（为空、只有占位行，或文件缺失），兜底做法：读任务产物，用 `sunshine task context --mode packages` 列出可用规范，自己挑与任务领域匹配的规范。不要因为 jsonl 缺失就卡住——轻量任务可能只有 PRD，复杂任务还可能有 `design.md` 与 `implement.md`。\n\n" +
+		"如果解析出的任务路径下没有 `prd.md`，问用户要做什么；没有上下文不要继续。\n\n" +
+		"---"
+}
+
+// injectPullBasedPrelude 在 agent 内容的 YAML frontmatter 之后、
+// 正文之前插入 prelude（shared.ts injectPullBasedPreludeMarkdown；
+// 无 frontmatter 时直接放文首）。prelude 与正文之间空一行，
+// 与 pi/trae 模板里 baked 的前置段排版一致。
+func injectPullBasedPrelude(content, jsonl string) string {
+	prelude := pullPrelude(jsonl)
+	if strings.HasPrefix(content, "---\n") {
+		if idx := strings.Index(content[4:], "\n---\n"); idx >= 0 {
+			fmEnd := 4 + idx + len("\n---\n")
+			body := strings.TrimLeft(content[fmEnd:], "\n")
+			return content[:fmEnd] + "\n" + prelude + "\n\n" + body
+		}
+	}
+	return prelude + "\n\n" + content
+}
+
+// commandNamesFor 返回某平台要写的命令名：CmdAll 为真时三个全写
+// （start 保留：无 hook 注入的平台靠 start 作入口兜底；pi 的
+// resolvePiCommands 兜底结果同样是三个全写），否则只写
+// continue、finish-work（agentCapable && hasHooks 的平台由
+// SessionStart hook 注入工作流概览，start 被 filterCommands 滤掉）。
+func commandNamesFor(p Platform) []string {
+	if p.CmdAll {
+		return commandNames
+	}
+	return []string{"continue", "finish-work"}
 }
 
 // BundledSkillsPresent 报告内嵌模板里是否已有翻译好的 bundled-skills
@@ -214,134 +695,156 @@ func Install(cwd, platformID string, opts InstallOptions) ([]string, error) {
 }
 
 // buildFiles 按平台拼出“相对路径 → 渲染后内容”的完整文件表（不含落盘）。
+// 注册表驱动的通用引擎：自动触发 skill、bundled skill、命令、
+// 子代理定义、平台专属文件五段全部按 Platform 的布局字段走，
+// 各平台不再有按 ID 的 switch 分支；仅剩的平台特例是 Codex 的
+// agent model 保留（写出前对渲染表做后处理，见下）。
 // 所有模板内容先经占位符解析；解析后仍残留 {{...}} 占位符时报错，
 // 避免把未解析的模板写到用户项目里。
 func buildFiles(cwd string, p Platform, opts InstallOptions) (map[string]string, error) {
 	files := make(map[string]string)
 	root := skillsRoot(p)
 
-	// 5 个自动触发 skill：Codex 写到共享 .agents/skills/，用中性解析
-	// 保证多平台写同一目录时字节一致；Claude/Cursor 用平台解析。
-	for _, name := range autoSkillNames {
-		raw, err := templates.Platforms.ReadFile("platforms/common/skills/" + name + ".md")
-		if err != nil {
-			return nil, fmt.Errorf("读取 skill 模板 %s 失败：%w", name, err)
-		}
-		var resolved string
-		if p.ID == "codex" {
-			resolved = resolvePlaceholdersNeutral(string(raw), p)
-		} else {
-			resolved = resolvePlaceholders(string(raw), p)
-		}
-		content, err := wrapSkillFrontmatter("sunshine-"+name, resolved)
-		if err != nil {
-			return nil, err
-		}
-		files[root+"/sunshine-"+name+"/SKILL.md"] = content
-	}
-
-	// 4 个内置多文件 skill：整目录复制，目录存在时才写出。
-	if BundledSkillsPresent() {
-		for _, base := range bundledSkillNames {
-			if err := collectBundledSkill(files, root, base, p); err != nil {
+	// 5 个自动触发 skill：写共享目录的平台（codex、gemini、dsh、
+	// pi、kimi）用中性解析，保证多平台写同一目录时字节一致；
+	// 其余平台用平台解析。reasonix 不写 common 的 check
+	// （被子代理版顶替，见 ExcludeCheckSkill）。
+	if root != "" {
+		for _, name := range autoSkillNames {
+			if name == "check" && p.ExcludeCheckSkill {
+				continue
+			}
+			raw, err := templates.Platforms.ReadFile("platforms/common/skills/" + name + ".md")
+			if err != nil {
+				return nil, fmt.Errorf("读取 skill 模板 %s 失败：%w", name, err)
+			}
+			var resolved string
+			if p.AutoSkillsNeutral {
+				resolved = resolvePlaceholdersNeutral(string(raw), p)
+			} else {
+				resolved = resolvePlaceholders(string(raw), p)
+			}
+			content, err := wrapSkillFrontmatter("sunshine-"+name, resolved)
+			if err != nil {
 				return nil, err
+			}
+			files[root+"/sunshine-"+name+"/SKILL.md"] = content
+		}
+
+		// 4 个内置多文件 skill：整目录复制，目录存在时才写出；
+		// 一律平台解析，即使写到共享 .agents/skills/ 也是如此
+		// （shared.ts resolveBundledSkills）。
+		if BundledSkillsPresent() {
+			for _, base := range bundledSkillNames {
+				if err := collectBundledSkill(files, root, base, p); err != nil {
+					return nil, err
+				}
 			}
 		}
 	}
 
-	// 命令：agentCapable 且 hasHooks 的平台（Claude、Cursor）由
-	// SessionStart hook 自动注入工作流概览，start 命令多余，不生成
-	// （shared.ts filterCommands）；Codex 无 hook，start 保留并转成 skill。
-	if p.ID == "codex" {
-		for _, name := range commandNames {
+	// 命令：按 CmdForm 落盘；CmdAll 为真时三个全写，否则只写
+	// continue、finish-work（见 commandNamesFor）。
+	if p.CmdForm != "" {
+		for _, name := range commandNamesFor(p) {
 			raw, err := templates.Platforms.ReadFile("platforms/common/commands/" + name + ".md")
 			if err != nil {
 				return nil, fmt.Errorf("读取命令模板 %s 失败：%w", name, err)
 			}
-			content, err := wrapSkillFrontmatter("sunshine-"+name, resolvePlaceholdersNeutral(string(raw), p))
-			if err != nil {
-				return nil, err
+			var resolved string
+			if p.CmdNeutral {
+				resolved = resolvePlaceholdersNeutral(string(raw), p)
+			} else {
+				resolved = resolvePlaceholders(string(raw), p)
 			}
-			files[".agents/skills/sunshine-"+name+"/SKILL.md"] = content
-		}
-	} else {
-		for _, name := range []string{"continue", "finish-work"} {
-			raw, err := templates.Platforms.ReadFile("platforms/common/commands/" + name + ".md")
-			if err != nil {
-				return nil, fmt.Errorf("读取命令模板 %s 失败：%w", name, err)
+			switch p.CmdForm {
+			case CmdFormSubdir:
+				files[p.CmdDir+"/"+name+".md"] = resolved
+			case CmdFormFlat:
+				files[p.CmdDir+"/sunshine-"+name+".md"] = resolved
+			case CmdFormTOML:
+				files[p.CmdDir+"/"+name+".toml"] = wrapGeminiCommandTOML(name, resolved)
+			case CmdFormFrontmatter:
+				content, err := wrapWithCommandFrontmatter("sunshine-"+name, resolved)
+				if err != nil {
+					return nil, err
+				}
+				files[p.CmdDir+"/sunshine-"+name+".md"] = content
+			case CmdFormOMP:
+				content, err := wrapWithOmpFrontmatter("sunshine-"+name, resolved)
+				if err != nil {
+					return nil, err
+				}
+				files[p.CmdDir+"/sunshine-"+name+".md"] = content
+			case CmdFormSkill:
+				content, err := wrapSkillFrontmatter("sunshine-"+name, resolved)
+				if err != nil {
+					return nil, err
+				}
+				files[p.CmdDir+"/sunshine-"+name+"/SKILL.md"] = content
+			case CmdFormWorkflow:
+				files[p.CmdDir+"/"+p.CmdPrefix+name+".md"] = resolved
+			case CmdFormPrompt:
+				// Copilot 提示词：裸名 + .prompt.md 后缀，无 frontmatter；
+				// 只写 common 命令渲染出的 continue/finish-work，
+				// templates/platforms/copilot/prompts/ 下的 13 个携带件
+				// 从不进入写出集合（E 规格 §0.1/§9.5）。
+				files[p.CmdDir+"/"+name+".prompt.md"] = resolved
+			default:
+				return nil, fmt.Errorf("平台 %s 的命令形态 %q 未实现", p.ID, p.CmdForm)
 			}
-			resolved := resolvePlaceholders(string(raw), p)
-			switch p.ID {
-			case "claude-code":
-				files[".claude/commands/sunshine/"+name+".md"] = resolved
-			case "cursor":
-				files[".cursor/commands/sunshine-"+name+".md"] = resolved
+			// snow 另写一份命令 JSON（.snow/commands/）。
+			if p.CmdJSONDir != "" {
+				content, err := buildSnowCommandJSON(name, resolved)
+				if err != nil {
+					return nil, err
+				}
+				files[p.CmdJSONDir+"/sunshine-"+name+".json"] = content
 			}
 		}
 	}
 
-	// 子代理定义：各平台源模板内容不同（frontmatter 描述不同），直接取
-	// 平台专属模板原样写出；源模板不含占位符，不做解析（与 Trellis
-	// walkClaudeTemplateDir / listMdAgents / getAllAgents 一致）。
-	switch p.ID {
-	case "claude-code":
-		for _, name := range agentNames {
-			raw, err := templates.Platforms.ReadFile("platforms/claude/agents/sunshine-" + name + ".md")
-			if err != nil {
-				return nil, fmt.Errorf("读取 Claude agent 模板 %s 失败：%w", name, err)
-			}
-			files[".claude/agents/sunshine-"+name+".md"] = string(raw)
-		}
-	case "cursor":
-		for _, name := range agentNames {
-			raw, err := templates.Platforms.ReadFile("platforms/cursor/agents/sunshine-" + name + ".md")
-			if err != nil {
-				return nil, fmt.Errorf("读取 Cursor agent 模板 %s 失败：%w", name, err)
-			}
-			files[".cursor/agents/sunshine-"+name+".md"] = string(raw)
-		}
-	case "codex":
-		for _, name := range agentNames {
-			raw, err := templates.Platforms.ReadFile("platforms/codex/agents/sunshine-" + name + ".toml")
-			if err != nil {
-				return nil, fmt.Errorf("读取 Codex agent 模板 %s 失败：%w", name, err)
-			}
-			files[".codex/agents/sunshine-"+name+".toml"] = string(raw)
-		}
-	}
-
-	// 平台专属配置。
-	switch p.ID {
-	case "claude-code":
-		raw, err := templates.Platforms.ReadFile("platforms/claude/settings.json")
+	// 子代理定义与 skill 副本：按 AgentFiles / AgentSkillCopies
+	// 登记原样写出；Prelude 为真时对 implement/check 注入
+	// pull-based prelude（仅 grok、kimi；其余平台的 prelude
+	// 已 baked 进模板文件或不需要，见各规格）。
+	for _, f := range append(append([]PlatformFile{}, p.AgentFiles...), p.AgentSkillCopies...) {
+		raw, err := templates.Platforms.ReadFile(f.Src)
 		if err != nil {
-			return nil, fmt.Errorf("读取 Claude settings 模板失败：%w", err)
+			return nil, fmt.Errorf("读取 agent 模板 %s 失败：%w", f.Src, err)
 		}
 		content := string(raw)
-		if opts.WithStatusline {
-			content, err = injectStatusLine(content)
-			if err != nil {
-				return nil, fmt.Errorf("注入 statusLine 失败：%w", err)
+		if f.Prelude {
+			jsonl := "implement.jsonl"
+			if strings.Contains(f.Dst, "check") {
+				jsonl = "check.jsonl"
 			}
+			content = injectPullBasedPrelude(content, jsonl)
 		}
-		files[".claude/settings.json"] = content
-	case "cursor":
-		raw, err := templates.Platforms.ReadFile("platforms/cursor/hooks.json")
+		files[f.Dst] = content
+	}
+
+	// 平台专属文件：原样写出（settings/hooks.json/config/
+	// 扩展/JS 插件/DSH.md/SNOW.md 等）。
+	for _, f := range p.ExtraFiles {
+		raw, err := templates.Platforms.ReadFile(f.Src)
 		if err != nil {
-			return nil, fmt.Errorf("读取 Cursor hooks 模板失败：%w", err)
+			return nil, fmt.Errorf("读取平台模板 %s 失败：%w", f.Src, err)
 		}
-		files[".cursor/hooks.json"] = string(raw)
-	case "codex":
-		raw, err := templates.Platforms.ReadFile("platforms/codex/hooks.json")
+		files[f.Dst] = string(raw)
+	}
+
+	// claude 的 --with-statusline：settings.json 注入 statusLine 段。
+	if p.ID == "claude-code" && opts.WithStatusline {
+		content, ok := files[".claude/settings.json"]
+		if !ok {
+			return nil, fmt.Errorf("缺少 Claude settings 模板")
+		}
+		injected, err := injectStatusLine(content)
 		if err != nil {
-			return nil, fmt.Errorf("读取 Codex hooks 模板失败：%w", err)
+			return nil, fmt.Errorf("注入 statusLine 失败：%w", err)
 		}
-		files[".codex/hooks.json"] = string(raw)
-		raw, err = templates.Platforms.ReadFile("platforms/codex/config.toml")
-		if err != nil {
-			return nil, fmt.Errorf("读取 Codex config 模板失败：%w", err)
-		}
-		files[".codex/config.toml"] = string(raw)
+		files[".claude/settings.json"] = injected
 	}
 
 	// Codex agent 的 model 保留：重装时把用户自设的 model /

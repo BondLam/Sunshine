@@ -2,7 +2,7 @@
 
 Hook/设置是把平台连接到 Sunshine 的入口层。它们决定平台为哪些事件运行哪些 hook 子命令。
 
-> Go 版目前只接 Claude Code、Cursor、Codex 三家；下表其余平台的设置文件是目标形态，待滚动轨道扩展。Go 版的 hook 行为全部在二进制内（`sunshine hook <事件>`），项目里没有 hook 脚本文件。
+> Go 版目前已接 22 个平台（Claude Code、Cursor、Codex、Kiro Code、Gemini CLI、Qoder、Pi Agent、ZCode、Trae、Oh My Pi、Snow CLI、OpenCode、DeepSeek Harness (dsh)、Reasonix、Grok Build、Kimi Code、Kilo CLI、Antigravity、Devin、CodeBuddy、GitHub Copilot、Factory Droid）；下表三家平台的设置文件。Go 版的 hook 行为全部在二进制内（`sunshine hook <事件>`），项目里没有 hook 脚本文件。
 
 ## 设置的职责
 

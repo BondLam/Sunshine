@@ -1,0 +1,15 @@
+{
+  "beforeSubAgentStart": [
+    {
+      "description": "在子代理 buildInitialMessages 之前注入 Sunshine 当前任务上下文",
+      "hooks": [
+        {
+          "command": "SUNSHINE_HOOK_PLATFORM=snow sunshine hook subagent-context",
+          "enabled": true,
+          "timeout": 15000,
+          "type": "command"
+        }
+      ]
+    }
+  ]
+}
