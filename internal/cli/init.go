@@ -9,6 +9,7 @@ import (
 
 	"github.com/AlecAivazis/survey/v2"
 	"github.com/linrong1982/Sunshine/internal/platforms"
+	"github.com/linrong1982/Sunshine/internal/projecttype"
 	"github.com/linrong1982/Sunshine/internal/registry"
 	"github.com/linrong1982/Sunshine/internal/scaffold"
 	"github.com/spf13/cobra"
@@ -23,6 +24,7 @@ var (
 	initCursor         bool
 	initCodex          bool
 	initWithStatusline bool
+	initType           string
 )
 
 // platformIDs 是 init 支持的三个平台，按安装顺序排列。
@@ -62,7 +64,12 @@ var initCmd = &cobra.Command{
   sunshine init --codex
   sunshine init --claude --with-statusline
   sunshine init --registry gh:owner/repo --template nextjs-fullstack -y
-  sunshine init --registry /path/to/spec-repo -y`,
+  sunshine init --registry /path/to/spec-repo -y
+
+项目类型检测：init 会检测项目类型（读 package.json 依赖与常见前后端
+配置文件），只生成对应的 spec 模板；检测不到时交互问一句；--type 可显式
+指定（合法值：前端、后端、全栈）；-y 或非交互终端时检测不到默认全栈；
+--registry 写 spec 时不检测、不提问。`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cwd, err := os.Getwd()
 		if err != nil {
@@ -104,7 +111,11 @@ var initCmd = &cobra.Command{
 				return nil
 			}
 			user := resolveUser(initUser)
-			if err := scaffold.InitWithOptions(cwd, user, scaffold.InitOptions{SkipSpec: skipSpec, Version: version}); err != nil {
+			specType, typeSource, err := resolveInitProjectType(cwd, skipSpec)
+			if err != nil {
+				return err
+			}
+			if err := scaffold.InitWithOptions(cwd, user, scaffold.InitOptions{SkipSpec: skipSpec, SpecType: specType, Version: version}); err != nil {
 				return err
 			}
 			installed, err := installPlatforms(cwd, selected, withStatusline, false)
@@ -115,14 +126,25 @@ var initCmd = &cobra.Command{
 				installRegistryTemplates(cwd, target, strategy)
 			}
 			fmt.Printf("初始化完成，开发者：%s\n", user)
+			if !skipSpec {
+				fmt.Printf("项目类型：%s（%s）\n", specType.DisplayName(), typeSource)
+			}
 			printPlatformSummary(installed, withStatusline)
 			fmt.Println("下一步：")
-			fmt.Println("  1. 编辑 .sunshine/spec/，填入团队已有的技术规范与业务术语；")
-			fmt.Println("  2. 按 .sunshine/workflow.md 开始第一个任务。")
+			fmt.Println("  1. 在 agent 界面里打开项目，直接用自然语言提第一个需求；")
+			if skipSpec {
+				fmt.Println("  2. 规范已从模板市场装进 .sunshine/spec/，工作流按 .sunshine/workflow.md 自动推进，一般不用改。")
+			} else {
+				fmt.Println(specNextStepLine(specType))
+			}
 			return nil
 		case initForce:
 			user := resolveUser(initUser)
-			if err := scaffold.InitWithOptions(cwd, user, scaffold.InitOptions{Force: true, SkipSpec: skipSpec, Version: version}); err != nil {
+			specType, typeSource, err := resolveInitProjectType(cwd, skipSpec)
+			if err != nil {
+				return err
+			}
+			if err := scaffold.InitWithOptions(cwd, user, scaffold.InitOptions{Force: true, SkipSpec: skipSpec, SpecType: specType, Version: version}); err != nil {
 				return err
 			}
 			installed, err := installPlatforms(cwd, selected, withStatusline, true)
@@ -133,6 +155,9 @@ var initCmd = &cobra.Command{
 				installRegistryTemplates(cwd, target, strategy)
 			}
 			fmt.Printf("重新初始化完成，开发者：%s\n", user)
+			if !skipSpec {
+				fmt.Printf("项目类型：%s（%s）\n", specType.DisplayName(), typeSource)
+			}
 			printPlatformSummary(installed, withStatusline)
 			return nil
 		default:
@@ -168,6 +193,7 @@ func init() {
 	initCmd.Flags().BoolVar(&initCursor, "cursor", false, "安装 Cursor 平台配置")
 	initCmd.Flags().BoolVar(&initCodex, "codex", false, "安装 Codex 平台配置")
 	initCmd.Flags().BoolVar(&initWithStatusline, "with-statusline", false, "为 Claude Code 安装状态栏（仅 Claude Code 入选时有效）")
+	initCmd.Flags().StringVar(&initType, "type", "", "项目类型：前端、后端、全栈（默认自动检测，检测不到时交互选择）")
 	registerRegistryFlags(initCmd)
 	rootCmd.AddCommand(initCmd)
 }
@@ -238,6 +264,96 @@ var promptStatusline = func() (bool, error) {
 		Default: false,
 	}, &answer)
 	return answer, err
+}
+
+// promptProjectType 在检测不到项目类型时交互提问（默认实现用 survey；
+// 测试可替换）。选项与 projecttype.Parse 的合法值一一对应。
+var promptProjectType = func() (projecttype.Type, error) {
+	var chosen string
+	err := survey.AskOne(&survey.Select{
+		Message: "检测不到项目类型，请选择：",
+		Options: []string{"前端项目", "后端项目", "前后端全栈"},
+		Default: "前后端全栈",
+	}, &chosen)
+	if err != nil {
+		return projecttype.Fullstack, err
+	}
+	switch chosen {
+	case "前端项目":
+		return projecttype.Frontend, nil
+	case "后端项目":
+		return projecttype.Backend, nil
+	default:
+		return projecttype.Fullstack, nil
+	}
+}
+
+// projectTypeInput 是 resolveProjectType 的输入（与 cobra 解耦，便于测试）。
+type projectTypeInput struct {
+	flag     string           // --type 原值，为空表示未指定
+	skipSpec bool             // --registry 写 spec，类型用不上
+	yes      bool             // -y：跳过全部提问
+	isTTY    bool             // 标准输入是否为交互终端
+	detected projecttype.Type // 已检测到的类型（Unknown 表示检测不到）
+}
+
+// resolveProjectType 按“--type > 自动检测 > 交互提问 > 默认全栈”的优先级
+// 确定本次 init 的项目类型，并返回类型来源
+// （"--type 指定" / "自动检测" / "手动选择" / "默认"）。
+// --type 非法时直接返回错误；提问出错或 EOF 时静默默认全栈。
+func resolveProjectType(in projectTypeInput) (projecttype.Type, string, error) {
+	if strings.TrimSpace(in.flag) != "" {
+		t, err := projecttype.Parse(strings.TrimSpace(in.flag))
+		if err != nil {
+			return projecttype.Unknown, "", err
+		}
+		return t, "--type 指定", nil
+	}
+	if in.skipSpec {
+		return projecttype.Fullstack, "默认", nil
+	}
+	if in.detected != projecttype.Unknown {
+		return in.detected, "自动检测", nil
+	}
+	if in.yes || !in.isTTY {
+		return projecttype.Fullstack, "默认", nil
+	}
+	t, err := promptProjectType()
+	if err != nil {
+		return projecttype.Fullstack, "默认", nil
+	}
+	return t, "手动选择", nil
+}
+
+// resolveInitProjectType 是 init 命令的接线层：只在需要生成默认 spec 时
+// 才检测（--type 已指定或 --registry 写 spec 时不检测），再走优先级解析。
+func resolveInitProjectType(cwd string, skipSpec bool) (projecttype.Type, string, error) {
+	detected := projecttype.Unknown
+	if initType == "" && !skipSpec {
+		detected = projecttype.Detect(cwd)
+	}
+	return resolveProjectType(projectTypeInput{
+		flag:     initType,
+		skipSpec: skipSpec,
+		yes:      initYes,
+		isTTY:    stdinIsTTY(),
+		detected: detected,
+	})
+}
+
+// specNextStepLine 生成“下一步”第 2 行（默认 spec 情形）：按实际生成的
+// spec 文件集措辞；--registry 的“从模板市场装进”写法不在这里。
+func specNextStepLine(specType projecttype.Type) string {
+	var generated string
+	switch specType {
+	case projecttype.Frontend:
+		generated = "system.md、frontend.md"
+	case projecttype.Backend:
+		generated = "system.md、backend.md"
+	default:
+		generated = "system.md、frontend.md、backend.md"
+	}
+	return fmt.Sprintf("  2. 规范已按默认模板生成在 .sunshine/spec/（已生成 %s；有团队规范时再补充），工作流按 .sunshine/workflow.md 自动推进，一般不用改。", generated)
 }
 
 // explicitPlatformIDs 把 --claude/--cursor/--codex 三个 flag 转成平台 ID

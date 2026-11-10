@@ -12,6 +12,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/linrong1982/Sunshine/internal/projecttype"
 	"github.com/linrong1982/Sunshine/templates"
 )
 
@@ -70,6 +71,10 @@ type InitOptions struct {
 	// SkipSpec 为真时不写默认 spec 模板（--registry 将从模板市场装 spec，
 	// 装完再由调用方记入哈希清单；对应上游 init 的 skipSpecTemplates）。
 	SkipSpec bool
+	// SpecType 是本次 init 的项目类型：Frontend 只写前端 spec，
+	// Backend 只写后端 spec，Fullstack 或 Unknown（零值）三份全写；
+	// system.md 与类型无关，永远写。
+	SpecType projecttype.Type
 	// Version 为空时 .version 沿用模板文件内容；非空时写入该值
 	//（CLI 的 init 传 cli.version，保证 .version 与 --version 同源，
 	// 不另留一份版本常量）。
@@ -106,6 +111,14 @@ func InitWithOptions(cwd, user string, opts InitOptions) error {
 		}
 		rel := strings.TrimPrefix(path, "sunshine/")
 		if opts.SkipSpec && strings.HasPrefix(rel, "spec/") {
+			return nil
+		}
+		// 按项目类型跳过不匹配的 spec 文件（跳过的文件不写盘，
+		// 也不进入哈希清单）；system.md 与类型无关，永远写。
+		if rel == "spec/frontend.md" && opts.SpecType == projecttype.Backend {
+			return nil
+		}
+		if rel == "spec/backend.md" && opts.SpecType == projecttype.Frontend {
 			return nil
 		}
 		data, err := templates.Sunshine.ReadFile(path)

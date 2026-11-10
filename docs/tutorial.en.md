@@ -47,15 +47,18 @@ Real output:
 正在配置 Claude Code……
 正在配置 Cursor……
 初始化完成，开发者：演示者
+项目类型：全栈（默认）
 已安装平台：
   - Claude Code
   - Cursor
 下一步：
-  1. 编辑 .sunshine/spec/，填入团队已有的技术规范与业务术语；
-  2. 按 .sunshine/workflow.md 开始第一个任务。
+  1. 在 agent 界面里打开项目，直接用自然语言提第一个需求；
+  2. 规范已按默认模板生成在 .sunshine/spec/（已生成 system.md、frontend.md、backend.md；有团队规范时再补充），工作流按 .sunshine/workflow.md 自动推进，一般不用改。
 ```
 
-(`-u` is the developer name; `-y` skips all prompts and uses the defaults. In English: "Configuring Claude Code… / Configuring Cursor… / Initialization complete, developer: 演示者 / Installed platforms: Claude Code, Cursor / Next steps: 1. Edit .sunshine/spec/ and fill in the team's existing technical specs and business terms; 2. Start the first task following .sunshine/workflow.md.")
+(`-u` is the developer name; `-y` skips all prompts and uses the defaults. In English: "Configuring Claude Code… / Configuring Cursor… / Initialization complete, developer: 演示者 / Project type: 全栈 (default) / Installed platforms: Claude Code, Cursor / Next steps: 1. Open the project in the agent UI and state your first requirement in plain language; 2. The specs have been generated in .sunshine/spec/ from the default templates (generated: system.md, frontend.md, backend.md; add your team's specs if you have them); the workflow runs automatically following .sunshine/workflow.md and normally needs no changes.")
+
+Project type is auto-detected at init: `init` reads `package.json` dependencies and common frontend/backend config files (`vite.config.ts`, `go.mod`, etc.) and generates only the matching specs — a frontend project gets `system.md` and `frontend.md`, a backend project gets `system.md` and `backend.md`, a fullstack project gets all three. The demo directory is empty, so nothing is detected; with `-y` skipping the prompt it defaults to fullstack, which is why the output above says `项目类型：全栈（默认）` ("Project type: fullstack (default)"). Without `-y`, an undetected type triggers one question (frontend / backend / fullstack); to specify it explicitly use `--type 前端` (or 后端 / 全栈). With `--registry` (specs from the template marketplace) there is no detection and no question.
 
 What `init` just installed — 115 files, in two groups:
 
@@ -635,8 +638,8 @@ Real output:
   - Claude Code
   - Cursor
 下一步：
-  1. 编辑 .sunshine/spec/，填入团队已有的技术规范与业务术语；
-  2. 按 .sunshine/workflow.md 开始第一个任务。
+  1. 在 agent 界面里打开项目，直接用自然语言提第一个需求；
+  2. 规范已从模板市场装进 .sunshine/spec/，工作流按 .sunshine/workflow.md 自动推进，一般不用改。
 ```
 
 ("Installed template `demo-spec` (`.sunshine/spec`), 1 file in total. Recorded `registry.spec`: `/tmp/rewrite-en/registry-src/marketplace` (template `demo-spec`); `sunshine update` will keep refreshing it. Initialization complete…")

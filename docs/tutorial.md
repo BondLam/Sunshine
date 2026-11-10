@@ -35,15 +35,16 @@ sunshine init -u 你的名字 -y
 正在配置 Claude Code……
 正在配置 Cursor……
 初始化完成，开发者：演示者
+项目类型：全栈（默认）
 已安装平台：
   - Claude Code
   - Cursor
 下一步：
-  1. 编辑 .sunshine/spec/，填入团队已有的技术规范与业务术语；
-  2. 按 .sunshine/workflow.md 开始第一个任务。
+  1. 在 agent 界面里打开项目，直接用自然语言提第一个需求；
+  2. 规范已按默认模板生成在 .sunshine/spec/（已生成 system.md、frontend.md、backend.md；有团队规范时再补充），工作流按 .sunshine/workflow.md 自动推进，一般不用改。
 ```
 
-`-u` 是开发者名字，`-y` 跳过全部提问用默认配置。默认装 Claude Code 与 Cursor；只想装 Codex 时用 `sunshine init --codex -y`，已初始化的项目里再跑 `init --codex -y` 是增量追加，不动已有文件。`sunshine platforms` 可查看当前项目已配置的平台：
+`-u` 是开发者名字，`-y` 跳过全部提问用默认配置。项目类型是 init 时自动检测的：读 `package.json` 的依赖与常见前后端配置文件（`vite.config.ts`、`go.mod` 等）判断前端/后端/全栈，只生成对应的规范——前端项目只生成 `system.md` 与 `frontend.md`，后端只生成 `system.md` 与 `backend.md`，全栈三份都有。演示目录是空目录，检测不到类型，`-y` 跳过提问后默认按全栈处理，所以上面输出是 `项目类型：全栈（默认）`。不带 `-y` 时检测不到会问一句（前端项目/后端项目/前后端全栈）；想显式指定就用 `--type 前端`（或后端、全栈）。`--registry` 从模板市场装规范时不检测、不提问。默认装 Claude Code 与 Cursor；只想装 Codex 时用 `sunshine init --codex -y`，已初始化的项目里再跑 `init --codex -y` 是增量追加，不动已有文件。`sunshine platforms` 可查看当前项目已配置的平台：
 
 ```text
 已配置的平台：
@@ -569,8 +570,8 @@ sunshine init -u 演示者 -y --registry /tmp/rewrite-zh/demo/registry-src/marke
   - Claude Code
   - Cursor
 下一步：
-  1. 编辑 .sunshine/spec/，填入团队已有的技术规范与业务术语；
-  2. 按 .sunshine/workflow.md 开始第一个任务。
+  1. 在 agent 界面里打开项目，直接用自然语言提第一个需求；
+  2. 规范已从模板市场装进 .sunshine/spec/，工作流按 .sunshine/workflow.md 自动推进，一般不用改。
 ```
 
 模板内容装进了 `.sunshine/spec/demo.md`，来源记进了 `config.yaml`：

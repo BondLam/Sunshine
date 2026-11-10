@@ -2,13 +2,101 @@ package scaffold
 
 import (
 	"bytes"
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 
+	"github.com/linrong1982/Sunshine/internal/projecttype"
 	"github.com/linrong1982/Sunshine/templates"
 )
+
+func TestInitSpecTypeSkipsMismatchedSpec(t *testing.T) {
+	// SpecType=Frontend：只写 system.md + frontend.md，backend.md 不写，
+	// 且哈希清单里没有 backend.md。
+	dir := t.TempDir()
+	if err := InitWithOptions(dir, "张三", InitOptions{SpecType: projecttype.Frontend}); err != nil {
+		t.Fatalf("InitWithOptions Frontend 失败：%v", err)
+	}
+	assertSpecFiles(t, dir, true, false)
+	assertSpecHashes(t, dir, true, false)
+
+	// SpecType=Backend：只写 system.md + backend.md。
+	dir = t.TempDir()
+	if err := InitWithOptions(dir, "张三", InitOptions{SpecType: projecttype.Backend}); err != nil {
+		t.Fatalf("InitWithOptions Backend 失败：%v", err)
+	}
+	assertSpecFiles(t, dir, false, true)
+	assertSpecHashes(t, dir, false, true)
+
+	// SpecType=Fullstack 与零值（Unknown）：三份全写。
+	for _, specType := range []projecttype.Type{projecttype.Fullstack, projecttype.Unknown} {
+		dir = t.TempDir()
+		if err := InitWithOptions(dir, "张三", InitOptions{SpecType: specType}); err != nil {
+			t.Fatalf("InitWithOptions %v 失败：%v", specType, err)
+		}
+		assertSpecFiles(t, dir, true, true)
+		assertSpecHashes(t, dir, true, true)
+	}
+}
+
+// assertSpecFiles 校验 spec 目录的文件集：system.md 永远存在，
+// frontend.md / backend.md 按 wantFrontend / wantBackend 断言存在与否。
+func assertSpecFiles(t *testing.T, dir string, wantFrontend, wantBackend bool) {
+	t.Helper()
+	if _, err := os.Stat(filepath.Join(dir, ".sunshine/spec/system.md")); err != nil {
+		t.Errorf("缺少 spec/system.md：%v", err)
+	}
+	for _, tc := range []struct {
+		name string
+		want bool
+	}{
+		{"frontend.md", wantFrontend},
+		{"backend.md", wantBackend},
+	} {
+		_, err := os.Stat(filepath.Join(dir, ".sunshine/spec", tc.name))
+		if tc.want && err != nil {
+			t.Errorf("缺少 spec/%s：%v", tc.name, err)
+		}
+		if !tc.want && err == nil {
+			t.Errorf("不应生成 spec/%s", tc.name)
+		}
+	}
+}
+
+// assertSpecHashes 校验哈希清单只含实际写出的 spec 文件。
+func assertSpecHashes(t *testing.T, dir string, wantFrontend, wantBackend bool) {
+	t.Helper()
+	data, err := os.ReadFile(filepath.Join(dir, ".sunshine/.template-hashes.json"))
+	if err != nil {
+		t.Fatalf("读取哈希清单失败：%v", err)
+	}
+	var manifest struct {
+		Files map[string]string `json:"files"`
+	}
+	if err := json.Unmarshal(data, &manifest); err != nil {
+		t.Fatalf("解析哈希清单失败：%v", err)
+	}
+	if _, ok := manifest.Files[".sunshine/spec/system.md"]; !ok {
+		t.Error("哈希清单缺少 .sunshine/spec/system.md")
+	}
+	for _, tc := range []struct {
+		key  string
+		want bool
+	}{
+		{".sunshine/spec/frontend.md", wantFrontend},
+		{".sunshine/spec/backend.md", wantBackend},
+	} {
+		_, ok := manifest.Files[tc.key]
+		if tc.want && !ok {
+			t.Errorf("哈希清单缺少 %s", tc.key)
+		}
+		if !tc.want && ok {
+			t.Errorf("哈希清单不应含 %s", tc.key)
+		}
+	}
+}
 
 func TestInitCreatesSkeleton(t *testing.T) {
 	dir := t.TempDir()

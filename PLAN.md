@@ -1740,3 +1740,48 @@ pre-commit install       # 在仓库根目录执行一次
 - 内容：教程与 README 按 agent 界面用法重写（上一节的批次）。提交 `618d4d0`（351 个文件），tag v0.2.2 为注释 tag（对象 `8ad8f01`）。
 - Release 已发布：https://github.com/linrong1982/Sunshine/releases/tag/v0.2.2，6 个资产；发布与两路 CI 均 success——这次没有抖动。实测验证：真实一键命令装上 v0.2.2（`--version` 打印 0.2.2）；0.2.1 二进制 `upgrade --dry-run` 正确查到 0.2.2；darwin 包 checksum OK，解出 Mach-O x86_64 二进制。
 - 上一轮复验那次未定位的 FAIL 仍未复现（本轮发布三路 CI 全过，本地又跑过数轮全量全过）；若 CI 再抖，先抓完整日志再定。
+
+## init 项目类型检测 + 手动选择（2026-11-10，用户定）
+
+### 背景与范围
+
+- 起因：用户反馈 init 完成后的“下一步”误导——spec 与 workflow 都是 init 时自动落好的，不用人工改。上一轮已把“下一步”改成 agent 界面优先的两行（工作树未提交，见 `git status`：`internal/cli/init.go`、`docs/tutorial.md`、`docs/tutorial.en.md`），本批在其上继续做。
+- 用户定：**检测加手动选**——检测不到时 init 问一句，或加 `--type` 参数。
+- 本批范围（单仓）：init 时检测项目类型（前端/后端/全栈），只生成对应的 spec 模板；检测不到（unknown）时交互问一句；`--type` 可显式指定。**不在本批**：monorepo 检测（需求清单第 46 条后半部分）、bootstrap 任务（清单第 50 条，Trellis init 生成的 00-bootstrap-guidelines 任务，Sunshine 阶段 1 没做）、把类型持久化进 config.yaml、类型影响 update/registry 的行为。
+
+### 上游行为（以源码为准，出处）
+
+- 检测：`packages/cli/src/utils/project-detector.ts` 的 `detectProjectType(cwd)`。前端信号：vite/next/nuxt/webpack/rollup/svelte/astro/angular/vue 配置文件、`src/App.tsx|jsx|vue`、`src/app/page.tsx`、`app/page.tsx`、`pages/index.tsx|jsx`、package.json 的前端依赖（react、vue、svelte、angular、@angular/core、next、nuxt、astro、solid-js、preact、lit、@remix-run/react）；后端信号：go.mod/go.sum、Cargo.toml/lock、requirements.txt、pyproject.toml、setup.py、Pipfile、poetry.lock、pom.xml、build.gradle(.kts)、Gemfile、composer.json、*.csproj/*.fsproj、mix.exs、server.ts/js、src/server.ts、src/index.ts、package.json 的后端依赖（express、fastify、hono、koa、hapi、nest、@nestjs/core、fastapi、flask、django）。前后都有 → fullstack；都没有 → unknown；init 里 unknown 按 fullstack 处理。
+- **上游 quirks，不照搬**：`FRONTEND_INDICATORS` 里含 `"package.json"`，而 `detectProjectType` 是 `FRONTEND_INDICATORS.some(fileExists)`，所以只要有 package.json 就算前端信号——纯 Express 后端项目会被判成 fullstack。Sunshine 的检测只认依赖本身：package.json 存在本身不算前端信号，只有命中前端依赖才算。这是与上游有意的偏离，理由如上，测试要钉住（express-only 的 package.json → backend，不是 fullstack）。
+- spec 生成：`packages/cli/src/configurators/workflow.ts` 的 `writeSpecForType`——frontend 只写前端文档、backend 只写后端文档、fullstack 两边都写；另有“Guides - always created regardless of mode”（与类型无关的通用指南永远写）。对应到 Sunshine 的 3 份扁平模板：`system.md`（总原则，与类型无关，永远写）、`frontend.md`（只前端/全栈写）、`backend.md`（只后端/全栈写）。
+- 上游 init **没有**项目类型交互提问、也没有 `--type` 参数，只有检测；手动选是用户要求的新增能力。类型也不写进 config.yaml，只影响本次 init 生成的 spec 文件与 bootstrap 任务内容。
+
+### 设计决策（已定）
+
+1. 新包 `internal/projecttype/`：`Detect(cwd) ProjectType`，值 `frontend | backend | fullstack | unknown`；指示器与依赖表按上游原样移植（除 package.json quirks 外）；另给中文展示名（前端/后端/前后端全栈）与 `Parse`（供 `--type` 校验）。
+2. 优先级（高→低）：`--type` 显式值 > 检测出的 frontend/backend/fullstack > 检测 unknown 时交互提问（仅 TTY 且非 `-y`）> 默认 fullstack（`-y`、非 TTY、提问失败/EOF 时）。`--type` 非法值直接报错并列出合法值。
+3. 提问只在需要生成默认 spec 时发生：`--registry` 写 spec（SkipSpec）时不问——类型用不上；增量模式不动 spec，也不问。`--force` 重建走与全新 init 同样的流程（检测/提问/按类型写 spec）。
+4. 提问形式沿用 init 现有模式：survey Select（与 `promptPlatforms` / `promptStatusline` 同款，`var promptX = func...` 便于测试替换），问题“检测不到项目类型，请选择：”，选项 前端项目/后端项目/前后端全栈，默认 全栈。
+5. scaffold 接线：`InitOptions` 加类型字段（如 `SpecType`），walk 时按类型跳过不匹配的 spec 文件（与现有 `SkipSpec` 跳 `spec/` 前缀同款写法）；哈希清单只记录实际写出的文件（现成逻辑：只对写出的文件算哈希，跳过即不入清单）。
+6. init 输出要让用户看见类型与来源：一行 `项目类型：前端（自动检测）` / `后端（--type 指定）` / `全栈（手动选择）` / `全栈（默认）` 之类；“下一步”第 2 行按实际类型措辞（与生成的文件集一致），registry 时保持上一轮的“从模板市场装进”写法。
+7. 文档：init `--help` 的 Long 加 `--type` 与检测说明；中英文教程 §1 的 init 输出引用按实跑结果更新，并在 §1 附近补一小段说明类型检测与手动选择（中文版与英文版都要，英文版输出引用仍为中文原文+英文翻译）；README 核心命令表如列 init 参数则同步（没有则不动）。
+8. 测试：`Detect` 单元测试（前端/后端/全栈/unknown 各至少一个夹具；express-only package.json → backend 钉住 quirks 偏离；package.json 损坏 → unknown；无 package.json 的纯 go.mod → backend）；解析优先级测试（flag > 检测 > 提问 > 默认；`-y` + unknown → fullstack；非 TTY + unknown → fullstack；registry 时不提问）；init 端到端（临时目录实跑：前端项目只剩 system.md + frontend.md；后端只剩 system.md + backend.md；全栈三份都在；`--type` 覆盖检测结果；提问路径用 stub 的 prompt 函数）。
+9. 验收（主代理独立复验）：`gofmt`、`go vet`、全量 `go test`；临时目录实跑四条路径（前端检测、后端检测、unknown 提问、`--type` 覆盖）+ registry 回归；教程引用与实跑输出逐字一致；全仓无 trellis 残留（新代码原创实现，不复制上游源码）。
+
+### 实施记录（2026-11-10）
+
+- **分工**：检测包与 init 接线两路并行（契约先定死：`projecttype.Type` 常量顺序 Unknown/Frontend/Backend/Fullstack、`String()`、`DisplayName()` 前端/后端/全栈/未知、`Parse`、`Detect`），文档由总协调合流后自己收尾。
+- **检测包（`internal/projecttype/`，新建）**：`projecttype.go` + `projecttype_test.go`（3 个测试函数、42 个子测试）。指示器与依赖表按上游原样移植（仅读 dependencies + devDependencies 键名；`*.csproj`/`*.fsproj` 按根目录后缀匹配；文件不存在/读失败/package.json 解析失败一律当无信号，不报错）。与上游的有意偏离已实现并钉住：前端文件信号里不含 `package.json`，只有命中前端依赖才算前端信号（express-only 的 package.json → Backend，不是 Fullstack）。`Parse` 精确匹配（无大小写折叠、无去空格），非法值错误文案为 `无效的项目类型：%s（合法值：前端、后端、全栈）`。
+- **init 接线**：`internal/scaffold/scaffold.go`（`InitOptions` 加 `SpecType`，walk 按类型跳过不匹配的 spec 文件，跳过的不进哈希清单）与 `internal/cli/init.go`（`--type` flag、Long 补检测说明、`resolveProjectType` 纯函数 + `promptProjectType` var func 注入、全新 init 与 `--force` 两个分支解析并传 `SpecType`、打印 `项目类型：<展示名>（<来源>）`、`specNextStepLine()` 按类型措辞“下一步”第 2 行）。新增测试：`internal/cli/init_projecttype_test.go`（解析优先级 11 组表驱动、行文案、5 组端到端实跑二进制）与 `internal/scaffold/scaffold_test.go` 的 `TestInitSpecTypeSkipsMismatchedSpec`（四档文件集 + 哈希清单断言）。
+- **文档（总协调）**：中英文教程 §1 的 init 输出引用已按实跑逐字更新（机械 diff 校验通过，含 `项目类型：全栈（默认）` 与第 2 行文件清单），§1 附近各补一段类型检测与手动选择说明（英文版输出仍为中文原文 + 英文翻译）；§8 registry 引用未变（实跑确认无项目类型行、模板市场写法不变）。README 核心命令表未列 init 参数，按 PLAN 第 7 条不动。上一轮“下一步”文案改动仍在工作树内，未回退。
+- **总协调独立复验**：`gofmt -l .` 无输出、`go vet ./...` 通过；全量 `go test ./... -count=1` 19 个包全过（本批合流后连续 3 轮全过，另基线 1 轮）。临时目录实跑：空目录 `-y` → `项目类型：全栈（默认）`、三份 spec、115 个文件；vite 项目 → `前端（自动检测）`、只剩 system.md + frontend.md；go.mod 项目 → `后端（自动检测）`、只剩 system.md + backend.md；go.mod 项目 `--type 前端` → `前端（--type 指定）` 覆盖检测；`--type web` → 报错、exit 1、不生成 `.sunshine/`；本地路径 registry 回归 → 无项目类型行、“从模板市场装进”写法不变、demo.md 装好。
+- **与 PLAN.md 的偏离**：无实质偏离。两处微小实现选择（接线一路汇报）：① `resolveProjectType` 对 flag 值先 TrimSpace 再 Parse（Parse 本身不接受带空格值，仅作容错）；② e2e 测试里构建目标用 `./cmd/sunshine`（仓库根目录无 main 包）。另：`resolveInitProjectType` 仅当无 `--type` 且非 SkipSpec 时才调 `Detect`（SkipSpec 时连检测都不做，与“类型用不上”一致）。
+- **未复现的抖动（两路各遇一次，实话记录）**：接线一路全量第一轮 `internal/cli` 曾 FAIL（尾部是 update 干跑输出，未抓到具体用例），随后复跑全过；总协调合流后 3 轮全量全过，未能复现。原因未定位，不谎报已修；若 CI 再抖，先抓完整日志再定。
+- **验证局限**：unknown 提问的真实 TTY 路径未实跑成功——`script` 分配 pty 后 survey Select 挂起（管道送的换行没被接受），已 kill；提问路径由 stub prompt 的单元测试覆盖（PLAN 第 8 条要求的覆盖方式），与已在用的 promptPlatforms/promptStatusline 同款 survey 模式。registry 回归用的是本地路径 registry（上一轮 SSH 端到端的那套本地 sshd 环境已不在——虚拟机换过，/git 与 /tmp/ssh-e2e 均已消失；SSH 路径本身未动，不影响本批结论）。
+- **未提交推送**：本批改动留工作树，等主代理验收后定夺。
+
+- **主代理独立复验（2026-11-10）**：`gofmt -l .` 无输出、`go vet ./...` 通过、全量 `go test ./... -count=1` 19 个包全过（本批新增 `internal/projecttype`）；改动一处后 `internal/cli` 复跑通过。临时目录实跑与总协调一致：空目录 `-y` → 全栈（默认）、115 个文件；vite → 前端（自动检测）；go.mod → 后端（自动检测）；`--type 前端` 覆盖 go.mod 检测；`--type web` 报错 exit 1、不生成 `.sunshine/`。中英文教程 §1 引用与实跑输出做了机械逐字 diff，一致；registry §8 实跑确认无项目类型行。
+- **主代理复验时修掉一个真 bug**：上一轮“下一步”第 2 行的 registry 条件写的是 `target != nil`，但非 spec 模板（如 skill）经 `--registry` 安装时 `WritesSpec()` 为 false、默认 spec 实际照常生成，旧条件会错印“规范已从模板市场装进 .sunshine/spec/”。已改成 `if skipSpec`，并用 skill 模板本地 registry 实跑验证：正确打印 `项目类型：全栈（默认）` 与默认模板行，skill 正常装进 `.agents/skills/`。工作流模板经 `--registry` 本就被拒（“请用 sunshine workflow --template 安装”），不受影响。
+- **真实 TTY 提问路径已跑通（补上总协调的验证局限）**：`script` 挂起的根因是 survey 在 Confirm/Select 前会发 `\x1b[6n` 问终端光标位置，等不到终端回 `\x1b[行;列R` 就一直等——真实终端会自动回，属验证手段问题，不是产品 bug。用 Python pty 并回 DSR 后，全程交互跑通：平台多选 → 状态栏确认 → “检测不到项目类型，请选择：”回车取默认 → `项目类型：全栈（手动选择）`，三份 spec 落盘。
+- **未复现的抖动**：本轮我的全量 1 轮 + cli 复跑均全过，仍未复现；两路各遇一次、均无完整日志，原因未定位，不谎报已修；若 CI 再抖，先抓完整日志再定。
+- **未提交推送**：本批改动（含上一轮“下一步”文案）留工作树，等用户定夺。
