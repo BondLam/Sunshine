@@ -1778,10 +1778,16 @@ pre-commit install       # 在仓库根目录执行一次
 - **与 PLAN.md 的偏离**：无实质偏离。两处微小实现选择（接线一路汇报）：① `resolveProjectType` 对 flag 值先 TrimSpace 再 Parse（Parse 本身不接受带空格值，仅作容错）；② e2e 测试里构建目标用 `./cmd/sunshine`（仓库根目录无 main 包）。另：`resolveInitProjectType` 仅当无 `--type` 且非 SkipSpec 时才调 `Detect`（SkipSpec 时连检测都不做，与“类型用不上”一致）。
 - **未复现的抖动（两路各遇一次，实话记录）**：接线一路全量第一轮 `internal/cli` 曾 FAIL（尾部是 update 干跑输出，未抓到具体用例），随后复跑全过；总协调合流后 3 轮全量全过，未能复现。原因未定位，不谎报已修；若 CI 再抖，先抓完整日志再定。
 - **验证局限**：unknown 提问的真实 TTY 路径未实跑成功——`script` 分配 pty 后 survey Select 挂起（管道送的换行没被接受），已 kill；提问路径由 stub prompt 的单元测试覆盖（PLAN 第 8 条要求的覆盖方式），与已在用的 promptPlatforms/promptStatusline 同款 survey 模式。registry 回归用的是本地路径 registry（上一轮 SSH 端到端的那套本地 sshd 环境已不在——虚拟机换过，/git 与 /tmp/ssh-e2e 均已消失；SSH 路径本身未动，不影响本批结论）。
-- **未提交推送**：本批改动留工作树，等主代理验收后定夺。
+- **本批已随 v0.2.3 提交推送并发布**（见下“v0.2.3 发布记录”）。
 
 - **主代理独立复验（2026-11-10）**：`gofmt -l .` 无输出、`go vet ./...` 通过、全量 `go test ./... -count=1` 19 个包全过（本批新增 `internal/projecttype`）；改动一处后 `internal/cli` 复跑通过。临时目录实跑与总协调一致：空目录 `-y` → 全栈（默认）、115 个文件；vite → 前端（自动检测）；go.mod → 后端（自动检测）；`--type 前端` 覆盖 go.mod 检测；`--type web` 报错 exit 1、不生成 `.sunshine/`。中英文教程 §1 引用与实跑输出做了机械逐字 diff，一致；registry §8 实跑确认无项目类型行。
 - **主代理复验时修掉一个真 bug**：上一轮“下一步”第 2 行的 registry 条件写的是 `target != nil`，但非 spec 模板（如 skill）经 `--registry` 安装时 `WritesSpec()` 为 false、默认 spec 实际照常生成，旧条件会错印“规范已从模板市场装进 .sunshine/spec/”。已改成 `if skipSpec`，并用 skill 模板本地 registry 实跑验证：正确打印 `项目类型：全栈（默认）` 与默认模板行，skill 正常装进 `.agents/skills/`。工作流模板经 `--registry` 本就被拒（“请用 sunshine workflow --template 安装”），不受影响。
 - **真实 TTY 提问路径已跑通（补上总协调的验证局限）**：`script` 挂起的根因是 survey 在 Confirm/Select 前会发 `\x1b[6n` 问终端光标位置，等不到终端回 `\x1b[行;列R` 就一直等——真实终端会自动回，属验证手段问题，不是产品 bug。用 Python pty 并回 DSR 后，全程交互跑通：平台多选 → 状态栏确认 → “检测不到项目类型，请选择：”回车取默认 → `项目类型：全栈（手动选择）`，三份 spec 落盘。
 - **未复现的抖动**：本轮我的全量 1 轮 + cli 复跑均全过，仍未复现；两路各遇一次、均无完整日志，原因未定位，不谎报已修；若 CI 再抖，先抓完整日志再定。
-- **未提交推送**：本批改动（含上一轮“下一步”文案）留工作树，等用户定夺。
+- **本批已随 v0.2.3 提交推送并发布**（见下“v0.2.3 发布记录”）。
+
+### v0.2.3 发布记录（2026-11-10）
+
+- 内容：init 项目类型检测 + 手动选择（上一节的批次，含“下一步”文案重写）。提交 `6a6243a`（354 个文件），tag v0.2.3 为注释 tag（对象 `2aedc44`）。
+- Release 已发布：https://github.com/linrong1982/Sunshine/releases/tag/v0.2.3，6 个资产；发布与两路 CI 均 success——这次也没有抖动。实测验证：真实一键命令装上 v0.2.3（`--version` 打印 0.2.3）；0.2.2 二进制 `upgrade --dry-run` 正确查到 0.2.3；darwin 包 checksum OK，解出 Mach-O x86_64 二进制；用发布的 0.2.3 二进制实跑：vite 项目 → `项目类型：前端（自动检测）`，只生成 system.md + frontend.md。
+- 未复现的 FAIL 仍未复现（本轮发布三路 CI 全过，本地全量也全过）；若 CI 再抖，先抓完整日志再定。
