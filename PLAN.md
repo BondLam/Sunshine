@@ -1889,4 +1889,10 @@ pre-commit install       # 在仓库根目录执行一次
 - **接任协调人独立复验与修掉的两个小问题**：全量 `go test` 19 个包全过（588 个 `--- PASS` 行；G 路的 589 为另一种计数口径）、`gofmt`/`go vet` 通过；init 抽查（gemini 66、copilot 68、kilo 63、--windsurf 别名、22 家一次装 932 文件、platforms 全认出、update --dry-run 已是最新）与 D/G/H 一致。① H 路发现的迁移汇总文案 bug 已修：`PrintMigrationSummary` 无冲突时也印“请手工合并”，改为仅 `len(Conflict) > 0` 时打印（internal/migrate/execute.go，临时测试验证后已删）。② `task current` 无任务时默认形态静默失败（rc=1、零输出）已修：现打印“当前任务：(无)”再返回 1（internal/task/lifecycle.go，与 --source 形态措辞一致；JSON 形态不变）。
 - **与 PLAN.md 的偏离**：无实质偏离。两处措辞订正：① C 规格订正决策 3（三家除 workflow 外还写 skills，不是“只写 workflows 目录”）；② 前置段译文以 A1 版为准统一（gemini/qoder/trae/pi/copilot；grok/kimi 的由 Go 侧注入，措辞仍有细微差异，见遗留）。
 - **遗留问题**：① `sunshine platforms` 里 dsh 显示为 `DeepSeek Harness (dsh) (dsh)`（上游登记名自带 (dsh) 后缀 + 输出格式又加 (id)；修要动注册表、init 显示名、测试、sunshine-meta 十几处，本批未动，等定夺）。② Snow 面包屑与三档裁剪缺口、pi/omp 扩展依赖 sunshine 在 PATH、opencode 插件运行时依赖、Gemini BeforeAgent 语义、copilot-instructions 平台目录列表未扩 22 个、copilot agents 未在真实宿主加载验证、三平台 hook 真实触发未测（同 D/E 各路遗留）。③ /tmp 是 512M tmpfs，`go test` 的 sunshine-test-bin-* 残留（每份 31M）会写满导致链接失败假失败——本次复验中途即因此 FAIL，已清理并改用 GOTMPDIR=$HOME/.gopath/tmp；并行批次跑测试前先看 `df /tmp`。④ update --migrate 在开发版 0.1.0 二进制上是空操作（0.2.0 清单不在适用区间），须用注入版本号的二进制才跑通真实迁移（此前已记录，H 路再次确认）。⑤ 未复现的 FAIL 仍未复现（本批全量多轮全过）；若 CI 再抖，先抓完整日志再定。
-- **未提交推送**：本批全部改动留工作树，等主代理验收后定夺。
+- **本批已随 v0.3.0 提交推送并发布**（见下“v0.3.0 发布记录”）。
+
+### v0.3.0 发布记录（2026-11-10）
+
+- 内容：滚动轨道剩余 19 个平台（上一节的批次），共支持 22 个 AI 编程平台。提交 `b2922ae`（441 个文件），tag v0.3.0 为注释 tag（对象 `16dceb2`）。
+- Release 已发布：https://github.com/linrong1982/Sunshine/releases/tag/v0.3.0，6 个资产；发布与两路 CI 均 success——这次也没有抖动。实测验证：真实一键命令装上 v0.3.0（`--version` 打印 0.3.0）；0.2.3 二进制 `upgrade --dry-run` 正确查到 0.3.0；darwin 包 checksum OK，解出 Mach-O x86_64 二进制；用发布的 0.3.0 二进制实跑：`init --gemini --kilo --copilot` 三家均装好，`platforms` 认出 3 家。
+- 未复现的 FAIL 仍未复现（本轮发布三路 CI 全过，本地全量也全过）；若 CI 再抖，先抓完整日志再定。
