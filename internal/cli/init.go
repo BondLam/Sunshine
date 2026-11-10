@@ -72,7 +72,7 @@ var platformDisplayNames = map[string]string{
 	"omp":         "Oh My Pi",
 	"snow":        "Snow CLI",
 	"opencode":    "OpenCode",
-	"dsh":         "DeepSeek Harness (dsh)",
+	"dsh":         "DeepSeek Harness",
 	"reasonix":    "Reasonix",
 	"grok":        "Grok Build",
 	"kimi":        "Kimi Code",

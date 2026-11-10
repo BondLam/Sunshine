@@ -2,7 +2,7 @@
 
 Sunshine 把同一套本地架构连接到不同的 AI 工具。`.sunshine/` 存储共享运行时；平台目录存储 adapter 文件，定义每个 AI 工具如何进入 Sunshine。
 
-> Go 版目前已接 22 个平台（Claude Code、Cursor、Codex、Kiro Code、Gemini CLI、Qoder、Pi Agent、ZCode、Trae、Oh My Pi、Snow CLI、OpenCode、DeepSeek Harness (dsh)、Reasonix、Grok Build、Kimi Code、Kilo CLI、Antigravity、Devin、CodeBuddy、GitHub Copilot、Factory Droid）；下文三家平台的目录。
+> Go 版目前已接 22 个平台（Claude Code、Cursor、Codex、Kiro Code、Gemini CLI、Qoder、Pi Agent、ZCode、Trae、Oh My Pi、Snow CLI、OpenCode、DeepSeek Harness、Reasonix、Grok Build、Kimi Code、Kilo CLI、Antigravity、Devin、CodeBuddy、GitHub Copilot、Factory Droid）；下文三家平台的目录。
 
 当本地 AI 修改 Sunshine 时，应当先区分两类文件：
 

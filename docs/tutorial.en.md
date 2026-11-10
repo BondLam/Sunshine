@@ -103,9 +103,11 @@ Open the project in Claude Code (Codex and Cursor work the same way — the agen
 
 > **Example prompt** (an illustration of what to say, not a real session transcript):
 >
-> Add a required reason field to the refund flow: when a user submits a refund, the reason must not be empty or the submission is rejected. The reason input is a dropdown — quality issue / wrong size / other — and choosing "other" reveals a text box. On the backend, `POST /refunds` requires `reason`; a missing reason returns 400 with error code `REASON_REQUIRED`.
+> Add a required reason field to the refund flow: when a user submits a refund, the reason must not be empty or the submission is rejected. The reason input is a dropdown — quality issue / wrong size / other — and choosing "other" reveals a text box. On the backend, `POST /refunds` requires `reason`; a missing reason returns 400 with error code `REASON_REQUIRED`. Please follow the Sunshine workflow: ask me first to clarify anything unclear about the product logic or technical details; once confirmed, create the task, write the PRD, then implement.
 
-You do not need to mention tasks, specs, or commands. The agent figures out the rest: if the request is big enough to be a task, `workflow.md` requires it to ask for your agreement before creating one — it will not silently create a task directory. It may also ask clarifying questions first (for example, whether "other" needs a minimum text length), and it will tell you what it is about to do before doing it.
+Note: the prompt must name the workflow explicitly — ask first, confirm, then create the task and write the PRD. A bare requirement on its own is not enough: in a real run the agent jumped straight to coding and skipped task creation and requirement confirmation.
+
+You do not need to mention commands. The prompt names the workflow explicitly — ask first, confirm, then create the task and write the PRD — because a bare requirement on its own lets the agent jump straight to coding. Once the flow is named, the agent follows it: if the request is big enough to be a task, `workflow.md` requires it to ask for your agreement before creating one — it will not silently create a task directory. It may also ask clarifying questions first (for example, whether "other" needs a minimum text length), and it will tell you what it is about to do before doing it.
 
 Before the work starts, the demo project's conventions need to live in the specs — either you add them, or you ask the agent to ("Put the refund conventions into the spec files"). Either way they end up as three short additions:
 
@@ -980,7 +982,7 @@ State the first requirement in the agent UI:
 
 Example prompt (an example, not a record of a real session):
 
-> Build a duty-roster tool: generate this week's roster from a CSV, first column date, second column the person on duty.
+> I'm starting a duty-roster tool from scratch: generate this week's roster from a CSV, first column date, second column the person on duty. Please follow the Sunshine workflow: ask me first to pin down the missing product logic (date formats, output form) and technical decisions (language, how to run it); once confirmed, create the first task, write the PRD, then implement.
 
 Under the hood the agent creates the task, lines up context, and starts it (same commands as section 4; only the key outputs are shown here):
 
@@ -1065,7 +1067,7 @@ The first task on an adopted project is not a feature — it is landing the reme
 
 Example prompt (an example, not a record of a real session):
 
-> Write the three team conventions from the README into the specs, so every task from now on follows them.
+> I'm bringing an existing project into Sunshine: the repo exists, but the conventions live mostly in people's heads, and the README has three team conventions. Please follow the Sunshine workflow: ask me first to confirm the three conventions and which spec files they belong in; once confirmed, create the task, write the PRD, then write the conventions into .sunshine/spec/ so every task from now on follows them.
 
 Under the hood the agent creates the task and writes the conventions into the matching spec files (this is what actually landed):
 

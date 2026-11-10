@@ -31,7 +31,7 @@ Sunshine CLI 绝不触碰任何不是由其自身模板加载器产生的内容�
 
 ## 各平台内置 Skill 的落点
 
-Go 版目前已接 22 个平台（Claude Code、Cursor、Codex、Kiro Code、Gemini CLI、Qoder、Pi Agent、ZCode、Trae、Oh My Pi、Snow CLI、OpenCode、DeepSeek Harness (dsh)、Reasonix、Grok Build、Kimi Code、Kilo CLI、Antigravity、Devin、CodeBuddy、GitHub Copilot、Factory Droid）。已接平台都会收到完整的内置 skill 集合：
+Go 版目前已接 22 个平台（Claude Code、Cursor、Codex、Kiro Code、Gemini CLI、Qoder、Pi Agent、ZCode、Trae、Oh My Pi、Snow CLI、OpenCode、DeepSeek Harness、Reasonix、Grok Build、Kimi Code、Kilo CLI、Antigravity、Devin、CodeBuddy、GitHub Copilot、Factory Droid）。已接平台都会收到完整的内置 skill 集合：
 
 | 平台 | 内置 skill 根目录 |
 | --- | --- |
@@ -47,7 +47,7 @@ Go 版目前已接 22 个平台（Claude Code、Cursor、Codex、Kiro Code、Gem
 | Oh My Pi | `.omp/skills/<skill>/` |
 | Snow CLI | `.snow/skills/<skill>/` |
 | OpenCode | `.opencode/skills/<skill>/` |
-| DeepSeek Harness (dsh) | `.agents/skills/<skill>/` |
+| DeepSeek Harness | `.agents/skills/<skill>/` |
 | Reasonix | `.reasonix/skills/<skill>/` |
 | Grok Build | `.grok/skills/<skill>/` |
 | Kimi Code | `.agents/skills/<skill>/` |
@@ -55,7 +55,7 @@ Go 版目前已接 22 个平台（Claude Code、Cursor、Codex、Kiro Code、Gem
 | Antigravity | `.agent/skills/<skill>/` |
 | Devin | `.devin/skills/<skill>/` |
 
-Codex、Gemini CLI、Pi Agent、DeepSeek Harness (dsh)、Kimi Code 五家共享 `.agents/skills/` 根目录。多个平台共同写入同一文件时，内容必须字节相同（这五家用中性解析，见 `internal/platforms` 的占位符处理）。
+Codex、Gemini CLI、Pi Agent、DeepSeek Harness、Kimi Code 五家共享 `.agents/skills/` 根目录。多个平台共同写入同一文件时，内容必须字节相同（这五家用中性解析，见 `internal/platforms` 的占位符处理）。
 
 一份描述，两个消费者：
 
