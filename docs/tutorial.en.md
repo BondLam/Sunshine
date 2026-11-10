@@ -1099,7 +1099,15 @@ From now on the conventions no longer live only in senior engineers' heads: the 
 
 ### 13.3 Delivering a product feature: one task across product, API, data, and UI
 
-When one task spans four layers, the usual failure is changing one layer and missing another — Sunshine's answer is one task whose context list names the files in all four layers at once, so acceptance checks against the same list. The demo is a refund app (`src/Refund.vue` is the UI, `src/server.js` the API, `data/refunds.json` the data), and the task is making the refund reason mandatory:
+When one task spans four layers, the usual failure is changing one layer and missing another — Sunshine's answer is one task whose context list names the files in all four layers at once, so acceptance checks against the same list. The demo is a refund app (`src/Refund.vue` is the UI, `src/server.js` the API, `data/refunds.json` the data), and the task is making the refund reason mandatory.
+
+State the requirement in the agent UI:
+
+Example prompt (an example, not a record of a real session):
+
+> I need to deliver a product feature: make the refund reason mandatory, one task across the product, API, data, and UI layers (the UI is src/Refund.vue, the API is src/server.js, the data is data/refunds.json). Please follow the Sunshine workflow: ask me first to pin down the unclear validation rules (the reason options, the error code when the field is missing) and the order to change the four layers; once confirmed, create the task, write the PRD, then implement.
+
+Under the hood the agent creates the task (same commands as section 4; only the key outputs are shown here):
 
 ```sh
 sunshine task create "退款原因必填校验（全链路）" --description "产品、API、数据、UI 四层一起改：原因必填" --priority P1
@@ -1191,7 +1199,13 @@ func Price(qty int, vip bool) int {
 
 (In English: "Legacy module: it runs, but the discount rules are hard-coded in ifs — every change is a gamble.")
 
-Refactoring uses the TDD workflow. Switch the workflow, create the task, start it:
+State the requirement in the agent UI:
+
+Example prompt (an example, not a record of a real session):
+
+> I need to refactor a legacy module: the price function Price, with all the discount rules hard-coded in `if`s — the code runs, but it is no longer safe to change. Please follow the Sunshine workflow (the TDD template this time): ask me first to confirm the behavior to pin down (the expected prices for each quantity tier and VIP) and the boundaries of the refactor; once confirmed, create the task, write the PRD, then follow TDD: write characterization tests to pin the current behavior first, then refactor.
+
+Under the hood the agent switches the workflow, creates the task, and starts it:
 
 ```sh
 sunshine workflow --template tdd
@@ -1271,7 +1285,15 @@ Archive the task as usual and switch the workflow back to native (`--force`, sam
 
 ### 13.5 Fixing a bug that keeps coming back: find the last session first
 
-When the same class of problem appears again and again, the most expensive part is investigating it from zero every time. The bug in this section really happened: a codex worker failing to connect with a 401 — once on November 9, again in the early hours of November 10, and once more today. First, reproduce one occurrence as it happened (a real run):
+When the same class of problem appears again and again, the most expensive part is investigating it from zero every time. The bug in this section really happened: a codex worker failing to connect with a 401 — once on November 9, again in the early hours of November 10, and once more today.
+
+State the requirement in the agent UI:
+
+Example prompt (an example, not a record of a real session):
+
+> I need to fix a bug that keeps coming back: a codex worker failing to connect with a 401 — once on November 9, again in the early hours of November 10, and once more today. Please follow the Sunshine workflow: use mem to find the last related session first, then ask me to confirm whether this is the same class of problem and what the reproduction steps are; once confirmed, create the task, write the PRD, and write the lesson into the spec after the fix.
+
+Under the hood the agent first reproduces one occurrence as it happened (a real run):
 
 ```sh
 sunshine channel create codex-401 --type chat
