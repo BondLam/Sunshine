@@ -108,6 +108,8 @@ GitHub Copilot、Factory Droid）。
   - 无 index.json 的来源走直接下载，整个 registry 内容装进 .sunshine/spec；
   - 装完后来源与模板会记进 .sunshine/config.yaml 的 registry.spec，
     sunshine update 按它持续刷新。
+  - 交互模式（不带 -y）且未传 --template 时会弹出规范模板选单：
+    从零开始，或从模板市场里选一个（也可输入自定义来源）。
 
 示例：
   sunshine init -u 张三 -y
@@ -131,22 +133,47 @@ GitHub Copilot、Factory Droid）。
 		if err != nil {
 			return err
 		}
+		if !initialized && len(selected) == 0 {
+			fmt.Println("未选择任何平台，初始化已取消。")
+			return nil
+		}
+
+		// 交互模式且未传 --template 时先出规范模板选单（对齐 Trellis 的
+		// "Select a spec template"）：选单结果写回 initRegistry /
+		// initTemplate，后续流程与 flag 驱动完全一致。-y、非交互终端、
+		// 已传 --template 时不走选单。
+		var target *registry.Target
+		var strategy registry.TemplateStrategy
+		if initTemplate == "" && !initYes && stdinIsTTY() {
+			var picked string
+			initRegistry, picked, target, err = resolveInteractiveTemplate(initRegistry)
+			if err != nil {
+				return err
+			}
+			initTemplate = picked
+		}
 
 		// --registry 相关 flag 校验与目标解析（在 scaffold.Init 之前，
 		// 以便按目标是否写 spec 决定是否跳过默认 spec 模板）。
-		var target *registry.Target
-		var strategy registry.TemplateStrategy
 		if initRegistry != "" || initTemplate != "" {
 			if initTemplate != "" && initRegistry == "" {
+				if target != nil {
+					target.Close()
+				}
 				return fmt.Errorf("--template 需要配合 --registry 使用")
 			}
 			strategy, err = resolveRegistryStrategy()
 			if err != nil {
+				if target != nil {
+					target.Close()
+				}
 				return err
 			}
-			target, err = registry.ResolveTarget(initRegistry, initTemplate)
-			if err != nil {
-				return err
+			if target == nil {
+				target, err = registry.ResolveTarget(initRegistry, initTemplate)
+				if err != nil {
+					return err
+				}
 			}
 			// 探测资源（临时克隆）由安装步骤接管关闭；任何提前返回
 			// 路径都由这层 defer 兜底（安装后再次 Close 是安全的）。
@@ -156,10 +183,6 @@ GitHub Copilot、Factory Droid）。
 
 		switch {
 		case !initialized:
-			if len(selected) == 0 {
-				fmt.Println("未选择任何平台，初始化已取消。")
-				return nil
-			}
 			user := resolveUser(initUser)
 			specType, typeSource, err := resolveInitProjectType(cwd, skipSpec)
 			if err != nil {

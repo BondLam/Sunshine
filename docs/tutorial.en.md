@@ -58,7 +58,7 @@ Real output:
 
 (`-u` is the developer name; `-y` skips all prompts and uses the defaults. In English: "Configuring Claude Code… / Configuring Cursor… / Initialization complete, developer: 演示者 / Project type: 全栈 (default) / Installed platforms: Claude Code, Cursor / Next steps: 1. Open the project in the agent UI and state your first requirement in plain language; 2. The specs have been generated in .sunshine/spec/ from the default templates (generated: system.md, frontend.md, backend.md; add your team's specs if you have them); the workflow runs automatically following .sunshine/workflow.md and normally needs no changes.")
 
-Project type is auto-detected at init: `init` reads `package.json` dependencies and common frontend/backend config files (`vite.config.ts`, `go.mod`, etc.) and generates only the matching specs — a frontend project gets `system.md` and `frontend.md`, a backend project gets `system.md` and `backend.md`, a fullstack project gets all three. The demo directory is empty, so nothing is detected; with `-y` skipping the prompt it defaults to fullstack, which is why the output above says `项目类型：全栈（默认）` ("Project type: fullstack (default)"). Without `-y`, an undetected type triggers one question (frontend / backend / fullstack); to specify it explicitly use `--type 前端` (or 后端 / 全栈). With `--registry` (specs from the template marketplace) there is no detection and no question.
+Project type is auto-detected at init: `init` reads `package.json` dependencies and common frontend/backend config files (`vite.config.ts`, `go.mod`, etc.) and generates only the matching specs — a frontend project gets `system.md` and `frontend.md`, a backend project gets `system.md` and `backend.md`, a fullstack project gets all three. The demo directory is empty, so nothing is detected; with `-y` skipping the prompt it defaults to fullstack, which is why the output above says `项目类型：全栈（默认）` ("Project type: fullstack (default)"). Without `-y`, an undetected type triggers one question (frontend / backend / fullstack); to specify it explicitly use `--type 前端` (or 后端 / 全栈). With `--registry` (specs from the template marketplace) there is no detection and no question. Without `-y` and without `--template`, init asks one more question after the platform selection — a spec template picker ("请选择规范模板"): "从零开始" (from scratch, the default), or "自定义" (enter a marketplace source and pick from it); with `--registry` the picker lists that marketplace's spec templates, and the picked one replaces the blank specs.
 
 What `init` just installed — 115 files, in two groups:
 
@@ -656,7 +656,7 @@ registry:
     template: demo-spec
 ```
 
-("Spec templates tracked by hash; local edits go through the normal update conflict flow.") A remote marketplace works the same way — replace the local path with `gh:owner/repo`, a full git URL, an HTTP(S) URL, or a `git@` address.
+("Spec templates tracked by hash; local edits go through the normal update conflict flow.") A remote marketplace works the same way — replace the local path with `gh:owner/repo`, a full git URL, an HTTP(S) URL, or a `git@` address. The above uses `-y` with `--template`; in interactive mode, omitting `--template` makes init list that marketplace's spec templates for you to pick, so you don't need to know the template id in advance (a marketplace without `index.json` downloads the whole source directly, with no picker).
 
 After the marketplace template changes, `update` keeps refreshing it. Edit the template in the marketplace, commit, and run `update --dry-run` again:
 
@@ -929,7 +929,7 @@ Everything else in Sunshine is something you reach for when you step in manually
 | Check the next step | `sunshine task list-archive` | Show archived tasks by month |
 | Switch how the agent works | `sunshine workflow --list` / `sunshine workflow --template tdd` | List or switch workflow templates ([section 7](#7-switching-workflows)) |
 | Refresh project templates | `sunshine update --dry-run` (drop `--dry-run` to apply) | Sync template files; user data is never touched ([section 8](#8-update-and-the-template-marketplace)) |
-| Install a spec from a marketplace | `sunshine init --registry <source> --template <id>` | Install a spec template, refreshed by `update` afterwards ([section 8](#8-update-and-the-template-marketplace)) |
+| Install a spec from a marketplace | `sunshine init --registry <source> --template <id>` | Install a spec template, refreshed by `update` afterwards ([section 8](#8-update-and-the-template-marketplace)); in interactive mode, omit `--template` to pick from a list |
 | Look back | `sunshine mem search "退款"` / `sunshine mem list` | Search local session history, read-only ([section 9](#9-mem-look-back-at-sessions)) |
 | Multi-agent work | `sunshine channel list` / `sunshine channel messages <name>` | Inspect channels and their event timelines ([section 10](#10-channel-multi-agent-collaboration)) |
 | Update the CLI itself | `sunshine upgrade --dry-run` (drop `--dry-run` to apply) | Upgrade the `sunshine` binary ([section 11](#11-upgrade-update-the-cli-itself)) |

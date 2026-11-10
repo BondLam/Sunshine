@@ -43,7 +43,7 @@ sunshine init -u 你的名字 -y   # 生成中文 .sunshine/ 骨架（规范、�
 
 然后在 Claude Code 里打开这个项目，直接用自然语言提需求，例如“给退款流程加一个必填的原因字段”——agent 会按 `.sunshine/workflow.md` 建任务、写 prd、派 implement/check 子代理、核查、把学到的写回 spec，最后用 `/sunshine:finish-work` 收尾；你检查 diff、验收、提交。
 
-`init` 默认安装 Claude Code 与 Cursor 两套平台配置；只想装 Codex 时用 `sunshine init --codex -y`，已初始化的项目里再跑 `init --codex -y` 是增量追加，不动已有文件。目前共支持 22 个平台，用 `sunshine init --<平台> -y` 装指定平台。`sunshine platforms` 可查看当前项目已配置的平台。
+`init` 默认安装 Claude Code 与 Cursor 两套平台配置；只想装 Codex 时用 `sunshine init --codex -y`，已初始化的项目里再跑 `init --codex -y` 是增量追加，不动已有文件。目前共支持 22 个平台，用 `sunshine init --<平台> -y` 装指定平台。`sunshine platforms` 可查看当前项目已配置的平台。不带 `-y` 且不传 `--template` 时，init 会在平台选完后弹出规范模板选单：默认从零开始，也可以输一个模板市场来源再挑；带 `--registry` 时选单直接列出该市场的 spec 模板。
 
 ## 核心命令一览
 
@@ -55,7 +55,7 @@ sunshine init -u 你的名字 -y   # 生成中文 .sunshine/ 骨架（规范、�
 | `task` | 任务管理：创建、启动、完成、归档 | agent 在底下调；人只在查状态时用 `task current` / `task list` | agent：`sunshine task create "给退款原因加必填校验" --description "退款时原因字段必填"` |
 | `workflow` | 查看或切换 `.sunshine/workflow.md` 的工作流模板 | agent 在底下调；人想换工作流时说一句即可 | `sunshine workflow --list` |
 | `update` | 把项目内的 Sunshine 模板文件同步到当前 CLI 版本 | agent 在底下调；人手动看计划时用 `--dry-run` | `sunshine update --dry-run` |
-| `init --registry` | 从模板市场装规范模板（装完由 `update` 持续刷新） | 人手动干预时用 | `sunshine init --registry gh:owner/repo --template demo-spec -y` |
+| `init --registry` | 从模板市场装规范模板（装完由 `update` 持续刷新；交互模式不传 `--template` 时列出市场模板现选） | 人手动干预时用 | `sunshine init --registry gh:owner/repo --template demo-spec -y` |
 | `mem` | 跨平台检索本机 AI 会话历史（只读） | agent 在底下调；人回头看会话时用 | `sunshine mem search "退款"` |
 | `channel` | 多 Agent 协同：通过共享事件日志派生、协调 worker | agent 在底下调；人手动搭 channel 时用 | `sunshine channel create review --type chat` |
 | `upgrade` | 升级 Sunshine CLI 自身（查 GitHub Releases） | 人手动干预时用 | `sunshine upgrade --dry-run` |
@@ -80,7 +80,7 @@ sunshine init -u 你的名字 -y   # 生成中文 .sunshine/ 骨架（规范、�
 
 ## 模板市场
 
-`sunshine init --registry <来源> --template <模板 id>` 可从模板市场安装规范模板，来源支持 `gh:owner/repo`、完整 git URL、HTTP(S) URL、`git@` 形式或本地 git 仓库路径；装完后来源记进 `config.yaml` 的 `registry.spec`，`sunshine update` 会持续刷新。模板市场仓库的标准结构是 `marketplace/index.json` + `marketplace/specs/`。详见[教程第 8 节：update 与模板市场](docs/tutorial.md#8-update-与模板市场)。
+`sunshine init --registry <来源> --template <模板 id>` 可从模板市场安装规范模板，来源支持 `gh:owner/repo`、完整 git URL、HTTP(S) URL、`git@` 形式或本地 git 仓库路径；装完后来源记进 `config.yaml` 的 `registry.spec`，`sunshine update` 会持续刷新。模板市场仓库的标准结构是 `marketplace/index.json` + `marketplace/specs/`。交互模式不传 `--template` 时会列出该市场的 spec 模板让你现选，不用事先知道模板 id。详见[教程第 8 节：update 与模板市场](docs/tutorial.md#8-update-与模板市场)。
 
 ## 更多
 

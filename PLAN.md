@@ -1937,3 +1937,51 @@ pre-commit install       # 在仓库根目录执行一次
 - 内容：修 install.sh 里 `$变量` 后紧跟全角字符被 macOS bash 3.2 吞进变量名的问题（上一节的批次）。提交 `ac2d1e5`（441 个文件），tag v0.3.3 为注释 tag（对象 `dd03611`）。
 - Release 已发布：https://github.com/linrong1982/Sunshine/releases/tag/v0.3.3，6 个资产；发布与两路 CI 均 success——这次也没有抖动。实测验证：用户原先那条不带参数的一键命令（从 main 拉新脚本）装上 v0.3.3；0.3.2 二进制 `upgrade --dry-run` 正确查到 0.3.3；darwin 包 checksum OK，解出 Mach-O x86_64 二进制；main 上的 install.sh 含 `${TAG}（${OS}` 花括号写法。
 - 未复现的 FAIL 仍未复现（本轮发布三路 CI 全过，本地全量也全过）；若 CI 再抖，先抓完整日志再定。
+
+## init 交互选模板（对齐 Trellis，2026-11-10，用户定做）
+
+### 背景
+
+- 用户问 Trellis init 时的弹出选项（以为是选项目性质），核实后确认：上游 init 没有选项目类型的提问（类型是静默自动检测），弹出的选项是 **"Select a spec template:"**（init.ts:1602、1649）：交互模式下载模板索引后列出 from scratch（默认）/ 远程 spec 模板 / custom（输入 registry 来源）；选远程模板则下载进 `.trellis/spec/`，空白模板一套不写；下载失败回退空白模板；`-y` + 市场型 registry 不带 `--template` 直接报错退出。
+- Sunshine init 没有这一步：选模板只能靠 `--registry` + `--template` 两个 flag；市场型 registry 不带 `--template` 时 `ResolveTarget` 直接报错列出可选 id。用户确认要补一个交互选单（“让不带 --template 时也能像 Trellis 那样列出来选”）。
+
+### 上游行为（init.ts:1483–1830，对照点）
+
+- 触发：单仓模式、交互模式（非 `-y`）、未传 `--template`。先按 registry（有则自定义，无则官方 `TEMPLATE_INDEX_URL`）拉索引，拉不到时官方源报“用空白模板”，自定义源无 index.json 走直接下载、瞬时失败直接 abort。
+- 选单内容：有 registry 时只列 spec 型模板（无 blank、无 custom、无默认）；无 registry（官方）时是 from scratch（默认）+ spec 模板 + custom。选 custom → 输来源（空回选单）→ 探测：市场则再出该来源的模板选单，直接下载则直接装，瞬时失败回选单。
+- 选远程模板后：`.trellis/spec` 已存在且无 `--overwrite/--append` 时追问 Skip/Overwrite/Append；下载成功则 `skipSpecTemplates: true`，失败回退空白模板。
+- `-y` + 市场型 registry 不带 `--template`：报错退出（须指定 `--template`）。
+
+### Sunshine 方案
+
+- 触发条件与上游一致：交互模式（`!initYes && stdinIsTTY()`）且未传 `--template`；`-y`、非交互终端、已传 `--template` 时一律不走选单（现有行为不变）。
+- 选单内容（Sunshine 没有官方模板市场，所以中间一档为空）：
+  - 未传 `--registry`：选单为“从零开始（默认）”+“自定义（输入一个模板市场来源）”；选自定义后输来源（空回选单）→ 探测：市场则列出该来源的 spec 型模板再选，无 index.json 则直接下载，探测瞬时失败打印原因后回选单。
+  - 已传 `--registry`：探测到市场就直接列出其中的 spec 型模板（无 blank、无 custom，与上游 registry 情形一致）；无 index.json 则直接下载，不出选单。
+  - 只列 `type == "spec"` 的条目（与上游的 filter 一致；skill/command/workflow 型不在 init 选单里）。市场里没有 spec 型模板时打印提示、改用空白模板。
+- 探测复用：选单探测与安装共用一次 probe——新增 `registry.ResolveTargetWithProbe(src, probe, templateID)`，`ResolveTarget` 改为解析 + 探测后委托给它；出错时 WithProbe 负责关闭 probe，成功时 Target 接管（与现有 ownership 一致，`ProbeResult.Close` 已是幂等的）。
+- 接线位置：`RunE` 里平台选择之后、原有 `--registry/--template` 校验之前。选单结果写回 `initRegistry`/`initTemplate`（`installRegistryTemplates` 与重试提示读的是这两个全局量），已拿到 Target 时不再二次 `ResolveTarget`；`--overwrite/--append` 的校验仍在选单之后跑，选中的模板可与它们搭配（与上游“选完再定策略”一致）。
+- 提问函数：包级可替换的 `promptSpecTemplate` / `promptCustomRegistrySource`（与 `promptPlatforms`/`promptStatusline`/`promptProjectType` 同一模式，测试替换它们）；中断/EOF 时返回错误，init 直接失败（与平台选择失败的处理一致）。
+- 下载失败回退：沿用现有 `installRegistryTemplates`（安装失败时警告 + 写回空白 spec，不中断 init），与上游“Falling back to blank templates”一致。
+
+### 有意不做（与上游的差别，记下来）
+
+- 不做“`.sunshine/spec` 已存在时追问 Skip/Overwrite/Append”：全新 init 时 spec 目录不存在或为空，文件级 skip 策略不会误跳过；增量模式下已有内容时沿用现有的 flag 策略（默认 skip，打印“模板已存在，已跳过安装”），与现有 flag 驱动行为一致。
+- 不做官方模板市场：Sunshine 没有托管的官方 registry，选单中间一档为空；想从市场装模板仍需 `--registry` 或选单里的自定义来源。
+- 增量模式也走选单（与上游交互 init 一律出选单一致）；选空白在增量模式下是空操作（scaffold 本来就跳过），选模板则按现有增量路径安装。
+
+### 实施检查（2026-11-10，已完成并实测验证）
+
+- [x] `internal/registry/install.go`：新增 `ResolveTargetWithProbe`，`ResolveTarget` 委托给它（行为不变，现有测试覆盖）。
+- [x] `internal/cli/init_template.go`（新文件）：包级可替换的提问函数 + `specTemplateChoices`（过滤 + 标签 `id（name）`，无 name 时只写 id）+ `resolveInteractiveTemplate`（循环选单/自定义/探测）。
+- [x] `internal/cli/init.go`：`RunE` 接线（平台选择后、registry 校验前），Long 帮助补一句交互选模板说明。
+- [x] 测试：选单构造（过滤、标签）；交互流程（本地 git 市场夹具，复用 `download_test.go` 的 `marketplaceIndex`/`marketplaceFiles` 模式，在 cli 测试里自建 git 夹具）：registry 市场选模板、直接下载、无 registry 选空白、自定义来源、空输入回选单、无效来源回选单、市场无 spec 模板改空白、提问出错向上传。
+- [x] 全量 `gofmt` / `go vet` / `go test ./...`；真实二进制实跑：pty 交互三路（无 registry 选空白、`--registry` 市场选模板、自定义来源再选模板）+ 非交互回归（`-y` 空白、`-y` 市场无 `--template` 报错、`-y --template` 正常装）。
+
+### 实施记录（2026-11-10）
+
+- 改动（6 个文件，未提交）：`internal/registry/install.go`（`ResolveTargetWithProbe`，`ResolveTarget` 委托）；`internal/cli/init_template.go`（新，选单 + `resolveInteractiveTemplate`）；`internal/cli/init.go`（接线 + Long 说明）；`internal/cli/init_template_test.go`（新，10 个测试）；`internal/registry/download_test.go`（`TestResolveTargetWithProbe`）；PLAN.md（本节）。
+- 接线细节：无平台选择时先取消（与上游“先验工具再选模板”的顺序一致，原来在 `case !initialized:` 里的检查上提到平台选择之后）；选单结果写回 `initRegistry`/`initTemplate`，已拿到 Target 时不再二次 `ResolveTarget`（探测只跑一次）；`--registry` 显式来源解析/探测失败直接报错退出，自定义输入的才回选单（与上游一致）；选单中断/EOF 返回错误，init 直接失败。
+- 验证：全量 601 个测试全过（19 个包），`gofmt`/`go vet` 干净。真实二进制 pty 三路全过（Python pty 应答 survey 的 DSR 查询）：① 无 registry 选空白 → 四问（平台/状态栏/选模板/项目类型）后空白 spec 三件套；② `--registry` 市场 → 选单只列 `demo-spec（演示规范）`，装进 spec 的是模板的 backend/frontend（无默认 system.md），config.yaml 记 `registry.spec`（模板 demo-spec）；③ 自定义来源 → 下移到自定义、输入本地市场路径、再出模板选单选 demo-spec，同样装好。非交互回归四项全过：`-y` 空白、`-y` 市场无 `--template` 报错 exit 1（列出 demo-spec）、`-y --template` 正常装、管道 stdin（非 TTY）不带 `-y` 不出选单走默认。
+- 验证中的插曲：pty 驱动第一版按累计输出匹配标记，重复出现的“请选择规范模板”在第二轮选单渲染前就误触发，导致自定义那路卡住超时；修成只匹配上一步之后的新输出后通过——是驱动 bug，不是产品 bug（单元测试里自定义那路本来就是通的）。
+- 待用户定夺提交/发版（未提交推送）。

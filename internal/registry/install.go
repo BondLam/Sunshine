@@ -63,6 +63,14 @@ func ResolveTarget(source, templateID string) (*Target, error) {
 		probe.Close()
 		return nil, probe.Err
 	}
+	return ResolveTargetWithProbe(src, probe, templateID)
+}
+
+// ResolveTargetWithProbe 用已探测到的 index 解析安装目标，复用调用方
+// 传入的 probe（交互选模板流程先探测再选，避免对同一来源探测两次）。
+// probe 须是已成功探测的结果（Err 为 nil）；出错时关闭 probe，
+// 成功时 Target 接管 probe。
+func ResolveTargetWithProbe(src *Source, probe *ProbeResult, templateID string) (*Target, error) {
 	if probe.IsNotFound {
 		if templateID != "" {
 			probe.Close()

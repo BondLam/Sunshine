@@ -177,6 +177,59 @@ func TestResolveTargetMarketplaceRequiresTemplate(t *testing.T) {
 	}
 }
 
+func TestResolveTargetWithProbe(t *testing.T) {
+	repo := filepath.Join(t.TempDir(), "market")
+	initGitRepo(t, repo, marketplaceFiles())
+	src, err := ParseRegistrySource(repo)
+	if err != nil {
+		t.Fatalf("解析本地来源失败：%v", err)
+	}
+
+	// 复用一次探测解析 spec 模板（交互选模板流程的路径）。
+	probe := ProbeRegistryIndex(context.Background(), src)
+	if probe.Err != nil {
+		t.Fatalf("探测失败：%v", probe.Err)
+	}
+	target, err := ResolveTargetWithProbe(src, probe, "demo-spec")
+	if err != nil {
+		t.Fatalf("ResolveTargetWithProbe 失败：%v", err)
+	}
+	defer target.Close()
+	if target.Mode != "marketplace" || target.Template == nil || target.Template.ID != "demo-spec" {
+		t.Errorf("target = %+v", target)
+	}
+	if target.Probe != probe {
+		t.Error("Target 应接管传入的 probe（不应二次探测）")
+	}
+
+	// 不指定模板应报错（与 ResolveTarget 一致）。
+	probe2 := ProbeRegistryIndex(context.Background(), src)
+	if probe2.Err != nil {
+		t.Fatalf("探测失败：%v", probe2.Err)
+	}
+	if _, err := ResolveTargetWithProbe(src, probe2, ""); err == nil {
+		t.Error("marketplace 模式不指定模板应报错")
+	}
+
+	// 不存在的模板应报错。
+	probe3 := ProbeRegistryIndex(context.Background(), src)
+	if probe3.Err != nil {
+		t.Fatalf("探测失败：%v", probe3.Err)
+	}
+	if _, err := ResolveTargetWithProbe(src, probe3, "nope"); err == nil {
+		t.Error("不存在的模板应报错")
+	}
+
+	// workflow 型模板应拒绝。
+	probe4 := ProbeRegistryIndex(context.Background(), src)
+	if probe4.Err != nil {
+		t.Fatalf("探测失败：%v", probe4.Err)
+	}
+	if _, err := ResolveTargetWithProbe(src, probe4, "native"); err == nil {
+		t.Error("workflow 型模板应拒绝")
+	}
+}
+
 func TestInstallDirectLocal(t *testing.T) {
 	// 直连型：仓库根就是 spec 目录，无 index.json。
 	repo := filepath.Join(t.TempDir(), "specrepo")
