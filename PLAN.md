@@ -1690,9 +1690,7 @@ pre-commit install       # 在仓库根目录执行一次
 - **A 路（SSH 解析）**：`internal/registry/parse.go` 与 `internal/workflow/registry.go` 各加 `hasExplicitGitSuffix()`（先切 `#ref`、再去末尾 `/`、判 `.git` 后缀），`dotGit && host != ""` 时整个路径当仓库、subdir 为空；giget 前缀与公开域名仍两段式。workflow 未复用 registry 版：返回结构体（`*Source` vs 值类型 `RegistrySource`）、错误类型与文案不同，复用要加映射层有改坏已断言行为的风险；规则约 10 行，两处用同一用例表保证一致。测试各加 `TestParseRegistrySourceDotGitPaths`（14 用例）：两段式现状不变、三段式带 `.git`（ssh-url/scp/https 三路，含端口）、四段式带 `.git`、三段式不带 `.git` 保持现状、`.git#ref` 三路判对、末尾 `/`、公开域名仍两段式。A 路环境说明：ssh-url 来源的 RawBaseURL 不带端口是既有行为（`host` 只存主机名，端口另存 `sshPort`），改的是测试期望不是代码；git CLI 交叉验证时主机密钥校验失败过一次（服务端优先 ed25519、旧 known_hosts 只有 rsa 记录），在 `/tmp/ssh-e2e/home/.ssh/known_hosts` 追加了 ed25519 记录（现 3 行），go-git 走 accept-new 回调不受影响。
 - **B 路（文档）**：README.md 补齐到 84 行（快速上手、核心命令一览 8 命令、配置要点、模板市场、链接）；README.en.md 新建 86 行；docs/tutorial.md 740 行、docs/tutorial.en.md 781 行，主线 init→spec→task→workflow→update/registry→mem→channel→upgrade；两份 README 都互链两份教程，锚点与第 5 步实际标题对得上。教程命令逐条实跑、输出为真实摘录；未能实跑的部分如实写清未编造：`channel spawn` 真实拉起——claude 二进制不在 `$PATH`（记 `error` 事件）、codex 未登录报 401；mem 无真实会话，先给真实用法、再用手工夹具演示并注明；`update`/`upgrade` 只用 `--dry-run`。
 - **独立复验（主代理）**：`gofmt -l .` 无输出、`go vet` 通过、`go test ./... -count=1` 562 个 PASS、0 FAIL（修前 560）。复验时遇到 `/tmp`（512M tmpfs）满了导致 4 个包链接失败（`no space left on device`），清掉旧验证残留目录（约 400M，多为 v0.1.0/v0.2.0 时期的 /tmp 临时目录）后全过——与代码无关。SSH 端到端用当前树新构建的二进制重跑：三段式 `ssh://git@localhost:2222/home/git/registry3.git --template demo-spec` exit 0（2 文件装好，registry.spec.source 为完整三段式 URL）；两段式回归 `.../git/registry/marketplace` 同样通过；生成文件无 trellis 残留；sshd 验后已停。文档抽查：干净目录 init 正好 115 个文件（与教程一致）、`task create` 不带 `--description` 报“错误：--description 必填”、带上后成功且 task.json 24 字段顺序与清单一致、`workflow --list` 与 `channel create --type chat` 用法与 README 一致、config.yaml 里 README 列的字段与默认值逐项对得上。复验发现一个小问题已直接修掉：README 核心命令表里 `registry` 一行写在“命令”表里，但没有 `sunshine registry` 这个子命令——中英文两份都已改成 `` `init --registry` ``。
-- **本批次改动尚未提交推送**，等用户定夺是否随下个版本发。
-
-### v0.2.1 发布记录（2026-11-10）
+- **本批次已随 v0.2.1 提交推送并发布**（见下“v0.2.1 发布记录”）。
 
 - 内容：SSH 三段式路径解析修复 + README 补齐与中英文教程（上一节的批次）。提交 `e70d56b`（351 个文件），tag v0.2.1 为注释 tag（对象 `59d13c8`）。
 - Release 已发布：https://github.com/linrong1982/Sunshine/releases/tag/v0.2.1，6 个资产。实测验证：真实一键命令装上 v0.2.1（`--version` 打印 0.2.1）；0.2.0 二进制 `upgrade --dry-run` 正确查到 0.2.1；darwin 包 checksum OK，解出 Mach-O x86_64 二进制。
@@ -1737,4 +1735,8 @@ pre-commit install       # 在仓库根目录执行一次
 - **与 PLAN.md 的偏离**：结构与范围无偏离。各路自行判断两处已在汇报里说明并采纳：英文版 §4 用归档后 task.json 并注明、§8 补一次真实 update 引用以验证备份说法；中文版用 0.2.1 二进制重建 demo 以得到干净的 update 三态输出、mem 夹具按适配器要求修过一次（助手 content 改块数组并补 `cwd`）、与 v1 有出入的输出均按本次实测写（spawn 多行 pretty JSON、kill 对拉起失败 worker 的报错、chat 上 post 的报错文案等）。
 
 - **主代理独立复验（2026-11-10）**：`sunshine version` 存在（教程引用有效）；workflow.md 714 行、1.1/1.2/1.3/1.4/2.1/2.2/3.3/3.4 与 `/sunshine:finish-work` 均真实存在；init 输出与教程引用一字不差、干净目录 115 个文件；`--help` 文案真实；`task create` 的 prd.md 骨架与教程引用一字不差；两份 README 的教程锚点（§4/§8/§12）与重写后实际标题逐个对得上。复验发现一个小缺口已直接补上：中文教程第 3 节列了 1.1/1.3/1.4，漏了可选的 **1.2 研究**且未说明——已补一行（英文版第 3 节是散文结构、未枚举步骤号，无此问题）。另：复验第一轮 `go test ./...` 末尾出过一次 FAIL，但输出只留了尾部 3 行、没抓到是哪个测试失败；随后连续 5 轮全量（562 个 PASS）与 supervisor/store 各 15 次、cli 3 次定向压测全部通过，未能复现。原因未定位，不谎报已修；若 CI 再抖，先抓完整日志再定。
-- **本批次改动尚未提交推送**，等用户定夺是否随下个版本发。
+- **本批次已随 v0.2.2 提交推送并发布**（见下“v0.2.2 发布记录”）。
+
+- 内容：教程与 README 按 agent 界面用法重写（上一节的批次）。提交 `618d4d0`（351 个文件），tag v0.2.2 为注释 tag（对象 `8ad8f01`）。
+- Release 已发布：https://github.com/linrong1982/Sunshine/releases/tag/v0.2.2，6 个资产；发布与两路 CI 均 success——这次没有抖动。实测验证：真实一键命令装上 v0.2.2（`--version` 打印 0.2.2）；0.2.1 二进制 `upgrade --dry-run` 正确查到 0.2.2；darwin 包 checksum OK，解出 Mach-O x86_64 二进制。
+- 上一轮复验那次未定位的 FAIL 仍未复现（本轮发布三路 CI 全过，本地又跑过数轮全量全过）；若 CI 再抖，先抓完整日志再定。
