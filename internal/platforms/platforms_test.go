@@ -32,7 +32,7 @@ func TestRegistry(t *testing.T) {
 		"omp":         {"Oh My Pi", "omp", ".omp", "/sunshine:", "Bash scripts or Task calls", "Slash commands", false, true, true, false},
 		"snow":        {"Snow CLI", "snow", ".snow/skills", "/sunshine-", "Bash scripts or Agent calls", "Skills", false, true, true, false},
 		"opencode":    {"OpenCode", "opencode", ".opencode", "/sunshine:", "Bash scripts or Task calls", "Slash commands", false, true, false, false},
-		"dsh":         {"DeepSeek Harness", "dsh", ".dsh", "sunshine-", "Bash scripts or tool calls", "Skills", false, true, false, true},
+		"dsh":         {"DeepSeek Harness (dsh)", "dsh", ".dsh", "sunshine-", "Bash scripts or tool calls", "Skills", false, true, false, true},
 		"reasonix":    {"Reasonix", "reasonix", ".reasonix", "/skill sunshine-", "Bash scripts or tool calls", "Skills", false, true, false, false},
 		"grok":        {"Grok Build", "grok", ".grok", "/sunshine-", "Bash scripts or Agent calls", "Skills", false, true, false, false},
 		"kimi":        {"Kimi Code", "kimi", ".kimi-code", "/skill:sunshine-", "Bash scripts or Agent calls", "Slash commands", false, true, false, true},

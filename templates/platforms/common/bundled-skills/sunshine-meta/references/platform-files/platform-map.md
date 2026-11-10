@@ -21,7 +21,7 @@
 | CodeBuddy | `--codebuddy` | `.codebuddy/` | `.codebuddy/skills/` | `.codebuddy/agents/` | `.codebuddy/settings.json` | 已接 |
 | GitHub Copilot | `--copilot` | `.github/` | `.github/skills/` | `.github/agents/` | `.github/copilot/hooks.json` + `.github/hooks/sunshine.json` | 已接 |
 | Factory Droid | `--droid` | `.factory/` | `.factory/skills/` | `.factory/droids/` | `.factory/settings.json` | 已接 |
-| DeepSeek Harness | `--dsh` | `.dsh/` | `.agents/skills/`（共享）+ `.dsh/skills/`（入口 skill） | 无（工作流 skill 内联运行 implement/check） | 无（class-2 拉取式；无项目 hook/设置） | 已接 |
+| DeepSeek Harness (dsh) | `--dsh` | `.dsh/` | `.agents/skills/`（共享）+ `.dsh/skills/`（入口 skill） | 无（工作流 skill 内联运行 implement/check） | 无（class-2 拉取式；无项目 hook/设置） | 已接 |
 | Pi Agent | `--pi` | `.pi/` | `.agents/skills/` | `.pi/agents/` | `.pi/extensions/sunshine/`（原生 `sunshine_subagent` 工具）+ `.pi/settings.json` | 已接 |
 | Trae IDE | `--trae` | `.trae/` | `.trae/skills/` | `.trae/agents/` | `.trae/hooks.json` | 已接 |
 | Reasonix | `--reasonix` | `.reasonix/` | `.reasonix/skills/` | 无——子 Agent 是带 `runAs: subagent` frontmatter 的 skill | 无 | 已接 |
@@ -76,7 +76,7 @@
 
 ### 共享 `.agents/skills/`
 
-Codex、Gemini CLI、Pi Agent、Kimi Code 和 DeepSeek Harness 写入共享的 `.agents/skills/` 层。一些支持 agentskills.io 的工具也可以读取该目录。如果用户希望多个兼容工具共享一个 skill，优先考虑 `.agents/skills/`，但不要假设每个平台都读取它。ZCode 把 Sunshine 管理的 skill 保留在 `.zcode/skills/` 下。
+Codex、Gemini CLI、Pi Agent、Kimi Code 和 DeepSeek Harness (dsh) 写入共享的 `.agents/skills/` 层。一些支持 agentskills.io 的工具也可以读取该目录。如果用户希望多个兼容工具共享一个 skill，优先考虑 `.agents/skills/`，但不要假设每个平台都读取它。ZCode 把 Sunshine 管理的 skill 保留在 `.zcode/skills/` 下。
 
 ## 修改平台文件时的决策规则
 

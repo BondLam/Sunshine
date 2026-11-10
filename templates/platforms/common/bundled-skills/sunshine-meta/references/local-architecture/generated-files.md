@@ -35,7 +35,7 @@
 
 ## 平台目录
 
-Go 版目前已接 22 个平台（Claude Code、Cursor、Codex、Kiro Code、Gemini CLI、Qoder、Pi Agent、ZCode、Trae、Oh My Pi、Snow CLI、OpenCode、DeepSeek Harness、Reasonix、Grok Build、Kimi Code、Kilo CLI、Antigravity、Devin、CodeBuddy、GitHub Copilot、Factory Droid）。不同平台生成不同目录。常见类别：
+Go 版目前已接 22 个平台（Claude Code、Cursor、Codex、Kiro Code、Gemini CLI、Qoder、Pi Agent、ZCode、Trae、Oh My Pi、Snow CLI、OpenCode、DeepSeek Harness (dsh)、Reasonix、Grok Build、Kimi Code、Kilo CLI、Antigravity、Devin、CodeBuddy、GitHub Copilot、Factory Droid）。不同平台生成不同目录。常见类别：
 
 | 类别 | 示例路径 | 用途 |
 | --- | --- | --- |

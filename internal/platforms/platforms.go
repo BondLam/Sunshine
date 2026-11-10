@@ -316,7 +316,7 @@ var registry = []Platform{
 		executorAI: "Bash scripts or Task calls", userActionLabel: "Slash commands",
 	},
 	{
-		ID: "dsh", Name: "DeepSeek Harness", Flag: "dsh", ConfigDir: ".dsh",
+		ID: "dsh", Name: "DeepSeek Harness (dsh)", Flag: "dsh", ConfigDir: ".dsh",
 		DefaultChecked: false, CmdRefPrefix: "sunshine-",
 		AgentCapable: true, HasHooks: false, SupportsAgentSkills: true,
 		SkillsDir: ".agents/skills", AutoSkillsNeutral: true,
