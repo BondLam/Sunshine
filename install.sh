@@ -19,7 +19,7 @@ REPO="linrong1982/Sunshine"
 PROG="sunshine"
 
 die() { printf '%s\n' "install.sh: $*" >&2; exit 1; }
-need() { command -v "$1" >/dev/null 2>&1 || die "需要 $1，请先安装再重试"; }
+need() { command -v "$1" >/dev/null 2>&1 || die "需要 ${1}，请先安装再重试"; }
 
 need curl
 need tar
@@ -61,25 +61,25 @@ OS="$(uname -s)"
 case "$OS" in
   Darwin) OS="darwin" ;;
   Linux)  OS="linux" ;;
-  *) die "不支持的操作系统 $OS（只支持 macOS / Linux）；Windows 请到 Release 页下载 zip" ;;
+  *) die "不支持的操作系统 ${OS}（只支持 macOS / Linux）；Windows 请到 Release 页下载 zip" ;;
 esac
 ARCH="$(uname -m)"
 case "$ARCH" in
   x86_64|amd64) ARCH="amd64" ;;
   arm64|aarch64) ARCH="arm64" ;;
-  *) die "不支持的架构 $ARCH（只支持 amd64 / arm64）" ;;
+  *) die "不支持的架构 ${ARCH}（只支持 amd64 / arm64）" ;;
 esac
 
 ARCHIVE="${PROG}_${VER}_${OS}_${ARCH}.tar.gz"
 URL="https://github.com/$REPO/releases/download/$TAG/$ARCHIVE"
-echo "安装 $PROG $TAG（$OS/$ARCH）……"
+echo "安装 $PROG ${TAG}（${OS}/${ARCH}）……"
 
 TMP="$(mktemp -d)"
 trap 'rm -rf "$TMP"' EXIT INT TERM
 cd "$TMP"
 
 # ---- 下载 + 校验 ----
-curl -fsSL -o "$ARCHIVE" "$URL" || die "下载失败：$URL（请确认该版本已发布）"
+curl -fsSL -o "$ARCHIVE" "$URL" || die "下载失败：${URL}（请确认该版本已发布）"
 curl -fsSL -o checksums.txt "https://github.com/$REPO/releases/download/$TAG/checksums.txt" \
   || die "下载校验文件失败"
 if command -v sha256sum >/dev/null 2>&1; then
