@@ -1930,4 +1930,10 @@ pre-commit install       # 在仓库根目录执行一次
 - 复现尝试（均未复现，如实记下）：从 GNU 源码编译了真正的 bash 3.2.0，在 C、C.UTF-8、POSIX、zh_CN.UTF-8 四种 locale 下跑旧脚本都不报错，`$TAG（` 解析也正常，报错信息是干净的 `TAG: unbound variable`。所以触发条件是 macOS 自身的 bash 3.2.57 构建（Apple 的补丁 / macOS libc 的 locale 处理），Linux 上的 bash 3.2.0 复现不了。用户的 Mac 不可达，无法直接验证，只能以用户机器上的证据为准。
 - 修复（install.sh）：把脚本里所有“`$变量` 后紧跟全角字符”的位置改成 `${变量}` 写法，共 5 处：`need()` 里的 `$1，`、`$OS（`、`$ARCH（`、第 75 行的 `$TAG（` 与 `$ARCH）`、`$URL（`。全文件扫描确认已无 `$变量` 后紧跟非 ASCII 字符的位置。花括号写法在所有 shell 下都正确，是纯粹的加固。
 - 验证（新脚本）：bash 3.2.0 不带参数装上 v0.3.2；dash 与 bash --posix 不带参数装上 v0.3.2；显式版本 v0.3.1；`-h` 正常。最终确认要靠用户在 Mac 上再跑一次一键命令——若仍失败，下一步是 `sh -x` 跟踪。
-- 本批改动未提交推送，等主代理验收后定夺（提议随 v0.3.3 发版）。
+- 本批已随 v0.3.3 提交推送并发布（见下“v0.3.3 发布记录”）。
+
+### v0.3.3 发布记录（2026-11-10）
+
+- 内容：修 install.sh 里 `$变量` 后紧跟全角字符被 macOS bash 3.2 吞进变量名的问题（上一节的批次）。提交 `ac2d1e5`（441 个文件），tag v0.3.3 为注释 tag（对象 `dd03611`）。
+- Release 已发布：https://github.com/linrong1982/Sunshine/releases/tag/v0.3.3，6 个资产；发布与两路 CI 均 success——这次也没有抖动。实测验证：用户原先那条不带参数的一键命令（从 main 拉新脚本）装上 v0.3.3；0.3.2 二进制 `upgrade --dry-run` 正确查到 0.3.3；darwin 包 checksum OK，解出 Mach-O x86_64 二进制；main 上的 install.sh 含 `${TAG}（${OS}` 花括号写法。
+- 未复现的 FAIL 仍未复现（本轮发布三路 CI 全过，本地全量也全过）；若 CI 再抖，先抓完整日志再定。
