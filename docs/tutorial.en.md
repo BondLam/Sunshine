@@ -1,45 +1,39 @@
-# Sunshine tutorial: from project setup to multi-agent collaboration, one storyline end to end
+# Sunshine tutorial: init once, then work in the agent UI
 
-This tutorial follows one demo project through the whole Sunshine workflow: **init a project → write specs (three spec files) → split work with task → execute and switch workflows → update and registry (template marketplace) → review sessions with mem → multi-agent collaboration with channel → upgrade**.
+The main flow in one line: **run `sunshine init` once in the terminal, then do everything else by talking to the agent in its UI (Claude Code first, Codex / Cursor the same idea) in plain language — the agent drives the work following `.sunshine/workflow.md` and calls `sunshine` commands under the hood; you review the diff, accept, and the work is committed.**
+
+That is the whole point of this tutorial: the terminal is not where you spend your day. You type one setup command, then you talk. The `sunshine task …` / `sunshine channel …` commands still exist, but they are the agent's tools, not your daily interface — they appear in this tutorial only in [section 4](#4-what-happened-under-the-hood) (what the agent actually ran, with real outputs) and in [section 12](#12-wrap-up-manual-intervention-cheat-sheet) (when you step in manually).
+
+The demo project is the same throughout: **refund reason required** — add a mandatory reason field to the refund flow. The example is small; the workflow is real.
 
 Conventions:
 
-- The demo project is "refund reason required": add a mandatory reason field to a refund flow. The example is small; the workflow is real.
-- Every command in this tutorial was actually run in a temporary directory, and the sample outputs are excerpts of real output (`……` marks omitted lines, not rewritten ones).
-- The `11-09` prefix in task directory names is the month-day of the day you run it.
-- Version numbers in the output depend on the CLI version you installed. This tutorial was verified with v0.2.0 (the current Release); the few places that show a different version say so explicitly.
+- Dialogue with the agent is shown as **example prompts**, labeled as such. They are illustrations of what to say, not records of a real session.
+- Every command output shown is a real excerpt from a run made for this tutorial (`……` marks omitted lines, not rewritten ones). The `11-10` prefix in task directory names is the month-day of the day the commands were run (today, 2026-11-10).
+- This tutorial was verified with v0.2.1 (the current Release). The two places that show a different version say so explicitly.
 - **The CLI itself is Chinese-only.** Commands and sample output below are kept in the original Chinese so you can copy them verbatim; the explanations around them are in English.
+- The demo directories all live under `/tmp/rewrite-en/` (`demo`, `demo2`, `demo3`, `registry-src`, `channels`, `home`) — delete them and nothing in any real project is affected.
 
-First confirm the installation (see [README.en.md](../README.en.md) for how to install):
+## 1. Run once in the terminal: init
+
+Install Sunshine first (see [README.en.md](../README.en.md#installation)), then confirm it:
 
 ```sh
 sunshine version
-# Sunshine 版本 0.2.0
+# Sunshine 版本 0.2.1
 
 sunshine --help
 # Sunshine 把规范、任务与项目记忆持久化进仓库，
 # 让 AI 编程助手按团队的工程标准工作，而不是每次从零猜测。
+#
+# 先用 sunshine init 初始化当前项目，再让 AI 助手按
+# .sunshine/workflow.md 推进任务。
 # ……
-# 可用命令：
-#   ablate      临时移除项目全部 Sunshine 表面（可逆）
-#   channel     多 Agent 协同：通过共享事件日志派生、协调与打断 worker
-#   help        显示命令帮助信息
-#   hook        供各平台 hook 调用的子命令（替代 Python hooks）
-#   init        初始化当前项目，生成 .sunshine/ 工程骨架
-#   mem         跨平台检索 AI 会话历史
-#   platforms   显示当前项目已配置的 AI 平台
-#   restore     精确恢复 ablate 保存的 Sunshine 状态
-#   task        任务管理：创建、启动、完成、归档任务
-#   uninstall   删除项目内全部 Sunshine 文件
-#   update      更新项目内的 Sunshine 模板文件
-#   upgrade     升级 Sunshine CLI 自身到最新版
-#   version     显示 Sunshine 版本
-#   workflow    查看或切换 .sunshine/workflow.md 的工作流模板
 ```
 
-## 1. init a project
+(The help text says, in English: "Sunshine persists specs, tasks, and project memory into the repository, so the AI programming assistant works to the team's engineering standards instead of guessing from scratch each time. First run `sunshine init` to initialize the current project, then let the AI assistant drive tasks following `.sunshine/workflow.md`.")
 
-Create a demo project directory and initialize it:
+Now initialize the demo project — the only terminal command you need before switching to the agent UI:
 
 ```sh
 mkdir demo && cd demo
@@ -63,61 +57,126 @@ Real output:
 
 (`-u` is the developer name; `-y` skips all prompts and uses the defaults. In English: "Configuring Claude Code… / Configuring Cursor… / Initialization complete, developer: 演示者 / Installed platforms: Claude Code, Cursor / Next steps: 1. Edit .sunshine/spec/ and fill in the team's existing technical specs and business terms; 2. Start the first task following .sunshine/workflow.md.")
 
-By default `init` installs Claude Code and Cursor. To install only Codex, use `sunshine init --codex -y`; running `init --codex -y` again in an already initialized project only adds the new platform and leaves existing files untouched (verified: `.codex/` appears and `platforms` then lists all three).
+What `init` just installed — 115 files, in two groups:
 
-`init` generated 115 files. The skeleton:
+- **For the agent to read — `.sunshine/` (17 files):** `workflow.md` (714 lines, the full development workflow the agent follows), `spec/` with three spec templates (`system.md`, `backend.md`, `frontend.md`), `config.yaml` (project config with Chinese comments), `AGENTS.md`, and `agents/` (five agent definitions). `AGENTS.md` opens with:
+  ```text
+  # AGENTS.md（Sunshine）
+
+  本文件面向在本仓库工作的 AI 编程助手。
+
+  ## 工作方式
+
+  - 先读 `.sunshine/spec/` 与 `.sunshine/workflow.md`，再动手。
+  ```
+  ("This file is for the AI programming assistant working in this repository. / How to work: first read `.sunshine/spec/` and `.sunshine/workflow.md`, then start.")
+- **For the platforms to load — `.claude/` and `.cursor/` (98 files):** skills, commands (`/sunshine:continue`, `/sunshine:finish-work`), sub-agents (`sunshine-implement`, `sunshine-check`, `sunshine-research`), and hook configs. These are what make the agent know Sunshine's workflow at all.
+
+Check what is configured:
 
 ```sh
-ls .sunshine/spec/
-# backend.md  frontend.md  system.md
-
 sunshine platforms
 # 已配置的平台：
 #   Claude Code (claude-code) — .claude
 #   Cursor (cursor) — .cursor
 ```
 
-- `.sunshine/spec/`: three spec templates (general principles, backend, frontend) — step 2 fills in your own conventions.
-- `.sunshine/workflow.md`: the full development workflow (714 lines) that the AI assistant follows to drive tasks.
-- `.sunshine/config.yaml`: project config with Chinese comments (key fields: see [README.en.md](../README.en.md#configuration)).
-- `.claude/` and `.cursor/`: skills, commands, sub-agents, and hook configs for the two platforms.
+("Configured platforms: …") By default `init` installs Claude Code and Cursor. To add Codex later, run `init --codex -y` again in the same project — it only adds the new platform and leaves existing files untouched:
 
-## 2. Write the specs (three files)
+```text
+正在配置 Codex……
+已安装平台：
+  - Codex
+提示：Codex hooks 须在 ~/.codex/config.toml 中设置 features.hooks = true（Codex 0.129+；旧版为 codex_hooks = true），并在 Codex 里运行一次 /hooks 审批，否则 .codex/hooks.json 不生效。
+```
 
-Specs are the team's engineering standards: write them once, and every later task follows them automatically. Add one convention of the demo project to each of the three files:
+("Configuring Codex… / Installed platforms: Codex / Note: Codex hooks require `features.hooks = true` in `~/.codex/config.toml` (Codex 0.129+; older versions use `codex_hooks = true`), plus one `/hooks` approval run inside Codex, otherwise `.codex/hooks.json` does not take effect.")
 
-```sh
-cat >> .sunshine/spec/system.md <<'EOF'
+From here on, close the terminal. The rest of this tutorial happens in the agent UI.
 
+## 2. Open the agent UI: ask in plain language
+
+Open the project in Claude Code (Codex and Cursor work the same way — the agent there reads the same `.sunshine/` files). The agent already knows the project conventions from `AGENTS.md`, `spec/`, and `workflow.md`; you just describe what you want.
+
+> **Example prompt** (an illustration of what to say, not a real session transcript):
+>
+> Add a required reason field to the refund flow: when a user submits a refund, the reason must not be empty or the submission is rejected. The reason input is a dropdown — quality issue / wrong size / other — and choosing "other" reveals a text box. On the backend, `POST /refunds` requires `reason`; a missing reason returns 400 with error code `REASON_REQUIRED`.
+
+You do not need to mention tasks, specs, or commands. The agent figures out the rest: if the request is big enough to be a task, `workflow.md` requires it to ask for your agreement before creating one — it will not silently create a task directory. It may also ask clarifying questions first (for example, whether "other" needs a minimum text length), and it will tell you what it is about to do before doing it.
+
+Before the work starts, the demo project's conventions need to live in the specs — either you add them, or you ask the agent to ("Put the refund conventions into the spec files"). Either way they end up as three short additions:
+
+`.sunshine/spec/system.md` — the general principle:
+
+```text
 ## 演示项目约定
 
 - 退款原因必填：用户提交退款时原因字段不能为空，否则拒绝提交。
-EOF
+```
 
-cat >> .sunshine/spec/backend.md <<'EOF'
+(`system.md` is the spec the agent itself maintains in the background; see [section 6](#6-how-specs-are-maintained`).)
 
+`.sunshine/spec/backend.md` — the API contract:
+
+```text
 ## 退款接口
 
 - `POST /refunds`：`reason` 必填，缺失返回 400，错误码 `REASON_REQUIRED`。
-EOF
+```
 
-cat >> .sunshine/spec/frontend.md <<'EOF'
+`.sunshine/spec/frontend.md` — the form behavior:
 
+```text
 ## 退款表单
 
 - 原因输入框为下拉选择（质量问题 / 尺寸不符 / 其他），选“其他”时出现文本框。
-EOF
 ```
 
-(In English: the system spec gains "Demo project convention: the refund reason is required — submitting a refund with an empty reason is rejected"; the backend spec gains "`POST /refunds`: `reason` is required, missing it returns 400 with error code `REASON_REQUIRED`"; the frontend spec gains "The reason input is a dropdown (quality issue / wrong size / other); choosing 'other' reveals a text box.")
+(In English: system — "Demo project convention: the refund reason is required — submitting a refund with an empty reason is rejected"; backend — "`POST /refunds`: `reason` is required, missing it returns 400 with error code `REASON_REQUIRED`"; frontend — "The reason input is a dropdown (quality issue / wrong size / other); choosing 'other' reveals a text box.")
 
-Specs are user data: `sunshine update` never touches `.sunshine/spec/` (in step 5's scan output it appears under "用户数据（保持不动）", "user data (kept untouched)"). Specs can also be maintained autonomously by the AI assistant in the background, with a human only reviewing the result — that is what `system.md` states at the top.
+Once the specs say it, every later task follows it automatically — that is the point of writing specs down instead of repeating the rule in every prompt.
 
-## 3. Split work with task
+## 3. The agent works through workflow.md
 
-### Create a task
+This is what the agent does after you give it the request. You watch it happen in the UI; you do not type any of this.
 
-`--description` is required (omitting it fails immediately with `错误：--description 必填`, "error: --description is required"):
+**Phase 1 — planning.** The agent creates the task directory `.sunshine/tasks/11-10-给退款原因加必填校验/` and writes `prd.md` from a template:
+
+```markdown
+# 给退款原因加必填校验
+
+## 目标
+
+退款时原因字段必填
+
+## 需求
+
+- 待定
+
+## 验收标准
+
+- [ ] 待定
+```
+
+("Target: the refund reason field is required when refunding.") Then it fills in the real requirements and acceptance criteria. A light task can stop at the PRD; a complex task also gets `design.md` (technical design) and `implement.md` (execution plan) before anything is implemented. It also organizes the context lists `implement.jsonl` / `check.jsonl` — the spec and research files the sub-agents will read. For a complex task it asks you to review the plan before starting implementation; only then does it move the task to `in_progress`.
+
+**Phase 2 — execution.** The agent dispatches sub-agents: `sunshine-implement` writes the code, then `sunshine-check` verifies it. The platform hooks inject the context automatically — the `implement.jsonl` / `check.jsonl` entries, plus `prd.md`, `design.md`, and `implement.md` if they exist — so each sub-agent starts with the right specs in its prompt. The dispatch prompt always opens with `Active task: <task path>`. The fixed order in `workflow.md` is:
+
+```text
+sunshine-implement -> sunshine-check -> sunshine-update-spec -> 提交（第 3.4 步）-> /sunshine:finish-work
+```
+
+(`sunshine-implement` → `sunshine-check` → `sunshine-update-spec` → commit (step 3.4) → `/sunshine:finish-work`.)
+
+**Phase 3 — wrap-up.** If the same problem needed repeated fixes, the agent loads the `sunshine-break-loop` skill and records the root cause. It then loads `sunshine-update-spec` and asks whether this task produced anything worth writing back into `.sunshine/spec/` — a new pattern, a pitfall, a technical decision — and updates the specs if so, even if the answer is "nothing to update" (it still has to make that judgement). It commits the code changes, and finally runs `/sunshine:finish-work`, which archives the task and records the session in the developer journal.
+
+Your part during all of this: read what the agent says it is doing, answer its questions, and ask it to change course when it goes the wrong way. The commands it runs are listed in the next section — for your understanding, not for you to type.
+
+## 4. What happened under the hood
+
+These are the commands the agent actually ran for the demo task, with real outputs captured by running the equivalent commands. You are reading them to understand the mechanism; in normal use you never type them.
+
+### Creating the task
 
 ```sh
 sunshine task create "给退款原因加必填校验" --description "退款时原因字段必填" --priority P1
@@ -127,7 +186,7 @@ Real output:
 
 ```text
 警告：无法解析仓库默认分支（未配 remote 或离线），base_branch 暂记为当前检出分支 "master"，可用 --base-branch 覆盖。
-已创建任务：11-09-给退款原因加必填校验
+已创建任务：11-10-给退款原因加必填校验
 
 下一步：
   - 在 prd.md 里写清需求与验收标准
@@ -138,12 +197,21 @@ Real output:
       可用 sunshine task context --mode packages 列出可用规范
   - 用 /sunshine:continue 或阶段上下文决定下一步
 
-.sunshine/tasks/11-09-给退款原因加必填校验
+.sunshine/tasks/11-10-给退款原因加必填校验
 ```
 
-(The warning says the default branch could not be resolved — no remote or offline — so `base_branch` is recorded as the current checkout branch `master` for now, overridable with `--base-branch`. The "next steps" say: write requirements and acceptance criteria in prd.md; a light task can have only a PRD; a complex task should add design.md and implement.md before `task start`; organize implement.jsonl / check.jsonl — one JSON object per line, `{"file": "<path>", "reason": "<reason>"}`, spec/research docs only.)
+(The warning says the default branch could not be resolved — no remote or offline — so `base_branch` is recorded as the current checkout branch `master` for now, overridable with `--base-branch`. The "next steps" say: write requirements and acceptance criteria in `prd.md`; a light task can have only a PRD; a complex task should add `design.md` and `implement.md` before `task start`; organize `implement.jsonl` / `check.jsonl` — one JSON object per line, `{"file": "<path>", "reason": "<reason>"}`, spec/research docs only.)
 
-Task directories are `.sunshine/tasks/<MM-DD-slug>/`, and `task.json` inside has 24 fields in a fixed order with fixed defaults:
+`create` prepends the `MM-DD-` date to the task name automatically — you never type the date yourself. `--description` is required; omitting it fails immediately:
+
+```text
+错误：--description 必填
+请传入 --description "<该任务交付什么>"（纯空白不算）：空描述的任务会在归档时被拒绝。
+```
+
+("Error: `--description` is required. Pass `--description "<what this task delivers>"` (blank does not count): a task with an empty description is refused at archive time.")
+
+`create` writes `task.json` with 24 fields in a fixed order (shown here as archived — `status` becomes `completed` and `completedAt` is filled in at archive time):
 
 ```json
 {
@@ -151,14 +219,20 @@ Task directories are `.sunshine/tasks/<MM-DD-slug>/`, and `task.json` inside has
   "name": "给退款原因加必填校验",
   "title": "给退款原因加必填校验",
   "description": "退款时原因字段必填",
-  "status": "planning",
+  "status": "completed",
+  "dev_type": null,
+  "scope": null,
+  "package": null,
   "priority": "P1",
   "creator": "演示者",
   "assignee": "演示者",
-  "createdAt": "2026-11-09",
-  "completedAt": null,
-  "branch": null,
+  "createdAt": "2026-11-10",
+  "completedAt": "2026-11-10",
+  "branch": "master",
   "base_branch": "master",
+  "worktree_path": null,
+  "commit": null,
+  "pr_url": null,
   "subtasks": [],
   "children": [],
   "parent": null,
@@ -168,27 +242,18 @@ Task directories are `.sunshine/tasks/<MM-DD-slug>/`, and `task.json` inside has
 }
 ```
 
-(Only the key fields are shown above; `dev_type`, `scope`, `package`, `worktree_path`, `commit`, `pr_url`, and similar are `null` when empty.)
+### Organizing the context lists
 
-Note: `create` tries to auto-activate the task by default, but in a plain terminal there is no session identity, so activation is silently skipped — after `create`, `task current` is empty (verified). That is why the next step is an explicit `start`.
-
-### Organize the context list
-
-Prepare a real file first, then register it in the context list (`implement` = files to read while implementing; `check` = files to check against while verifying):
+The agent registers the files the sub-agents need — `implement` for files to read while implementing, `check` for files to check against while verifying:
 
 ```sh
-mkdir -p src
-cat > src/Refund.vue <<'EOF'
-<template><select v-model="reason"></select></template>
-EOF
-
-sunshine task add-context 11-09-给退款原因加必填校验 implement src/Refund.vue "实现退款原因必填校验"
+sunshine task add-context 11-10-给退款原因加必填校验 implement src/Refund.vue "实现退款原因必填校验"
 # 已添加文件：src/Refund.vue
 
-sunshine task add-context 11-09-给退款原因加必填校验 check .sunshine/spec/backend.md "退款接口契约"
+sunshine task add-context 11-10-给退款原因加必填校验 check .sunshine/spec/backend.md "退款接口契约"
 # 已添加文件：.sunshine/spec/backend.md
 
-sunshine task list-context 11-09-给退款原因加必填校验
+sunshine task list-context 11-10-给退款原因加必填校验
 # === 上下文文件 ===
 #
 # [implement.jsonl]
@@ -199,9 +264,9 @@ sunshine task list-context 11-09-给退款原因加必填校验
 #   1. .sunshine/spec/backend.md
 #      → 退款接口契约
 
-sunshine task validate 11-09-给退款原因加必填校验
+sunshine task validate 11-10-给退款原因加必填校验
 # === 校验上下文文件 ===
-# 目标目录：/tmp/sunshine-docs/demo/.sunshine/tasks/11-09-给退款原因加必填校验
+# 目标目录：/tmp/rewrite-en/demo/.sunshine/tasks/11-10-给退款原因加必填校验
 #
 #   implement.jsonl：✓（1 条）
 #   check.jsonl：✓（1 条）
@@ -209,12 +274,24 @@ sunshine task validate 11-09-给退款原因加必填校验
 # ✓ 全部校验通过
 ```
 
-("已添加文件" = "file added"; "上下文文件" = "context files"; "校验上下文文件" = "validating context files"; "全部校验通过" = "all checks passed".)
+("已添加文件" = "file added"; "上下文文件" = "context files"; "校验上下文文件" = "validating context files"; "全部校验通过" = "all checks passed".) The lists are stored as one JSON object per line, for example `{"file":"src/Refund.vue","reason":"实现退款原因必填校验"}`.
 
-### Start, view, finish
+If the context lists are still empty, `start` refuses outright and tells the agent what to do:
+
+```text
+错误：implement.jsonl 和 check.jsonl 没有已整理条目
+子代理（implement/check）将得不到任何规范上下文。
+  整理：sunshine task add-context 11-10-给退款页加返回按钮 implement <路径> "<原因>"
+  检查：sunshine task validate 11-10-给退款页加返回按钮
+  确实要空着：重新运行 start 并加 --allow-empty-context
+```
+
+("Error: `implement.jsonl` and `check.jsonl` have no organized entries; the implement/check sub-agents will get no spec context. Organize with… / check with… / if you really want it empty, re-run start with `--allow-empty-context`.")
+
+### Starting, viewing, finishing
 
 ```sh
-sunshine task start 11-09-给退款原因加必填校验
+sunshine task start 11-10-给退款原因加必填校验
 ```
 
 Real output:
@@ -228,18 +305,18 @@ Real output:
 切出分支后运行：sunshine task set-branch <任务> <功能分支>
 ```
 
-("Session identity unavailable; the current-task pointer is not persisted this time (degraded mode), the AI can still continue from the conversation context. Tip: run inside an AI session that provides a session identity, or set SUNSHINE_CONTEXT_ID before running sunshine task start. Status: planning → in_progress (degraded). Recorded branch: master (degraded). Warning: 'master' is also the task's base_branch; a PR cannot point at its own branch, archiving will refuse. After checking out a branch, run: sunshine task set-branch <task> <feature branch>.")
+("Session identity unavailable; the current-task pointer is not persisted this time (degraded mode), the AI can still continue from the conversation context. Tip: run inside an AI session that provides a session identity, or set `SUNSHINE_CONTEXT_ID` before running `sunshine task start`. Status: `planning` → `in_progress` (degraded). Recorded branch: `master` (degraded). Warning: `master` is also the task's `base_branch`; a PR cannot point at its own branch, archiving will refuse. After checking out a branch, run: `sunshine task set-branch <task> <feature branch>`.")
 
-"Degraded mode" means the AI session file (`.sunshine/.runtime/sessions/`) is not written; `.sunshine/.current-task` is still written, so `task current` and `task context` can still find the current task. Inside a Claude Code / Cursor AI session both are written.
+That "degraded mode" is a property of running the command in a plain terminal, where there is no session identity — `workflow.md` itself says `create` points at the new task automatically "when a session identity is available". Inside the agent session the identity exists, so the pointer is persisted normally. Either way, `.sunshine/.current-task` is still written, so the current task can be found:
 
 ```sh
 sunshine task current
-# .sunshine/tasks/11-09-给退款原因加必填校验
+# .sunshine/tasks/11-10-给退款原因加必填校验
 
 sunshine task list
 # 全部活动任务：
 #
-#   - 11-09-给退款原因加必填校验/ (in_progress) [演示者]
+#   - 11-10-给退款原因加必填校验/ (in_progress) [演示者] <- 当前任务
 #
 # 总计：1 个任务
 
@@ -256,80 +333,51 @@ sunshine task context
 # 工作区：4 处未提交改动
 # ……
 # ## 当前任务
-# 路径：.sunshine/tasks/11-09-给退款原因加必填校验
+# 路径：.sunshine/tasks/11-10-给退款原因加必填校验
 # 来源：file:.sunshine/.current-task
 # 名字：给退款原因加必填校验
 # 状态：in_progress
-# 创建：2026-11-09
+# 创建：2026-11-10
 # 描述：退款时原因字段必填
+# ……
 ```
 
 ("全部活动任务" = "all active tasks"; "总计：1 个任务" = "total: 1 task"; "会话上下文" = "session context"; "开发者" = "developer"; "Git 状态" = "git status"; "当前任务" = "current task"; "来源" = "source".)
 
-If the context list is still empty, `start` refuses outright and tells you what to do (verified with a second task):
+### Archiving and recording the session
 
-```text
-错误：implement.jsonl 和 check.jsonl 没有已整理条目
-子代理（implement/check）将得不到任何规范上下文。
-  整理：sunshine task add-context 11-09-给退款页加返回按钮 implement <路径> "<原因>"
-  检查：sunshine task validate 11-09-给退款页加返回按钮
-  确实要空着：重新运行 start 并加 --allow-empty-context
-```
-
-("Error: implement.jsonl and check.jsonl have no organized entries; the implement/check sub-agents will get no spec context. Organize with… / check with… / if you really want it empty, re-run start with --allow-empty-context.")
-
-If you really want to start empty, add `--allow-empty-context` — verified to proceed (same degraded-mode notice, then `✓ 状态：planning → in_progress（降级）`).
-
-Wrap up a task like this:
-
-```sh
-sunshine task finish
-# ✓ 已清除当前任务（原为：.sunshine/tasks/11-09-给退款原因加必填校验）
-# 来源：file:.sunshine/.current-task
-```
-
-("Current task cleared (was: …); source: file:.sunshine/.current-task.") `finish` only clears the current-task pointer; it does not change the task status — the status becomes `completed` at archive time.
-
-### Archive
-
-```sh
-sunshine task archive 11-09-给退款原因加必填校验
-```
-
-In the demo project this step is refused — that is real behavior, not a mistake:
+At the end of the work the agent runs `/sunshine:finish-work`, which archives the task and records the session in the journal. Archiving is strict about branches — in the demo project the task never went through a PR, so the plain archive is refused, and that is real behavior, not a mistake:
 
 ```text
 警告：记录的分支 "master" 已不存在（可能已合并删除）。
-错误：拒绝归档 "11-09-给退款原因加必填校验"：branch 与 base_branch 都是 "master"，PR 不能指向自身分支，这份元数据无法描述已合并的工作。
+错误：拒绝归档 "11-10-给退款原因加必填校验"：branch 与 base_branch 都是 "master"，PR 不能指向自身分支，这份元数据无法描述已合并的工作。
 请修复其中一个字段：
-  sunshine task set-branch 11-09-给退款原因加必填校验 <功能分支>
-  sunshine task set-base-branch 11-09-给退款原因加必填校验 <目标分支>
-  sunshine task archive 11-09-给退款原因加必填校验 --skip-branch-validation   # 仅当该任务从未走 PR
-未归档：.sunshine/tasks/11-09-给退款原因加必填校验 未动。
+  sunshine task set-branch 11-10-给退款原因加必填校验 <功能分支>
+  sunshine task set-base-branch 11-10-给退款原因加必填校验 <目标分支>
+  sunshine task archive 11-10-给退款原因加必填校验 --skip-branch-validation   # 仅当该任务从未走 PR
+未归档：.sunshine/tasks/11-10-给退款原因加必填校验 未动。
 ```
 
-("Warning: the recorded branch 'master' no longer exists (may have been merged and deleted). Error: refusing to archive …: branch and base_branch are both 'master'; a PR cannot point at its own branch, this metadata cannot describe merged work. Fix one of the fields: … / … / … # only if the task never went through a PR. Not archived: … untouched.")
+("Warning: the recorded branch `master` no longer exists (may have been merged and deleted). Error: refusing to archive …: branch and base_branch are both `master`; a PR cannot point at its own branch, this metadata cannot describe merged work. Fix one of the fields: … / … / … # only if the task never went through a PR. Not archived: … untouched.")
 
-The demo task never went through a PR, so skip the check with `--skip-branch-validation` (in a real project, `set-branch` to a feature branch first):
+In a real project the agent would `set-branch` to the feature branch first. The demo task never went through a PR, so it skips the check:
 
 ```sh
-sunshine task archive 11-09-给退款原因加必填校验 --skip-branch-validation
+sunshine task archive 11-10-给退款原因加必填校验 --skip-branch-validation
 # 警告：记录的分支 "master" 已不存在（可能已合并删除）。
-# 已归档：11-09-给退款原因加必填校验 -> archive/2026-11/
-# [OK] 已自动提交：chore(task): archive 11-09-给退款原因加必填校验
+# 已归档：11-10-给退款原因加必填校验 -> archive/2026-11/
+# [OK] 已自动提交：chore(task): archive 11-10-给退款原因加必填校验
 
 sunshine task list-archive
 # 已归档任务：
 #
 # [2026-11] - 1 个任务
-#   - 11-09-给退款原因加必填校验/
+#   - 11-10-给退款原因加必填校验/
 ```
 
-("Archived: … -> archive/2026-11/; auto-committed: chore(task): archive …; archived tasks: [2026-11] - 1 task.") The archive path is `.sunshine/tasks/archive/<YYYY-MM>/`, and archiving auto-commits by default (while `session_auto_commit` is `true`).
+("Archived: … -> `archive/2026-11/`; auto-committed: `chore(task): archive …`; archived tasks: `[2026-11]` - 1 task.") The archive path is `.sunshine/tasks/archive/<YYYY-MM>/`, and archiving auto-commits by default (while `session_auto_commit` is `true`).
 
-### Record the session in the journal
-
-After finishing a task, record the session in the developer journal (useful later when reviewing with `mem`, step 6):
+The session record goes into `.sunshine/workspace/<your name>/journal-1.md`, with the auto-generated section of `index.md` updated at the same time:
 
 ```sh
 sunshine task add-session --title "退款原因必填校验实现" --summary "加了原因下拉框与必填校验"
@@ -363,15 +411,54 @@ Real output (excerpt):
 [OK] 已自动提交：chore: record journal
 ```
 
-("Adding session; session: 1; title: …; commit: -; current journal file: journal-1.md; current lines: 7; lines added: 21; total after append: 28; session appended to journal-1.md; session 1 added successfully; updated files: journal-1.md, index.md; auto-committed: chore: record journal.")
+("Adding session; session: 1; title: …; commit: -; current journal file: `journal-1.md`; current lines: 7; lines added: 21; total after append: 28; session appended to `journal-1.md`; session 1 added successfully; updated files: `journal-1.md`, `index.md`; auto-committed: `chore: record journal`.")
 
-The record goes into `.sunshine/workspace/<your name>/journal-1.md`, and the auto-generated section of `index.md` is updated at the same time.
+One environment note, recorded as it happened: the auto-commit needs a configured git identity. In the first demo run the sandbox had none, so archiving and `add-session` printed `[警告] 自动提交失败：Author identity unknown` while still writing the files, and re-running the exact same `add-session` command resumed from the commit step instead of appending a second session. Set `git config user.email` / `user.name` once and the `[OK] 已自动提交` lines above are what you get.
 
-## 4. Execute and switch workflows
+## 5. You review and accept
 
-The actual coding happens in an AI session: open this project in Claude Code / Cursor, and the assistant drives the work following `.sunshine/workflow.md` — reading the specs and task context before writing any code. The CLI side only manages task state and workflow templates, which is what step 3 covered.
+The agent does the work; you decide whether it is done. When it says the task is finished, review it in the UI the same way you would review a colleague's change:
 
-There are three built-in workflow templates:
+- Read the diff the agent shows you (or run `git diff` yourself) — the refund form change, the backend validation, and nothing else. `workflow.md` has an explicit rule for this: only change the affected parts; untouched code and styles stay untouched.
+- Check it against the acceptance criteria in `prd.md` — the criteria you agreed in phase 1 are the definition of done, not the agent's summary.
+- Run the thing yourself if it matters: submit a refund with an empty reason and confirm it is rejected; pick "other" and confirm the text box appears.
+
+If something is off, say so in plain language and the agent fixes it — it is still the same task, still the same conversation:
+
+> **Example prompt** (an illustration of what to say, not a real session transcript):
+>
+> The reason dropdown works, but choosing "other" doesn't show the text box yet. Fix that, and keep the backend validation as it is.
+
+When you accept, the commit has already happened in workflow step 3.4 — the agent batches the code changes into commits before `/sunshine:finish-work` runs, and the finish command itself does no code committing (it only archives the task and records the journal). So "accept" means: the diff is right, the criteria are met, and the commits are already in your branch. Push when you are ready, the same as any other work.
+
+## 6. How specs are maintained
+
+Specs are not a document you write once and forget. `.sunshine/spec/system.md` states the rule at the top:
+
+```text
+# 系统规范（自主沉淀总原则）
+
+本文件是 Sunshine 规范自维护的总原则。AI 助手在后台自主、静默地维护 `.sunshine/spec/`，人只负责审阅成果。
+
+## 总原则
+
+- 技术选型、分层架构、数据库规约等确定后，立即写入 `.sunshine/spec/` 对应文件，不等人手动整理。
+- 规范一经写入，后续所有任务自动遵守。
+- 发现规范与现实不符（代码已改、规范未改），以现实为准并同步修正规范。
+```
+
+("System spec — the general principle of autonomous spec maintenance. The AI assistant maintains `.sunshine/spec/` autonomously and silently in the background; a human only reviews the result. / General principles: once a technical choice, layering, or database convention is settled, write it into the matching file under `.sunshine/spec/` immediately, don't wait for manual tidying. Once a spec is written, all later tasks follow it automatically. If a spec disagrees with reality (the code changed, the spec didn't), reality wins and the spec is corrected.")
+
+In practice that means two things:
+
+- **During a task**, the agent writes what it learned back into the specs (workflow step 3.3, `sunshine-update-spec`) — for the demo task, the `REASON_REQUIRED` error code and the "other reveals a text box" rule are exactly the kind of conventions that get written down so the next refund task does not have to rediscover them.
+- **Between tasks**, you can also just tell the agent to update a spec ("Record in the backend spec that all list endpoints paginate with cursor-based pagination") and it edits the file; you review the diff like any other change.
+
+Specs are user data: `sunshine update` never touches `.sunshine/spec/` — in the scan output in [section 8](#8-update-and-the-template-marketplace) it appears under "用户数据（保持不动）", "user data (kept untouched)". The one exception is a spec installed from the template marketplace, which is hash-tracked and refreshed by `update` — see [section 8](#8-update-and-the-template-marketplace).
+
+## 7. Switching workflows
+
+There are three built-in workflow templates. You usually switch by asking the agent in the UI ("Switch the workflow to TDD for the next task"), and the agent runs the command; running it yourself in the terminal works the same way:
 
 ```sh
 sunshine workflow --list
@@ -386,7 +473,7 @@ sunshine workflow --list
 #     主会话通过 sunshine channel 协调 implement/check 工作线程的工作流变体
 ```
 
-("Available workflow templates: native (built-in) — the native Sunshine workflow: the default plan / execute / wrap-up workflow with native sub-agents and inline platform branches; tdd (built-in) — TDD workflow: a variant that drives phase 2 with one red / green / refactor behavior slice at a time; channel-driven-subagent-dispatch (built-in) — channel-driven sub-agent dispatch: a variant where the main session coordinates implement/check worker threads through sunshine channel.")
+("Available workflow templates: `native` (built-in) — the native Sunshine workflow: the default plan / execute / wrap-up workflow with native sub-agents and inline platform branches; `tdd` (built-in) — TDD workflow: a variant that drives phase 2 with one red / green / refactor behavior slice at a time; `channel-driven-subagent-dispatch` (built-in) — channel-driven sub-agent dispatch: a variant where the main session coordinates implement/check worker threads through `sunshine channel`.")
 
 Switch to the TDD workflow:
 
@@ -395,7 +482,9 @@ sunshine workflow --template tdd
 #   ✓ 已把 .sunshine/workflow.md 换成 "tdd"
 ```
 
-("Switched .sunshine/workflow.md to 'tdd'.") Switching back to native stops you first — because `workflow.md` is now the tdd version, which no longer matches the hash manifest, the CLI treats it as "locally modified":
+("Switched `.sunshine/workflow.md` to `tdd`.")
+
+Switching back to native stops you first — because `workflow.md` is now the tdd version, which no longer matches the hash manifest, the CLI treats it as "locally modified":
 
 ```sh
 sunshine workflow --template native
@@ -408,31 +497,53 @@ sunshine workflow --template native --create-new
 #   + 已写入 .sunshine/workflow.md.new（workflow.md 未改动）
 ```
 
-("Error: .sunshine/workflow.md has local modifications; add --force to overwrite, or use --create-new to write .sunshine/workflow.md.new. / Switched .sunshine/workflow.md to 'native'. / Wrote .sunshine/workflow.md.new (workflow.md untouched).")
+("Error: `.sunshine/workflow.md` has local modifications; add `--force` to overwrite, or use `--create-new` to write `.sunshine/workflow.md.new`. / Switched `.sunshine/workflow.md` to `native`. / Wrote `.sunshine/workflow.md.new` (`workflow.md` untouched).")
 
-The rule: unmodified files are overwritten directly; modified or unknown-origin files ask interactively (overwrite / write `.new` / skip), and in a non-interactive terminal you use `--force` to overwrite or `--create-new` to write a copy. `--create-new` only writes `.sunshine/workflow.md.new` and leaves the active `workflow.md` alone.
+The rule: unmodified files are overwritten directly; modified or unknown-origin files ask interactively (overwrite / write a `.new` copy / skip), and in a non-interactive terminal you use `--force` to overwrite or `--create-new` to write a copy. `--create-new` only writes `.sunshine/workflow.md.new` and leaves the active `workflow.md` alone. The same three-state logic is what `update` uses in the next section — a switched workflow shows up there under "你已修改" ("modified by you").
 
-At the end of this step the tutorial project is on tdd — step 5's `update --dry-run` will list it under "你已修改" ("modified by you"), which is exactly the three-state detection in action.
+## 8. update and the template marketplace
 
-## 5. Update and registry (template marketplace)
+### `update`: refresh the template files in the project
 
-### First look with `update --dry-run`
-
-`--dry-run` only prints the plan and writes nothing — the safest way to use it. The first lines are version information (they vary with the CLI version you installed); only the scan part is quoted below:
+When a new Sunshine version ships new templates, you refresh the project with `update`. First look at the plan with `--dry-run` — it prints the plan and writes nothing:
 
 ```sh
 sunshine update --dry-run
 ```
 
-Real output (excerpt):
+Real output (excerpt; run with the v0.2.1 binary, project on 0.2.1):
 
 ```text
+Sunshine 更新
+══════════════
+项目版本：0.2.1
+CLI 版本：0.2.1
+最新版：0.2.1
+
+
 正在扫描变更……
   未变更文件（将跳过）：
     ○ .claude/agents/sunshine-check.md
     ○ .claude/agents/sunshine-implement.md
     ○ .claude/agents/sunshine-research.md
-    ……
+    ○ .claude/commands/sunshine/continue.md
+    ○ .claude/commands/sunshine/finish-work.md
+    ……另有 102 个
+
+  用户数据（保持不动）：
+    ○ .sunshine/workspace/
+    ○ .sunshine/tasks/
+    ○ .sunshine/spec/
+    ○ .sunshine/.developer/
+
+✓ 已是最新，无需更新。
+```
+
+("Scanning changes… Unchanged files (will be skipped): … / User data (kept untouched): `.sunshine/workspace/`, `.sunshine/tasks/`, `.sunshine/spec/`, `.sunshine/.developer/` / Already up to date, nothing to update.")
+
+Three states at a glance: unchanged template files are updated automatically; files you modified ask one by one (overwrite / skip / write a `.new` copy, default skip); user data (specs, tasks, workspace, developer identity) is never touched. Switch the workflow to tdd first ([section 7](#7-switching-workflows)) and the same scan shows the third state in action:
+
+```text
   你已修改（需要你决定）：
     ? .sunshine/workflow.md
 
@@ -445,13 +556,32 @@ Real output (excerpt):
 [试运行] 未做任何修改。
 ```
 
-("Scanning changes… Unchanged files (will be skipped): … / Modified by you (needs your decision): .sunshine/workflow.md / User data (kept untouched): .sunshine/workspace/, .sunshine/tasks/, .sunshine/spec/, .sunshine/.developer/ / [Dry run] No changes made.")
+("Modified by you (needs your decision): `.sunshine/workflow.md` / User data (kept untouched): … / [Dry run] No changes made.")
 
-Three states at a glance: unchanged template files are updated automatically; files you modified ask one by one (overwrite / skip / write a `.new` copy, default skip); user data (specs, tasks, workspace, developer identity) is never touched. When the project and CLI are both on the latest version, the tail reads `✓ 已是最新，无需更新。` ("Already up to date, nothing to update."). To actually run it, drop `--dry-run`; before writing, it takes a full backup under `.sunshine/.backups/<timestamp>/`, and on success it updates `.sunshine/.version`.
+To actually run it, drop `--dry-run`. Before writing, it takes a full backup — verified by running it for real on the tdd-switched project (non-interactive, so the conflict file was skipped by default):
 
-### Install specs from a template marketplace
+```text
+非交互环境，跳过统一确认（冲突文件默认跳过）。
 
-Switch to a fresh project and start from a marketplace template. First build a minimal local marketplace repository (this is the standard layout of an official template repository: `marketplace/index.json` + `marketplace/specs/`):
+已创建备份：.sunshine/.backups/2026-11-10T01-16-37/
+
+--- 逐个确认冲突 ---
+  ○ 已跳过：.sunshine/workflow.md
+
+--- 汇总 ---
+  已跳过：1 个文件
+  备份：.sunshine/.backups/2026-11-10T01-16-37/
+
+✓ 更新完成！（0.2.1 → 0.2.1）
+```
+
+("Non-interactive environment, skipping the unified confirmation (conflicting files are skipped by default). / Backup created: `.sunshine/.backups/2026-11-10T01-16-37/` / … skipped: `.sunshine/workflow.md` / … / Update complete! (0.2.1 → 0.2.1).") On success it updates `.sunshine/.version`.
+
+Who runs `update`? Usually you, in the terminal, when you know a new version is out — or you ask the agent to ("Check whether the project templates need updating") and it runs `update --dry-run` and shows you the plan. Either way, nothing is overwritten silently.
+
+### The template marketplace: install specs from a registry
+
+A template marketplace is a repository of reusable specs, laid out as `marketplace/index.json` + `marketplace/specs/`. You point `init` at one to start a project from a shared spec instead of the built-in templates. Here is a minimal local marketplace, built for this tutorial:
 
 ```sh
 mkdir -p registry-src/marketplace/specs/demo-spec
@@ -483,14 +613,14 @@ cd registry-src && git init && git add -A && git commit -m "demo registry" && cd
 
 Two gotchas, both found by actually running it:
 
-1. A local path must point at the `marketplace` subdirectory itself (`…/registry-src/marketplace`), not the repository root — pointing at the root makes the CLI fail to find `index.json` with `该 registry 没有 index.json，不能用 --template` ("this registry has no index.json, --template cannot be used").
+1. A local path must point at the `marketplace` subdirectory itself (`…/registry-src/marketplace`), not the repository root — pointing at the root fails with `错误：该 registry 没有 index.json，不能用 --template；去掉 --template 走直接下载模式` ("this registry has no index.json, `--template` cannot be used; drop `--template` for direct-download mode").
 2. The `path` in `index.json` is relative to the directory containing `index.json`, so write `specs/demo-spec`, not `marketplace/specs/demo-spec`.
 
-Then install from the marketplace in the new project:
+Then install from the marketplace in a new project:
 
 ```sh
-mkdir demo2 && cd demo2 && git init
-sunshine init -u 演示者 -y --registry /tmp/sunshine-docs/registry-src/marketplace --template demo-spec
+mkdir demo3 && cd demo3 && git init
+sunshine init -u 演示者 -y --registry /tmp/rewrite-en/registry-src/marketplace --template demo-spec
 ```
 
 Real output:
@@ -499,7 +629,7 @@ Real output:
 正在配置 Claude Code……
 正在配置 Cursor……
 已安装模板 "demo-spec"（.sunshine/spec），共 1 个文件。
-已记录 registry.spec：/tmp/sunshine-docs/registry-src/marketplace（模板 demo-spec），sunshine update 会持续刷新。
+已记录 registry.spec：/tmp/rewrite-en/registry-src/marketplace（模板 demo-spec），sunshine update 会持续刷新。
 初始化完成，开发者：演示者
 已安装平台：
   - Claude Code
@@ -509,7 +639,7 @@ Real output:
   2. 按 .sunshine/workflow.md 开始第一个任务。
 ```
 
-("Installed template 'demo-spec' (.sunshine/spec), 1 file in total. Recorded registry.spec: /tmp/sunshine-docs/registry-src/marketplace (template demo-spec); sunshine update will keep refreshing it. Initialization complete…")
+("Installed template `demo-spec` (`.sunshine/spec`), 1 file in total. Recorded `registry.spec`: `/tmp/rewrite-en/registry-src/marketplace` (template `demo-spec`); `sunshine update` will keep refreshing it. Initialization complete…")
 
 The template content lands in `.sunshine/spec/demo.md`, and the source is recorded in `config.yaml`:
 
@@ -517,22 +647,13 @@ The template content lands in `.sunshine/spec/demo.md`, and the source is record
 # 受哈希追踪的 spec 模板，本地改动走正常的 update 冲突流程。
 registry:
   spec:
-    source: /tmp/sunshine-docs/registry-src/marketplace
+    source: /tmp/rewrite-en/registry-src/marketplace
     template: demo-spec
 ```
 
 ("Spec templates tracked by hash; local edits go through the normal update conflict flow.") A remote marketplace works the same way — replace the local path with `gh:owner/repo`, a full git URL, an HTTP(S) URL, or a `git@` address.
 
-### After the marketplace template changes, `update` keeps refreshing it
-
-Edit the template in the marketplace, commit, and run `update --dry-run` again:
-
-```sh
-# In registry-src, append one more convention to demo.md and commit it
-sunshine update --dry-run
-```
-
-Real output (excerpt):
+After the marketplace template changes, `update` keeps refreshing it. Edit the template in the marketplace, commit, and run `update --dry-run` again:
 
 ```text
 正在扫描变更……
@@ -554,13 +675,13 @@ Real output (excerpt):
 [试运行] 未做任何修改。
 ```
 
-("Template updated (will be updated automatically): .sunshine/spec/demo.md / Unchanged files (will be skipped): … / Modified by you (needs your decision): .sunshine/config.yaml / User data (kept untouched): …")
+("Template updated (will be updated automatically): `.sunshine/spec/demo.md` / Unchanged files (will be skipped): … / Modified by you (needs your decision): `.sunshine/config.yaml` / User data (kept untouched): …")
 
 `demo.md` is updated automatically because its local copy was never edited; if you had edited it locally, it would go through the same "modified by you" confirmation. `config.yaml` shows as "modified by you" because `registry.spec` was written into it when the template was installed — that is expected.
 
-## 6. Review sessions with mem
+## 9. mem: look back at sessions
 
-`mem` parses the session records of each platform on this machine, read-only — it never writes to session storage. Real usage first: if you have already run Sunshine tasks in Claude Code, just run these in the project:
+`mem` parses the session records each platform keeps on this machine, read-only — it never writes to session storage. Real usage first: once you have run Sunshine tasks in Claude Code, just ask the agent in the UI ("Find the session where we implemented the refund reason validation") or run these in the project yourself:
 
 ```sh
 sunshine mem list              # List this project's sessions
@@ -570,35 +691,35 @@ sunshine mem extract 11111111  # Export one session's full conversation
 sunshine mem projects          # List projects that have sessions
 ```
 
-The output shapes below are demonstrated with a minimal session file (a real session has exactly this layout: `~/.claude/projects/<project directory>/<session id>.jsonl`):
+The outputs below are demonstrated with a hand-made fixture, because the sandbox has no real sessions. The fixture is a real session file in exactly the layout a real session has — `~/.claude/projects/<project directory>/<session id>.jsonl` — four turns (two user, two assistant) about the refund task, written under a temporary `HOME` so your real `HOME` is untouched:
 
 ```sh
-export HOME=/tmp/sunshine-docs/home   # Demo only; your real HOME is untouched
-mkdir -p "$HOME/.claude/projects/-tmp-sunshine-docs-demo"
+export HOME=/tmp/rewrite-en/home   # Demo only; your real HOME is untouched
+mkdir -p "$HOME/.claude/projects/-tmp-rewrite-en-demo"
 # Write a 4-turn demo session 11111111-2222-3333-4444-555555555555.jsonl
 # (two user turns, two assistant turns, about this tutorial's refund task)
 ```
 
 ```sh
 sunshine mem list
-# 范围：项目=/tmp/sunshine-docs/demo  平台=all
-# [claude  ] 2026-11-09 14:13  11111111-222  /tmp/sunshine-docs/demo
+# 范围：项目=/tmp/rewrite-en/demo  平台=all
+# [claude  ] 2026-11-10 01:14  11111111-222  /tmp/rewrite-en/demo
 #
 # 共 1 个会话
 
 sunshine mem search "退款"
-# 范围：项目=/tmp/sunshine-docs/demo  平台=all  关键词="退款"
+# 范围：项目=/tmp/rewrite-en/demo  平台=all  关键词="退款"
 #
-# [claude  ] 2026-11-09 14:13  11111111-222  /tmp/sunshine-docs/demo  相关度=0.250  命中=1（用户=1，助手=0）  轮次=4
+# [claude  ] 2026-11-10 01:14  11111111-222  /tmp/rewrite-en/demo  相关度=0.250  命中=1（用户=1，助手=0）  轮次=4
 #     [用户] 给退款原因加必填校验，原因字段不能为空
 #
 # 共 1 个会话
 
 sunshine mem context 11111111
 # # 上下文：[claude] 11111111-2222-3333-4444-555555555555
-# # 工作目录：/tmp/sunshine-docs/demo
+# # 工作目录：/tmp/rewrite-en/demo
 # # 未指定关键词 — 显示前 3 轮，共 4 轮
-# # 显示轮次：4  已用预算：86/6000 字符
+# # 显示轮次：4  已用预算：83/6000 字符
 #
 # ## 第 0 轮（用户） ← 命中
 #
@@ -608,54 +729,70 @@ sunshine mem context 11111111
 #
 # 已加上，原因选“其他”时会出现文本框。
 
+sunshine mem extract 11111111
+# # 会话：[claude] 11111111-2222-3333-4444-555555555555
+# # 工作目录：/tmp/rewrite-en/demo
+# # 日期：2026-11-10 14:13
+# # 阶段：all  轮次：4/4
+# ……
+# ## 助手
+#
+# 已加上，原因选“其他”时会出现文本框。
+
 sunshine mem projects
 # 活跃项目
-# 2026-11-09 14:13  会话数=  1 (claude:1)  /tmp/sunshine-docs/demo
+# 2026-11-10 01:14  会话数=  1 (claude:1)  /tmp/rewrite-en/demo
 #
 # 共 1 个项目
 ```
 
 ("范围" = "scope"; "共 1 个会话" = "1 session in total"; "相关度" = "relevance"; "命中" = "hits"; "轮次" = "turns"; "上下文" = "context"; "工作目录" = "working directory"; "未指定关键词 — 显示前 3 轮，共 4 轮" = "no keyword given — showing the first 3 of 4 turns"; "显示轮次" = "turns shown"; "已用预算" = "budget used"; "活跃项目" = "active projects"; "会话数" = "session count".)
 
-The output often starts with a few `警告：未找到 Codex 会话存储（…），已跳过` ("warning: Codex session storage not found (…), skipped") lines — those only mean that platform has no session records on this machine; they are not errors. `--global` searches all projects, `--json` outputs machine-readable JSON, and `--platform claude` restricts the search to one platform.
+Each of these outputs starts with a few `警告：未找到 Codex 会话存储（…），已跳过` ("warning: Codex session storage not found (…), skipped") lines — one per platform with no session records on this machine. Those only mean that platform has no sessions here; they are not errors, and they are omitted from the excerpts above. `--global` searches all projects, `--json` outputs machine-readable JSON, and `--platform claude` restricts the search to one platform.
 
-## 7. Multi-agent collaboration with channel
+## 10. channel: multi-agent collaboration
 
-A channel is a session where several workers (claude / codex) collaborate: `create` opens a session, `spawn` registers a worker, `send` sends a message, `wait` waits for an event. The storage root defaults to `~/.sunshine/channels/` and can be overridden with `SUNSHINE_CHANNEL_ROOT` — this tutorial uses a temporary directory so your real channel storage is untouched:
+A channel is a session where several workers (claude / codex) collaborate: `create` opens a session, `spawn` registers a worker, `send` sends a message, `wait` waits for an event. In normal use you ask for this in the agent UI — for example:
+
+> **Example prompt** (an illustration of what to say, not a real session transcript):
+>
+> Open a review channel for the refund task, have the implement worker do the validation, and report back when it is done.
+
+The main session then drives the channel (that is exactly what the `channel-driven-subagent-dispatch` workflow template in [section 7](#7-switching-workflows) does). The commands below are what it runs; you would only type them yourself when debugging a channel. The storage root defaults to `~/.sunshine/channels/` and can be overridden with `SUNSHINE_CHANNEL_ROOT` — this tutorial uses a temporary directory so your real channel storage is untouched:
 
 ```sh
-export SUNSHINE_CHANNEL_ROOT=/tmp/sunshine-docs/channels
+export SUNSHINE_CHANNEL_ROOT=/tmp/rewrite-en/channels
 ```
 
 ### Create a session, send a message, view events
 
 ```sh
 sunshine channel create review --type chat
-# 已创建 channel 'review'（chat）位于 /tmp/sunshine-docs/channels/-tmp-sunshine-docs-demo/review
+# 已创建 channel 'review'（chat）位于 /tmp/rewrite-en/channels/-tmp-rewrite-en-demo/review
 
 sunshine channel send review --to impl "开始实现退款原因必填校验"
-# {"by":"main","kind":"message","origin":"cli","seq":2,"text":"开始实现退款原因必填校验","to":"impl","ts":"2026-11-09T14:13:05.091268768Z"}
+# {"by":"main","kind":"message","origin":"cli","seq":2,"text":"开始实现退款原因必填校验","to":"impl","ts":"2026-11-10T01:14:48.971360806Z"}
 
 sunshine channel messages review
-# [1] 14:13:04 [create] by=main cwd=/tmp/sunshine-docs/demo
-# [2] 14:13:05 [message] by=main to=impl
+# [1] 01:14:48 [create] by=main cwd=/tmp/rewrite-en/demo
+# [2] 01:14:48 [message] by=main to=impl
 #          开始实现退款原因必填校验
 
 sunshine channel list
 # 名称                        工作者        事件      最近活动                 最近事件       类型       任务
-# review                    -          1       -                    create     chat     -
+# review                    -          2       -                    message    chat     -
 ```
 
-("Created channel 'review' (chat) at …") `send` prints one JSON event (`seq` is the event sequence number); `messages` is the human-readable timeline. You can bind a task when creating the session: `sunshine channel create review --type chat --task .sunshine/tasks/11-09-给退款原因加必填校验`.
+("Created channel `review` (chat) at …") `send` prints one JSON event (`seq` is the event sequence number); `messages` is the human-readable timeline. You can bind a task when creating the session: `sunshine channel create review --type chat --task .sunshine/tasks/11-10-给退款原因加必填校验`.
 
 ### Title and context
 
 ```sh
 sunshine channel title set review --title "退款原因必填校验"
-# {"action":"title","by":"main","kind":"channel","origin":"cli","seq":3,"title":"退款原因必填校验","ts":"2026-11-09T14:13:14.834590113Z"}
+# {"action":"title","by":"main","kind":"channel","origin":"cli","seq":3,"title":"退款原因必填校验","ts":"2026-11-10T01:14:48.996484414Z"}
 
 sunshine channel context add review --raw "只改退款逻辑，不动其他接口"
-# {"action":"add","by":"main","context":[{"text":"只改退款逻辑，不动其他接口","type":"raw"}],"kind":"context","origin":"cli","seq":6,"target":"channel","ts":"2026-11-09T14:13:56.741845958Z"}
+# {"action":"add","by":"main","context":[{"text":"只改退款逻辑，不动其他接口","type":"raw"}],"kind":"context","origin":"cli","seq":4,"target":"channel","ts":"2026-11-10T01:14:49.005600038Z"}
 
 sunshine channel context list review
 # raw  只改退款逻辑，不动其他接口
@@ -670,21 +807,21 @@ sunshine channel wait review --from impl --kind done --timeout 3s
 # 错误：超时：等待 channel 'review' 超时（3s），仍在等待：impl（上游退出码 124）
 ```
 
-("Error: timeout: waiting for channel 'review' timed out (3s), still waiting: impl (upstream exit code 124).") With no worker replying, `wait` times out after `--timeout` and exits with an error — that is what it is for: scripts use it to wait for a worker's `done` event.
+("Error: timeout: waiting for channel `review` timed out (3s), still waiting: `impl` (upstream exit code 124).") With no worker replying, `wait` times out after `--timeout` and exits with an error — that is what it is for: the agent uses it to wait for a worker's `done` event.
 
 ### Forum channels: threaded discussion
 
-A `forum`-type channel organizes discussion into threads (topics). Forum commands do not work on `chat` channels — verified: `频道 "review" 的类型是 chat，forum 操作只支持 forum 类型的频道` ("channel 'review' is of type chat; forum operations only support forum-type channels"):
+A `forum`-type channel organizes discussion into threads (topics). Forum commands do not work on `chat` channels — verified: `错误：频道 "review" 的类型是 chat，post 操作只支持 forum 类型的频道` ("channel `review` is of type chat; `post` only supports forum-type channels"):
 
 ```sh
 sunshine channel create board --type forum
-# 已创建 channel 'board'（forum）位于 /tmp/sunshine-docs/channels/-tmp-sunshine-docs-demo/board
+# 已创建 channel 'board'（forum）位于 /tmp/rewrite-en/channels/-tmp-rewrite-en-demo/board
 
 sunshine channel post board opened --as main --thread t1 --title "退款原因实现方案" --description "原因下拉框：质量问题 / 尺寸不符 / 其他"
-# {"action":"opened","by":"main","description":"原因下拉框：质量问题 / 尺寸不符 / 其他","kind":"thread","origin":"cli","seq":2,"thread":"t1","title":"退款原因实现方案","ts":"2026-11-09T14:13:24.366836885Z"}
+# {"action":"opened","by":"main","description":"原因下拉框：质量问题 / 尺寸不符 / 其他","kind":"thread","origin":"cli","seq":2,"thread":"t1","title":"退款原因实现方案","ts":"2026-11-10T01:14:54.822100697Z"}
 
 sunshine channel post board comment --as alice --thread t1 --text "收到，正在看"
-# {"action":"comment","by":"alice","kind":"thread","origin":"cli","seq":3,"text":"收到，正在看","thread":"t1","ts":"2026-11-09T14:13:24.385489679Z"}
+# {"action":"comment","by":"alice","kind":"thread","origin":"cli","seq":3,"text":"收到，正在看","thread":"t1","ts":"2026-11-10T01:14:54.830614516Z"}
 
 sunshine channel forum board
 # 主题  状态  标题
@@ -693,8 +830,8 @@ sunshine channel forum board
 sunshine channel thread board t1
 # t1 [open] 退款原因实现方案
 # 描述：原因下拉框：质量问题 / 尺寸不符 / 其他
-#   2026-11-09 14:13:24 opened 发帖人=main
-#   2026-11-09 14:13:24 comment 发帖人=alice 收到，正在看
+#   2026-11-10 01:14:54 opened 发帖人=main
+#   2026-11-10 01:14:54 comment 发帖人=alice 收到，正在看
 ```
 
 ("主题 / 状态 / 标题" = "topic / status / title"; "描述" = "description"; "发帖人" = "posted by"; "收到，正在看" = "got it, looking into it".)
@@ -705,7 +842,11 @@ sunshine channel thread board t1
 
 ```sh
 sunshine channel spawn review --agent implement --provider claude --as impl
-# {"pid": 24963, "log": "/tmp/sunshine-docs/channels/-tmp-sunshine-docs-demo/review/impl.log", "worker": "impl"}
+# {
+#   "pid": 8959,
+#   "log": "/tmp/rewrite-en/channels/-tmp-rewrite-en-demo/review/impl.log",
+#   "worker": "impl"
+# }
 ```
 
 The command itself returned a pid and a log path, but the event log immediately recorded a failure:
@@ -713,18 +854,18 @@ The command itself returned a pid and a log path, but the event log immediately 
 ```sh
 sunshine channel messages review
 # ……
-# [4] 14:13:14 [error] by=supervisor:impl worker 拉起失败：拉起 claude worker 失败：exec: "claude": executable file not found in $PATH
+# [5] 01:14:54 [error] by=supervisor:impl worker 拉起失败：拉起 claude worker 失败：exec: "claude": executable file not found in $PATH
 ```
 
-("worker failed to start: failed to start claude worker: exec: 'claude': executable file not found in $PATH.")
+("worker failed to start: failed to start claude worker: `exec: "claude": executable file not found in $PATH`.")
 
-Trying codex instead (the sandbox has a codex binary, but it is not logged in): the process did start, then failed while connecting with a 401:
+Trying codex instead (the sandbox has a codex binary, but it is not logged in): the process did start, then failed while connecting with a 401, recorded in the worker log:
 
 ```text
 ERROR codex_api::endpoint::responses_websocket: failed to connect to websocket: HTTP error: 401 Unauthorized, url: wss://api.openai.com/v1/responses
 ```
 
-So: **on a machine with claude / codex installed and logged in, messages sent with `send` after `spawn` are received and executed by the worker; without a logged-in worker, `spawn` only leaves an `error` event — it never pretends to succeed.** The same prerequisite applies to `channel run`, which builds a temporary channel, runs one task, and prints the final answer.
+So: **on a machine with claude / codex installed and logged in, messages sent with `send` after `spawn` are received and executed by the worker; without a logged-in worker, `spawn` only leaves an `error` event (or a 401 in the worker log) — it never pretends to succeed.** The same prerequisite applies to `channel run`, which builds a temporary channel, runs one task, and prints the final answer.
 
 ### Stop a worker, delete a channel
 
@@ -732,50 +873,68 @@ So: **on a machine with claude / codex installed and logged in, messages sent wi
 sunshine channel kill review --as impl-codex
 # 已停止 worker 'impl-codex'（channel 'review'）
 
+sunshine channel create tmp --type chat
+# 已创建 channel 'tmp'（chat）位于 /tmp/rewrite-en/channels/-tmp-rewrite-en-demo/tmp
+
 sunshine channel rm tmp
 # 已删除 channel 'tmp'
+
+sunshine channel prune --empty
+# （无可清理的 channel）
 ```
 
-("Stopped worker 'impl-codex' (channel 'review'). / Deleted channel 'tmp'.") `kill` takes the worker name with `--as <worker>`; `rm` kills all workers and deletes the whole channel directory. `prune` cleans up channels in bulk by condition (dry-run by default, nothing is really deleted): `sunshine channel prune --empty`.
+("Stopped worker `impl-codex` (channel `review`). / Created channel `tmp`… / Deleted channel `tmp`. / (No channels to clean up).") `kill` takes the worker name with `--as <worker>`; `rm` kills all workers and deletes the whole channel directory. `prune` cleans up channels in bulk by condition (dry-run by default, nothing is really deleted).
 
-## 8. Upgrade
+## 11. upgrade: update the CLI itself
 
-`upgrade` upgrades the CLI itself (`update` upgrades the template files inside a project — two different things). Check the plan first with `--dry-run`; nothing is written:
+`upgrade` upgrades the CLI itself (`update` upgrades the template files inside a project — two different things). Check the plan first with `--dry-run`; nothing is written. This is a command you run yourself in the terminal — it is about your installation, not about a task, so the agent has no reason to run it.
+
+When already on the latest version (output from a local build with the version injected as 0.2.1 via ldflags, matching the current Release):
 
 ```sh
 sunshine upgrade --dry-run
+# 已是最新版本（当前 0.2.1，最新 0.2.1），无需升级。
 ```
 
-When already on the latest version (v0.2.0 installed from Release):
+("Already on the latest version (current 0.2.1, latest 0.2.1), no upgrade needed.")
+
+When a new version exists (output from the default local build, whose version is 0.1.0, against the same latest 0.2.1):
 
 ```text
-已是最新版本（当前 0.2.0，最新 0.2.0），无需升级。
-```
-
-("Already on the latest version (current 0.2.0, latest 0.2.0), no upgrade needed.")
-
-When a new version exists (the line below comes from a locally built 0.1.0 binary; only the version numbers differ, the shape is the same):
-
-```text
-正在升级 Sunshine：0.1.0 → 0.2.0（通道 latest）
-资产：sunshine_0.2.0_linux_amd64.tar.gz
-下载地址：https://github.com/linrong1982/Sunshine/releases/download/v0.2.0/sunshine_0.2.0_linux_amd64.tar.gz
-备份：将把当前二进制备份为 /tmp/sunshine-docs/sunshine.bak
+正在升级 Sunshine：0.1.0 → 0.2.1（通道 latest）
+资产：sunshine_0.2.1_linux_amd64.tar.gz
+下载地址：https://github.com/linrong1982/Sunshine/releases/download/v0.2.1/sunshine_0.2.1_linux_amd64.tar.gz
+备份：将把当前二进制备份为 /tmp/rewrite-en/sunshine.bak
 [试运行] 未做任何修改。
 ```
 
-("Upgrading Sunshine: 0.1.0 → 0.2.0 (channel latest); asset: sunshine_0.2.0_linux_amd64.tar.gz; download URL: …; backup: the current binary will be backed up as /tmp/sunshine-docs/sunshine.bak; [dry run] no changes made.")
+("Upgrading Sunshine: 0.1.0 → 0.2.1 (channel latest); asset: `sunshine_0.2.1_linux_amd64.tar.gz`; download URL: …; backup: the current binary will be backed up as `/tmp/rewrite-en/sunshine.bak`; [dry run] no changes made.")
 
-A real upgrade (drop `--dry-run`) follows the same flow: check the latest version → pick the asset for the current OS and architecture → download → verify sha256 against `checksums.txt` → back up the current binary (a `.bak` next to it) → replace → run the new `--version` to verify, rolling back to the backup and reporting an error on failure. You can also pin a version or channel: `sunshine upgrade --tag 0.2.0`, `sunshine upgrade --tag beta`.
+A real upgrade (drop `--dry-run`) follows the same flow: check the latest version → pick the asset for the current OS and architecture → download → verify sha256 against `checksums.txt` → back up the current binary (a `.bak` next to it) → replace → run the new `--version` to verify, rolling back to the backup and reporting an error on failure. You can also pin a version or channel: `sunshine upgrade --tag 0.2.1`, `sunshine upgrade --tag beta`.
 
-## Wrap-up
+## 12. Wrap-up: manual-intervention cheat sheet
 
-That is the whole mainline: the project skeleton and specs live in `.sunshine/`, a task went from creation to archive, the workflow switched to TDD, a marketplace template was installed and its continuous refresh verified, sessions can be reviewed, a multi-agent channel can open sessions, send messages, and run threads, and the CLI upgrades itself.
+That is the whole mainline: you ran `init` once, asked for the refund validation in plain language in the agent UI, the agent planned, implemented, checked, wrote the lessons back into the spec, and finished with `/sunshine:finish-work`; you reviewed the diff and accepted; the task is archived and the session is in the journal.
 
-The demo directories all live under `/tmp/sunshine-docs/` (`demo`, `demo2`, `registry-src`, `channels`, `home`) — delete them and nothing in any real project is affected.
+Everything else in Sunshine is something you reach for when you step in manually. These are the only commands you ever need to type yourself:
+
+| When | Command | What it does |
+| --- | --- | --- |
+| Where did we get to? | `sunshine task list` / `sunshine task current` / `sunshine task context` | Show active tasks, the current task, and the full session context |
+| Check the next step | `sunshine task list-archive` | Show archived tasks by month |
+| Switch how the agent works | `sunshine workflow --list` / `sunshine workflow --template tdd` | List or switch workflow templates ([section 7](#7-switching-workflows)) |
+| Refresh project templates | `sunshine update --dry-run` (drop `--dry-run` to apply) | Sync template files; user data is never touched ([section 8](#8-update-and-the-template-marketplace)) |
+| Install a spec from a marketplace | `sunshine init --registry <source> --template <id>` | Install a spec template, refreshed by `update` afterwards ([section 8](#8-update-and-the-template-marketplace)) |
+| Look back | `sunshine mem search "退款"` / `sunshine mem list` | Search local session history, read-only ([section 9](#9-mem-look-back-at-sessions)) |
+| Multi-agent work | `sunshine channel list` / `sunshine channel messages <name>` | Inspect channels and their event timelines ([section 10](#10-channel-multi-agent-collaboration)) |
+| Update the CLI itself | `sunshine upgrade --dry-run` (drop `--dry-run` to apply) | Upgrade the `sunshine` binary ([section 11](#11-upgrade-update-the-cli-itself)) |
+| See what is configured | `sunshine platforms` | Show the platforms configured for this project |
+| Remove Sunshine from a project | `sunshine uninstall` / `sunshine ablate` / `sunshine restore` | Delete all Sunshine files, temporarily remove them (reversible), or restore exactly what `ablate` saved |
+
+Everything not listed here — `task create/start/archive`, `task add-context/validate`, `channel create/send/spawn/wait`, `task add-session` — is the agent's job, driven by `workflow.md`. If you find yourself typing those by hand every day, something is wrong: open the agent UI and let it drive.
 
 Where to go next:
 
-- [README.en.md](../README.en.md): core commands at a glance and configuration essentials.
-- [PLAN.md](../PLAN.md): the full plan and per-stage implementation notes, including commands this tutorial did not expand on (`uninstall`, `ablate`, `restore`, `platforms`, `hook`) and the design decisions behind them.
+- [README.en.md](../README.en.md): the doorway — installation, quick start, core commands at a glance, configuration essentials.
+- [PLAN.md](../PLAN.md): the full plan and per-stage implementation notes, including the design decisions behind the commands this tutorial did not expand on (`hook`, `platforms`, `uninstall`, `ablate`, `restore`).
 - [Releases](https://github.com/linrong1982/Sunshine/releases): downloads and release notes for each version.

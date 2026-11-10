@@ -14,10 +14,10 @@ macOS / Linux, one line (auto-detects OS and architecture, verifies sha256):
 curl -fsSL https://raw.githubusercontent.com/linrong1982/Sunshine/main/install.sh | sh
 ```
 
-Install a specific version:
+Install a specific version (v0.2.1 is the current Release):
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/linrong1982/Sunshine/main/install.sh | sh -s -- v0.2.0
+curl -fsSL https://raw.githubusercontent.com/linrong1982/Sunshine/main/install.sh | sh -s -- v0.2.1
 ```
 
 Windows: download the matching zip from [Releases](https://github.com/linrong1982/Sunshine/releases), unzip it, and put `sunshine.exe` on your PATH.
@@ -39,45 +39,49 @@ sunshine upgrade
 ```sh
 cd your-project
 sunshine init -u YourName -y   # Generate the Chinese .sunshine/ skeleton (specs, tasks, workflow)
-sunshine --help                 # See all commands
 ```
+
+That is the only terminal command you need. Then open the project in Claude Code (Codex / Cursor work the same way) and ask for what you want in plain language — the agent drives the work following `.sunshine/workflow.md` and calls `sunshine` commands under the hood. See the [tutorial](docs/tutorial.en.md) for the full storyline.
 
 `init` installs Claude Code and Cursor platform configs by default. To install only Codex, use `sunshine init --codex -y`; running `init --codex -y` again in an already initialized project only adds the new platform and leaves existing files untouched. `sunshine platforms` shows which platforms are configured for the current project.
 
+## The main flow, in one line
+
+**Run `sunshine init` once in the terminal → ask in plain language inside the agent UI → the agent works through `workflow.md` (creates the task, writes prd/design, dispatches implement/check sub-agents, verifies, writes lessons back into the spec, finishes with `/sunshine:finish-work`) → you review the diff, accept, and commit.** The terminal commands below are the mechanism the agent uses, plus the few you run yourself when you step in manually — not a daily routine to type by hand.
+
 ## Core commands
 
-| Command | In one line | Most common example |
-| --- | --- | --- |
-| `init` | Initialize a project: generate the Chinese `.sunshine/` skeleton and platform configs | `sunshine init -u YourName -y` |
-| `task` | Task management: create, start, finish, archive | `sunshine task create "给退款原因加必填校验" --description "退款时原因字段必填"` |
-| `workflow` | View or switch the workflow template used by `.sunshine/workflow.md` | `sunshine workflow --list` |
-| `update` | Sync the Sunshine template files in the project to the current CLI version | `sunshine update --dry-run` |
-| `init --registry` | Install spec templates from a template marketplace (refreshed by `update` afterwards) | `sunshine init --registry gh:owner/repo --template demo-spec -y` |
-| `mem` | Search local AI session history across platforms (read-only) | `sunshine mem search "退款"` |
-| `channel` | Multi-agent collaboration: spawn and coordinate workers through a shared event log | `sunshine channel create review --type chat` |
-| `upgrade` | Upgrade the Sunshine CLI itself (via GitHub Releases) | `sunshine upgrade --dry-run` |
+| Command | In one line | Called by | Most common example |
+| --- | --- | --- | --- |
+| `init` | Initialize a project: generate the Chinese `.sunshine/` skeleton and platform configs | You, once per project | `sunshine init -u YourName -y` |
+| `task` | Task management: create, start, finish, archive | The agent, under the hood | `sunshine task create "给退款原因加必填校验" --description "退款时原因字段必填"` |
+| `workflow` | View or switch the workflow template used by `.sunshine/workflow.md` | You, or the agent when you ask it to switch | `sunshine workflow --list` |
+| `update` | Sync the Sunshine template files in the project to the current CLI version | You, when a new version is out (or the agent, on request) | `sunshine update --dry-run` |
+| `init --registry` | Install spec templates from a template marketplace (refreshed by `update` afterwards) | You, once per project | `sunshine init --registry gh:owner/repo --template demo-spec -y` |
+| `mem` | Search local AI session history across platforms (read-only) | You, or the agent when you ask it to look back | `sunshine mem search "退款"` |
+| `channel` | Multi-agent collaboration: spawn and coordinate workers through a shared event log | The agent, under the hood (you, when debugging a channel) | `sunshine channel create review --type chat` |
+| `upgrade` | Upgrade the Sunshine CLI itself (via GitHub Releases) | You | `sunshine upgrade --dry-run` |
 
-`update` vs `upgrade`: `update` refreshes the template files inside your project, while `upgrade` replaces the `sunshine` binary itself. `task create` requires `--description`; before `task start`, organize the context list with `task add-context`, or pass `--allow-empty-context`.
+`update` vs `upgrade`: `update` refreshes the template files inside your project, while `upgrade` replaces the `sunshine` binary itself. `task create` requires `--description`; before `task start`, the agent organizes the context list with `task add-context`, or passes `--allow-empty-context`.
 
 ## Configuration
 
-The `.sunshine/config.yaml` generated by `init` comes with Chinese comments. Key fields:
+The `.sunshine/config.yaml` generated by `init` comes with Chinese comments. Most options are commented-out defaults — uncomment and change only what you need; the rest can stay as they are:
 
+- `session_commit_message` (default `"chore: record journal"`): commit message used when journal / index changes are auto-committed.
 - `session_auto_commit` (default `true`): auto-commit journal and task changes after `task add-session` / `task archive`.
 - `max_journal_lines` (default `2000`): maximum lines in a single journal file before rotation.
-- `hooks.after_create / after_start / after_finish / after_archive`: shell commands run after task lifecycle events.
+- `hooks.after_create / after_start / after_finish / after_archive`: shell commands run after task lifecycle events (each receives `TASK_JSON_PATH`).
 - `channel.worker_guard.idle_timeout` (default `5m`) and `max_live_workers` (default `6`): worker guards for `channel spawn`.
-- `codex.dispatch_mode` (default `auto`): Codex sub-agent dispatch behavior.
+- `codex.dispatch_mode` (default `auto`): Codex sub-agent dispatch behavior (`auto` / `inline`).
 - `context_injection` limits: `max_file_bytes` (32768) / `max_artifact_bytes` (65536) / `max_total_bytes` (131072).
 - `prompt_injection.skip_keyword` (default `"no-sunshine"`): escape hatch for per-turn prompt injection.
 - `registry.spec`: written automatically when a template is installed with `--registry`; `sunshine update` keeps refreshing the marketplace template from it.
 - `tasks_dir` / `spec_dir`: task and spec directories (defaults `.sunshine/tasks` / `.sunshine/spec`).
 
-Change only what you need; the rest can stay at their defaults.
-
 ## Template marketplace
 
-`sunshine init --registry <source> --template <template id>` installs spec templates from a template marketplace. Sources can be `gh:owner/repo`, a full git URL, an HTTP(S) URL, a `git@` address, or a local git repository path. After installation the source is recorded in `registry.spec` in `config.yaml`, and `sunshine update` keeps refreshing it. A marketplace repository uses the standard layout `marketplace/index.json` + `marketplace/specs/`. See [step 5 of the tutorial](docs/tutorial.en.md#5-update-and-registry-template-marketplace).
+`sunshine init --registry <source> --template <template id>` installs spec templates from a template marketplace. Sources can be `gh:owner/repo`, a full git URL, an HTTP(S) URL, a `git@` address, or a local git repository path. After installation the source is recorded in `registry.spec` in `config.yaml`, and `sunshine update` keeps refreshing it. A marketplace repository uses the standard layout `marketplace/index.json` + `marketplace/specs/`. See [section 8 of the tutorial](docs/tutorial.en.md#8-update-and-the-template-marketplace).
 
 ## More
 

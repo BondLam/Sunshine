@@ -1698,3 +1698,43 @@ pre-commit install       # 在仓库根目录执行一次
 - Release 已发布：https://github.com/linrong1982/Sunshine/releases/tag/v0.2.1，6 个资产。实测验证：真实一键命令装上 v0.2.1（`--version` 打印 0.2.1）；0.2.0 二进制 `upgrade --dry-run` 正确查到 0.2.1；darwin 包 checksum OK，解出 Mach-O x86_64 二进制。
 - **CI 抖动（本次发现，未随发版修）**：打 tag 触发的 CI 与发布均 success；但推 main 提交触发的那次 CI 里 `TestSupervisorClosedLoop` 失败了一次（同一次提交、同一套代码，另一路 CI 全过）。日志：`supervisor_test.go:149: 应有 turn_started 与 turn_finished(done)：[create spawned message turn_started message done]`——`turn_finished` 在读事件时还没落盘。根因：`supervisorSink.Emit`（`internal/channel/supervisor/run.go`）先落 `done`、再 `tracker.Finish()` 后落 `turn_finished`，两者之间有窗口；测试只等 `done` 就读事件，赶上调度间隙就会误判。这是测试的时序假设问题，不是生产行为问题（事件最终都会落盘；该测试本地 20 次全过，同一提交另一路 CI 也全过）。修复方向（测试侧）：等 `done` 后再等 `turn_finished` 落盘再断言；不要改生产侧的落盘顺序（`done` 先落是 `MarkTerminalEmitted` 兜底逻辑有意为之）。修复已提交推送（不发版），见下。
 - **修复（已提交推送，不发版）**：`internal/channel/supervisor/supervisor_test.go` 的 `TestSupervisorClosedLoop` 里，等 `done` 之后再 `waitForEvent(KindTurnFinished, 5s)` 再读事件。本地验证：`TestSupervisorClosedLoop -count=30` 全过，`go test ./...` 18 个包全过，gofmt 干净。
+
+## 教程与 README 按 agent 界面用法重写（2026-11-10，用户确认）
+
+### 背景与定性
+
+- 用户反馈：v0.2.1 版中文教程“跟 trellis 的使用很大区别”——Trellis 是 init 完后全程在 agent 界面里工作（Claude 就在 Claude 界面，Codex 同理）。2026-11-10 用当前树新 init 核实：init 生成 `.sunshine/`（workflow.md、spec、AGENTS.md）+ `.claude/skills|commands|agents`（Codex/Cursor 同理各平台配置），AGENTS.md 开头即“本文件面向在本仓库工作的 AI 编程助手”，workflow.md 里写的是 agent 的操作步骤（派发 implement/check 子代理、`/sunshine:finish-work`）。结论：v1 教程写偏了——它把 `sunshine task create/start/...` 写成人要在终端一步步敲的，实际上这些命令是 agent 在底下调的，是机制不是人的日常界面。主次颠倒。
+- 范围（用户 2026-11-10 明确）：中英文教程与 README 都要重写，不只是教程。
+
+### 实施说明
+
+#### 主线（中英文教程、README 均按此口径）
+
+1. 终端只跑一次：`sunshine init`（装好 + 初始化项目），顺带说明装了哪些平台配置、生成了哪些文件（给 agent 读的）。
+2. 打开项目进 agent 界面（Claude Code 为主，Codex/Cursor 同理一句话带过）：人在界面里用自然语言提需求（沿用退款原因必填校验的演示项目，保持连续性）。
+3. agent 按 workflow.md 干活：建任务目录、写 prd/design、派 implement/check 子代理、核查、把学到的写回 spec、`/sunshine:finish-work` 收尾；人检查 diff、验收、提交。
+4. 终端命令只出现在两处：**“底下发生了什么”**（agent 实际调的命令 + 真实输出，须实跑验证）与**“手动干预时”**（`task list/current` 查状态、`update --dry-run`、`upgrade`、`mem search` 回顾等）。
+5. update / registry / mem / channel / upgrade 各归位到这条主线里讲（谁在 agent 界面里触发、谁在终端手动跑），不单列 CLI 手册式章节。
+
+#### 诚实规则
+
+- 与 agent 的对话示例是“示例提示词”，须标明是示例，不伪装成真实会话记录；展示的文件内容与命令输出必须是真实跑出来的（跑等价命令取输出）；沿用 v1 已有的如实说明：`channel spawn` 真实拉起受限（claude 二进制不在 `$PATH`、codex 未登录 401）、mem 无真实会话时先给用法再用手工夹具演示并注明、`update`/`upgrade` 只用 `--dry-run`。
+- 不编造 flag、命令与输出；不写没有验证过的断言。
+
+#### 各文件要求
+
+- `docs/tutorial.md`（中文）与 `docs/tutorial.en.md`（英文）：全文重写，同结构；演示项目不变（退款原因必填校验）；英文版命令与输出保持中文原文并加英文解释（CLI 输出为中文）。
+- `README.md`（中文）与 `README.en.md`（英文）：全文重写，同结构。README 仍是“门口”：安装、快速上手（init + 进 agent 界面）、主线一句话、命令表改为“agent 在底下调的命令 + 人手动干预时用的命令”双口径（表还是命令表，但不再写成人每天要敲的流程）、配置要点、模板市场、链接（教程、PLAN.md、Releases）。不塞长篇教程。
+- 两份 README 与两份教程互链，锚点须与重写后的实际标题对得上。
+- 不提交推送，改动留工作树等主代理验收。
+
+### 实施记录（2026-11-10）
+
+- **分工**：中英文两路并行——中文组重写 `docs/tutorial.md` + `README.md`，英文组重写 `docs/tutorial.en.md` + `README.en.md`；共用同一套 12 节结构与同一演示项目（退款原因必填校验），各自在独立临时目录实跑命令取输出。改动未提交推送，等主代理验收。
+- **改了 4 个文件**：`docs/tutorial.md` 740 行 → 837 行；`docs/tutorial.en.md` 781 行 → 940 行；`README.md` 84 行 → 89 行；`README.en.md` 86 行 → 90 行。主线均已改为 agent 界面优先：开场一句话即“终端只跑一次 init，进 agent 界面提需求，agent 按 workflow.md 干活，人检查验收”；终端命令只在第 4 节“底下发生了什么”与第 12 节“手动干预速查”出现；README 命令表均改为双口径（“谁用”/“Called by”列：agent 在底下调 / 人手动干预时用）。
+- **诚实规则执行情况**：两版对话示例均已标明是示例提示词、不是真实会话记录；mem 均用手工夹具并注明；channel spawn 拉起受限均按实测写（claude 二进制缺失记 error 事件、codex 未登录 401）；update/upgrade 只用 `--dry-run`（英文版另加一次真实 update 以验证备份行为，备份路径与时间戳为真实值）。§4 的 task.json 两版都用归档后版本并注明状态为 completed。
+- **总协调独立复验**：`gofmt -l .` 无输出、`go vet ./...` 通过、`go test ./... -count=1` 562 个 PASS、0 FAIL（18 个包）。用当前树新构建的二进制重跑：init 输出与教程引用一字不差、115 个文件（不含 `.git`）、workflow.md 714 行、`--help` 里“先用 sunshine init 初始化当前项目，再让 AI 助手按 .sunshine/workflow.md 推进任务”为真实文案；`task create` 输出与教程引用一致（日期 11-10 为实跑当天）；workflow.md 里 1.1/1.3/1.4/3.3/3.4 与 `/sunshine:finish-work` 均真实存在，与教程第 3 节的步骤号对得上。两份 README 的锚点逐个核对过，与重写后实际标题一致；全文无残留旧路径（`/tmp/sunshine-docs`）、旧日期（11-09）与旧版本（0.2.0 作版本号处），仅一处 `upgrade --tag 0.2.0` 是指定版本的示例写法，合理。
+- **与 PLAN.md 的偏离**：结构与范围无偏离。各路自行判断两处已在汇报里说明并采纳：英文版 §4 用归档后 task.json 并注明、§8 补一次真实 update 引用以验证备份说法；中文版用 0.2.1 二进制重建 demo 以得到干净的 update 三态输出、mem 夹具按适配器要求修过一次（助手 content 改块数组并补 `cwd`）、与 v1 有出入的输出均按本次实测写（spawn 多行 pretty JSON、kill 对拉起失败 worker 的报错、chat 上 post 的报错文案等）。
+
+- **主代理独立复验（2026-11-10）**：`sunshine version` 存在（教程引用有效）；workflow.md 714 行、1.1/1.2/1.3/1.4/2.1/2.2/3.3/3.4 与 `/sunshine:finish-work` 均真实存在；init 输出与教程引用一字不差、干净目录 115 个文件；`--help` 文案真实；`task create` 的 prd.md 骨架与教程引用一字不差；两份 README 的教程锚点（§4/§8/§12）与重写后实际标题逐个对得上。复验发现一个小缺口已直接补上：中文教程第 3 节列了 1.1/1.3/1.4，漏了可选的 **1.2 研究**且未说明——已补一行（英文版第 3 节是散文结构、未枚举步骤号，无此问题）。另：复验第一轮 `go test ./...` 末尾出过一次 FAIL，但输出只留了尾部 3 行、没抓到是哪个测试失败；随后连续 5 轮全量（562 个 PASS）与 supervisor/store 各 15 次、cli 3 次定向压测全部通过，未能复现。原因未定位，不谎报已修；若 CI 再抖，先抓完整日志再定。
+- **本批次改动尚未提交推送**，等用户定夺是否随下个版本发。
