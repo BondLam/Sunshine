@@ -1993,3 +1993,22 @@ pre-commit install       # 在仓库根目录执行一次
 - 实测验证：用户原先那条不带参数的一键命令装上 v0.3.4（`Sunshine 版本 0.3.4`）；0.3.3 二进制 `upgrade --dry-run` 正确查到 0.3.4；darwin_amd64 包 checksum OK，解出 Mach-O x86_64 二进制。
 - 插曲：本机 git 提交时报 Author identity unknown（沙箱环境无 user.name/user.email 配置），用 `-c user.name=linrong1982 -c user.email=linrong1982@users.noreply.github.com` 显式指定提交，与之前各版作者一致；以后提交都这么带。
 - 未复现的 FAIL 仍未复现（本轮两路 CI 全过，本地全量也全过）；若 CI 再抖，先抓完整日志再定。
+
+## workflow inline 分支加平台守卫（2026-11-10，用户定做）
+
+### 背景
+用户在 Mac 上用 Claude Code（Opus 5）跑任务：任务已建、分支已切，到第 2 阶段实现时主会话没有派发 `sunshine-implement` 子代理，而是调了 `sunshine-before-dev` skill、主会话直接写代码。用户指出：开场提示词不该点名派发——派发是 workflow 自身的默认做法；问走 inline 是否合理。
+
+### 核实结论
+- inline 分支是 Codex 专用的：workflow.md 里 `[workflow-state:in_progress-inline]` 是“第 2/3 阶段的 Codex inline 变体”，只在 `codex.dispatch_mode=inline` 时出现；hook（`internal/hook/workflow_state.go`）只在 Codex 上才发 `-inline` 标签，非 Codex 平台原样返回派发版。Claude Code 会话收到的本来就是派发版，模型是自己拐进了 inline。
+- 根因在 workflow.md 文本本身：inline 块内部没有任何平台限定词，“Codex 专用”只写在块外的 HTML 注释与状态表里，模型通读全文时容易把 inline 当作通用可选分支。
+- inline 本身不是坏流程（before-dev → 改代码 → check → update-spec → 提交 → finish-work 链路完整），但在 Claude Code 上不是规定路线；代价是主会话上下文被实现细节占满、失去子代理隔离。
+
+### 方案
+只改 workflow 模板文字，不改 hook（hook 的路由已正确）：
+- native 与 tdd 模板的 `[workflow-state:planning-inline]`、`[workflow-state:in_progress-inline]` 块内首行加守卫：仅 Codex 且 dispatch_mode=inline 时可用；Claude Code、Cursor 等支持子代理的平台一律走派发版，不得用本分支；in_progress-inline 守卫另加“不得以任务小、改动少为由改走 inline”。
+- native 与 tdd 模板的 `[workflow-state:in_progress]` 派发句后加 reinforcement：不得以任务小、改动少为由改走 inline；inline 分支只属于 Codex。
+- 教程 §4 的 2.1 摘要行同步加“仅 Codex”限定（中英文）。
+- 有意不动 channel-driven 模板：它的 in_progress-inline 是设计好的有条件许可（“只有用户要求 inline，或改动太小不值得派工作线程时，才允许 inline 实现”，且复核仍走 channel 派 check 工作线程），不是 Codex 专用分支，改它等于改行为。
+- 有意不动 `[codex-inline, Kilo, Antigravity, Devin, DeepSeek Harness]` 平台块：那些已按平台名正确限定，是不支持派发的平台的 inline 落点。
+- 既有项目通过 `sunshine update` 刷新 workflow.md 获得新写法（哈希变化走正常三态流程）。

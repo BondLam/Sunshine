@@ -103,7 +103,7 @@ agent 按 `.sunshine/workflow.md` 的三个阶段推进（下面是 workflow.md 
 
 ### 第 2 阶段：执行
 
-- **2.1 实现**：主会话默认派发 `sunshine-implement` 子代理写代码（inline 模式下主会话直接改代码，不派发子代理）。
+- **2.1 实现**：主会话默认派发 `sunshine-implement` 子代理写代码（inline 模式仅 Codex 下，主会话直接改代码，不派发子代理）。
 - **2.2 质量检查**：派发 `sunshine-check` 子代理按 `check.jsonl` 里的规范与验收标准检查；反复调试同一问题时走 `sunshine-break-loop` 复盘。
 
 ### 第 3 阶段：收尾

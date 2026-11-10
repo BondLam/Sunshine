@@ -203,6 +203,7 @@ TDD 规划关卡：在 `task start` 之前记录可观测的行为切片、待�
      inline 工作流改用 `sunshine-before-dev` 加载上下文，而不是向子代理注入 JSONL。 -->
 
 [workflow-state:planning-inline]
+本分支仅 Codex 且 dispatch_mode=inline 时可用；Claude Code、Cursor 等支持子代理的平台一律走 [workflow-state:planning]，不得用本分支。
 加载 `sunshine-brainstorm`；留在规划阶段。
 轻量任务：`prd.md` 可能就够了。复杂任务：写完 `prd.md`、`design.md` 和 `implement.md`；`task start` 之前先请用户复核。
 多交付物范围：考虑父任务加多个可独立验证的子任务；依赖必须写进子任务产物，不能只靠树的位置暗示。
@@ -224,7 +225,7 @@ Inline 模式：跳过 jsonl 整理；第 2 阶段通过 `sunshine-before-dev` �
 
 [workflow-state:in_progress]
 流程：选一个行为 -> 红灯测试 -> 绿灯实现 -> 绿灯下重构 -> `sunshine-check` -> `sunshine-update-spec` -> 提交（第 3.4 步）-> `/sunshine:finish-work`。
-主会话默认：派发 implement/check 子代理。子代理自豁免：如果自己已经是 `sunshine-implement`，不要再派生 `sunshine-implement` 或 `sunshine-check`；如果自己已经是 `sunshine-check`，不要再派生 `sunshine-check` 或 `sunshine-implement`。派发只由主会话做。
+主会话默认：派发 implement/check 子代理。不得以任务小、改动少为由改走 inline；inline 分支只属于 Codex（见 [workflow-state:in_progress-inline]）。子代理自豁免：如果自己已经是 `sunshine-implement`，不要再派生 `sunshine-implement` 或 `sunshine-check`；如果自己已经是 `sunshine-check`，不要再派生 `sunshine-check` 或 `sunshine-implement`。派发只由主会话做。
 派发提示词以 `Active task: <task current 给出的任务路径>` 开头。读上下文的顺序：jsonl 条目 -> `prd.md` -> `design.md（如有）` -> `implement.md（如有）`。
 [/workflow-state:in_progress]
 
@@ -233,6 +234,7 @@ Inline 模式：跳过 jsonl 整理；第 2 阶段通过 `sunshine-before-dev` �
      主会话直接改代码，不派发子代理。 -->
 
 [workflow-state:in_progress-inline]
+本分支仅 Codex 且 dispatch_mode=inline 时可用；Claude Code、Cursor 等支持子代理的平台一律走 [workflow-state:in_progress] 派发 implement/check 子代理，不得以任务小、改动少为由改走 inline。
 流程：`sunshine-before-dev` -> 选一个行为 -> 红灯测试 -> 绿灯实现 -> 绿灯下重构 -> `sunshine-check` -> 验证 -> `sunshine-update-spec` -> 提交（第 3.4 步）-> `/sunshine:finish-work`。
 Inline 模式下不要派发 implement/check 子代理。
 读上下文的顺序：`prd.md` -> `design.md（如有）` -> `implement.md（如有）`，再加上 skill 加载的相关规范/研究。
