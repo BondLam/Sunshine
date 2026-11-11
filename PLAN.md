@@ -2276,3 +2276,18 @@ pre-commit install       # 在仓库根目录执行一次
 - 写法：中英文 §12.6 整节重写，对话驱动，命令只贴关键输出；五处进退场标记：**【设计人员进场】** / **【设计人员退场，开发人员进场】** / **【开发人员退场】** / **【设计人员返场】**（英文同款 `[Designer enters]` / `[Designer exits, developers enter]` / `[Developers exit]` / `[Designer returns]`，退场进场标记在变更段再出现一次）。
 - 教训（第二次）：`muse.write` 写中文教程时会把 `**【……】**` 里的【】内容整段去掉，只剩 `****`——本轮五处标记全中招，英文 `[]` 不受影响。以后写完中文标记行必须 grep 复核，有 `****` 残留就用 `muse.edit` 逐行补。
 - 附带：沙箱 `/usr/local/bin/sunshine` 被 VM 更换清掉过一次（不带参数一键装回 v0.3.10）；原型 mock 假数据是事后补的两行（提交 `ee83237`，在变更归档之后），教程里关于原型内容的说法以最终文件为准，任务/curl/提交等实跑输出不受影响。
+
+## §12.6 变更段展开：设计人员返场有实活，交接有凭据（2026-11-11，未提交）
+
+- 用户纠正：变更段太省略了——设计人员返场要重新设计原型、调整相应文档，评审后开发才进场，中间的交接不能让 Claude 一笔带过。
+- 交接机制（已写进教程）：① 改好的设计包（`doc/` 里的文件就是合同，开发照着改）；② 评审确认（只审变更部分，确认完才往下走）；③ 新任务的上下文清单（`implement.jsonl`/`check.jsonl`——开发人员进场只读这两份清单里的文件，不用重读整个设计包）；④ PRD 里的 `[变更 YYYY-MM-DD]` 记录（审计线索）。
+- 变更段重写（中英文，中文 18→55 行、英文 18→57 行）：设计人员返场改三处（真实行号+内容：需求列表.md:9、概要设计.md:16、原型.html:12，改后都是 5 天）→ 只审变更部分的评审对话 → “交接：开发人员拿到什么”（三样东西 + 变更任务真实的 implement.jsonl/check.jsonl 内容 + PRD 变更记录原文）→ 开发人员进场（curl 两档、提交 `add1c30`、归档后 4 个任务）。演示目录不用重跑，交接物都是 `/tmp/scenes/s6-leave` 里已有的真实文件。
+- 教训（第三次）：`muse.write` 写中文教程时 `**【……】**` 里的【】内容又被整段去掉、只剩 `****`——本轮变更段两处新标记全中招，已用 `muse.edit` 逐行补回并复核（中英文各 5 处标记、无残留）。
+
+## §12.6 中段重写：拆解产出物 + 一轮一轮的开发循环 + 关闭重开后接上（2026-11-11，未提交）
+
+- 用户要求：需求 → 设计文档 → 拆解 → 开发，要写清拆解的产出物是什么、开发进场后怎么按交接物一轮一轮编码；Claude 关闭重开后开发人员也要知道怎么接上，不能让 Claude 一句话就带去工作。
+- 拆解产出物（真实目录树 + task.json 摘录）：每个任务目录四份文件（task.json、prd.md、implement.jsonl、check.jsonl）；父任务 task.json 的 children 记两个子任务、子任务的 parent 指回父任务、status 是 planning；父任务的两个 jsonl 是空文件（0 字节）；需求一 implement.jsonl 指原型申请页 + 概要设计，check.jsonl 指前端规范 + 后端接口契约；prd.md 是骨架（“待定”），agent 在子任务自己的 1.1 里填实，复杂任务 start 前补 design.md/implement.md（prd.md 模板原话）。
+- 开发循环（五轮，每轮写清读什么、产出什么）：2.1 实现（读 implement.jsonl + prd.md，派 implement，产出改好的代码）→ 2.2 检查（读 check.jsonl，派 check，产出 grep/curl 验收）→ 3.3 回写规范（产出更新后的 spec）→ 3.4 提交（产出提交）→ 收尾（finish 清指针、archive 搬目录、父任务 1/2）。需求二走同样的五轮（对话略）。
+- 关闭重开后接上（单独小演示 /tmp/scenes/s6-resume 真实跑通）：状态全在文件里（task.json 的 status、.current-task 指针、jsonl、prd.md、spec），新会话跑 /sunshine:continue → task context → 按 status 分流（continue.md 路由规则原文）；新 shell 里 task current 返回任务路径、task context 显示“来源：file:.sunshine/.current-task、状态：in_progress、[!] 该任务有 prd.md，详情请读它”；.current-task 里就一行任务路径。两个注意点（真实踩过）：task start 有守卫，check.jsonl 为空直接报“错误：check.jsonl 没有已整理条目”（第一次 start 失败就是被我的 grep 滤掉了报错）；归档完的任务不在活动列表、不会再被续接，变更走新任务。
+- 教训（第四次）：muse.write 写中文教程时 **【……】** 又被整段去掉——本轮中段文件首行和第 105 行两处标记全中招，splice 的标题断言拦住了错误拼接（工作树没被破坏），用 sed 按行号补回后重拼成功。

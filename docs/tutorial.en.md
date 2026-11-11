@@ -1412,12 +1412,62 @@ Then comes the requirements review — the designer's last act before exiting: C
 
 The split happens once, after the review passes — and it follows the requirements: one prototype serves multiple requirements, so the sub-tasks split per requirement, covering the whole scope, with the sub-task list settled in one pass; the split itself starts nothing, and both sub-tasks are created in `planning`. The parent task records the sub-task map, and developers enter with the work already split and the context already curated (each sub-task's context points at its own page in the system prototype).
 
+**What the split produces: what lands on disk**
+
+The split is not just a line in the conversation — it lands on disk as real files (real directory tree; a task directory looks the same before and after archiving, except archiving moves it under `archive/2026-11/`):
+
+```text
+.sunshine/tasks/11-11-请假申请小工具/
+  task.json        # parent task: children lists the two sub-tasks
+  prd.md           # the parent task's PRD
+  implement.jsonl  # empty — the parent implements nothing
+  check.jsonl      # empty
+.sunshine/tasks/11-11-需求一-提交请假申请/
+  task.json        # sub-task: parent points back at the parent, status is planning
+  prd.md           # the sub-task's PRD (a skeleton; the agent fills it in at 1.1)
+  implement.jsonl  # what to read when implementing: the request page in the system prototype + the outline design
+  check.jsonl      # what to check against: the frontend spec + the backend API contract
+.sunshine/tasks/11-11-需求二-审批请假申请/
+  ...（the same four files）
+```
+
+The parent's `task.json` records the sub-task map (real content):
+
+```json
+"children": ["11-11-需求一-提交请假申请", "11-11-需求二-审批请假申请"]
+```
+
+The sub-task's `task.json` points back at the parent (real content):
+
+```json
+"parent": "11-11-请假申请小工具",
+"status": "planning"
+```
+
+Requirement one's context lists (real content) — this is what developers read on entry:
+
+```json
+implement.jsonl
+{"file":"doc/prototype/原型.html","reason":"系统原型：申请页"}
+{"file":"doc/design/概要设计.md","reason":"概要设计：接口与验收"}
+
+check.jsonl
+{"file":".sunshine/spec/frontend.md","reason":"前端规范：申请页"}
+{"file":".sunshine/spec/backend.md","reason":"接口契约：POST"}
+```
+
+The sub-task's `prd.md` is a skeleton that the agent fills in at the sub-task's own 1.1; complex tasks also add a `design.md` (technical design) and an `implement.md` (execution plan) before `start` — that is what the `prd.md` template itself says. In this demo the requirements live in the `doc/` design package, and the sub-tasks' context lists point at it.
+
+**Developers enter: round by round**
+
 Requirement one starts first. What Claude Code runs underneath (you don't type it), key output only:
 
 ```sh
 sunshine task start 11-11-需求一-提交请假申请
 # ✓ 状态：planning → in_progress（降级）
 ```
+
+Once `start` succeeds, the status is written into `task.json` and the pointer into `.sunshine/.current-task` — close the session and reopen it, and the state is still in the files, not in the conversation (there is a resumption example below).
 
 Here is the session while it develops (the conversation is an example; the commands and outputs are real values from runs):
 
@@ -1431,7 +1481,15 @@ Here is the session while it develops (the conversation is an example; the comma
 
 Key output (real runs): the three grep checks read `3`, `2`, `1` (three type options, two `required` spots, one submit guard); the three curl checks: a missing reason is `{"error":"reason 必填"}`, HTTP 400, 11 days is `{"code":"NEED_APPROVAL","data":null}`, 2 days is 200 with record `id` 2 and `days` 2; the commit is `31e6c36 需求一：提交请假申请，申请页 + POST 接口` (requirement one: submit a leave request, request page plus POST API); after the archive the parent shows 1/2 done.
 
-Only after requirement one is archived does requirement two start — it runs the same loop:
+One sub-task goes round by round like this — what each round reads and what it produces is in the files, never in the conversation:
+
+1. **Implement (2.1)**: read the files in `implement.jsonl` (the request page in the system prototype, the outline design) plus your own `prd.md`, and dispatch `sunshine-implement` to change the code. Produces: the changed `LeaveForm.vue` and `server.js`.
+2. **Check (2.2)**: read the files in `check.jsonl` (the frontend spec, the backend API contract) and dispatch `sunshine-check` to verify. Produces: the grep / curl verification results.
+3. **Write back the spec (3.3)**: `sunshine-update-spec` writes the new conventions into `spec/` (leave form, leave API). Produces: the updated `frontend.md` and `backend.md`.
+4. **Commit (3.4)**: one commit (code plus spec conventions). Produces: commit `31e6c36`.
+5. **Wrap up**: `task finish` clears the pointer, `task archive` moves the task directory into `archive/2026-11/` and sets the status to `completed`. Produces: the archived task directory, and the parent at 1/2 done.
+
+Only after requirement one is archived does requirement two start — the same five rounds (dialogue skipped; the commands and outputs are real values from runs):
 
 > **Claude Code:** Requirement two is starting: dispatching `sunshine-implement` to change `LeaveList.vue` against the approval list page in the system prototype — the GET API already exists — then `sunshine-check` to verify.
 >
@@ -1475,21 +1533,102 @@ sunshine task list-archive
 
 The designer enters with only a requirement and exits leaving a complete design package; developers enter with the work already split per requirement and the context already curated, and exit with 0 active tasks and 3 archived.
 
+**Picking the work back up after closing and reopening**
+
+Close Claude Code and reopen it, and the conversation is gone — but the state is all in the files: the `status` in `task.json`, the pointer in `.sunshine/.current-task`, the `implement.jsonl` / `check.jsonl`, the `prd.md`, the `spec/`. The new session doesn't have to remember anything; it just runs `/sunshine:continue` — which first runs `sunshine task context` to see the current task, then routes by `status` to the matching step (2.1 implement, 2.2 check, 3.3 write back the spec, 3.4 commit).
+
+Here is a real resumption (a separate minimal demo, only to verify the mechanism; a fresh shell with nothing shared from the previous session, reading files only):
+
+```sh
+sunshine task current
+# .sunshine/tasks/11-11-接续演示任务
+
+sunshine task context
+# ## 当前任务
+# 路径：.sunshine/tasks/11-11-接续演示任务
+# 来源：file:.sunshine/.current-task
+# 名字：接续演示任务
+# 状态：in_progress
+# 创建：2026-11-11
+# 描述：演示关闭重开后怎么接上
+#
+# [!] 该任务有 prd.md，详情请读它
+```
+
+`.sunshine/.current-task` holds a single line — the task path:
+
+```text
+.sunshine/tasks/11-11-接续演示任务
+```
+
+Here is what resumption looks like in the session (the conversation is an example; the commands and outputs are real values from runs):
+
+> **You:** (Next day, reopening Claude Code) Keep working on the leave-request tool.
+>
+> **Claude Code:** Let me check the current task first: `task context` says the current task is requirement one, status `in_progress`, implementation not started yet. I'll read the request page in the system prototype and the outline design from the context list and start at 2.1 implementing. OK?
+>
+> **You:** OK, go on.
+
+Two things worth knowing, both hit for real:
+
+- `task start` has a guard: an empty `check.jsonl` fails outright (`错误：check.jsonl 没有已整理条目`), so curate the context with `add-context` before `start`, or pass `--allow-empty-context`.
+- The pointer lives in `.sunshine/.current-task`: `task finish` clears it, and `task archive` moves the task directory into the archive. An archived task is off the active list and can never be resumed — which is why a change goes through a new task.
+
 **Requirement change: the cap moves from 10 days to 5 — the designer returns**
 
-After the project is done and archived, the business asks for the annual-leave cap to move from 10 days to 5 days per request. Follow the requirement-change rule in workflow 1.5: the three archived tasks stay archived — no reopening; the change gets a new task. But the design package is the designer's deliverable, so changing it means the designer returns first.
+After the project is done and archived, the business asks for the annual-leave cap to move from 10 days to 5 days per request. Follow the requirement-change rule in workflow 1.5: the three archived tasks stay archived — no reopening; the change gets a new task. But the design package is the designer's deliverable, so changing it means the designer returns first — and the return is real work, not one line: three concrete edits, a review of only the changed part, and a handoff with receipts.
 
 **[Designer returns]**
 
 > **You:** The requirement changed: the annual-leave cap moves from 10 days to 5 days per request. Follow the Sunshine workflow: the designer returns to change the design package first, and implementation only starts after the review passes.
 >
-> **Claude Code:** The blast radius is requirement one only: requirement two is archived and unaffected (the list page doesn't cap the number of days) — no reopening; requirement one is archived too — no reopening either. Here's the plan: the designer returns first and changes 10 days to 5 in the requirements list, the outline design, and the system prototype, then exits after the review passes; then a new task "年假上限改成 5 天" records `[变更 2026-11-11]` in its PRD, the check in `server.js` moves to 5 days, the spec updates the same way, and curl verifies the 6-day and 5-day cases. Once you confirm, I'll start. OK?
+> **Claude Code:** The blast radius is requirement one only: requirement two is archived and unaffected (the list page doesn't cap the number of days) — no reopening; requirement one is archived too — no reopening either. Here's the plan: the designer returns first and changes three places — the requirement-one line in the requirements list, the interface line in the outline design, and the cap note on the request page in the system prototype; the review then covers only those three places, and the designer exits after it passes; then a new task "年假上限改成 5 天" records `[变更 2026-11-11]` in its PRD, the check in `server.js` moves to 5 days, the spec updates the same way, and curl verifies the 6-day and 5-day cases. Once you confirm, I'll start. OK?
 >
 > **You:** OK, go ahead.
 
-Once the designer has returned, changed the design package, and exited after the review passes, developers enter:
+Here are the three places the designer changed on the return (real file content, all 5 days after the change):
+
+```text
+doc/design/需求列表.md:9
+- 年假单次最长 5 天，超限提交后返回 NEED_APPROVAL（走审批）。
+
+doc/design/概要设计.md:16
+- 年假单次最长 5 天，超限返回 `NEED_APPROVAL`。
+
+doc/prototype/原型.html:12
+<p>年假单次最长 5 天，超限走审批。</p>
+```
+
+(In English: the requirements list line — "Annual leave is at most 5 days per request; over the cap it returns NEED_APPROVAL for approval." The outline design line — "Annual leave is at most 5 days per request; over the cap it returns `NEED_APPROVAL`." The prototype line — "Annual leave is at most 5 days per request; over the cap it goes to approval.")
+
+Then comes the requirements review — this time only the changed part is reviewed, not the whole design package again:
+
+> **Claude Code:** For review, only the three changed places: the cap moved from 10 days to 5 in the requirements list, the outline design, and the system prototype, and nothing else changed a word; requirement two is unaffected. Once you confirm, the designer exits, I'll create the new task and curate its context, and developers enter. OK?
+>
+> **You:** OK.
+
+**The handoff: what the developer receives**
+
+The review passes, and the designer exits. What developers receive on entry is not one line — it is three things:
+
+1. **The updated design package**: the three places above. The files in `doc/` are the contract; development follows them.
+2. **The review confirmation**: the confirmation of only the changed part. Nothing moves on until it is given.
+3. **The new task's context lists**: the `implement.jsonl` and `check.jsonl` of the new task "年假上限改成 5 天". Developers entering read only the files on these two lists — they don't re-read the whole design package:
+
+```json
+implement.jsonl
+{"file":"src/server.js","reason":"后端：上限 10 天改成 5 天"}
+{"file":"doc/design/概要设计.md","reason":"概要设计：上限已改成 5 天"}
+
+check.jsonl
+{"file":".sunshine/spec/backend.md","reason":"接口契约"}
+```
+
+The PRD records it too (real content): `[变更 2026-11-11] 年假单次最长从 10 天改成 5 天（业务方要求）。设计人员已返场：需求列表、概要设计、系统原型都改成 5 天并评审通过。只影响需求一的后端校验：需求二已归档且不受影响，不 reopen；需求一已归档，不 reopen，变更走本任务。` (In English: "[Change 2026-11-11] The annual-leave cap moves from 10 days to 5 days per request (business request). The designer has returned: the requirements list, the outline design, and the system prototype all moved to 5 days and passed review. It affects only requirement one's backend check: requirement two is archived and unaffected — no reopening; requirement one is archived too — no reopening; the change goes through this task.")
 
 **[Designer exits, developers enter]**
+
+Developers enter and implement against the new task's context: the check in `server.js` moves to 5 days, the spec updates the same way, and curl verifies both cases.
 
 Key output (real runs): 6 days returns `{"code":"NEED_APPROVAL","data":null}`, 5 days returns 200 with record `id` 3 and `days` 5; the commit is `add1c30 变更：年假上限改成 5 天（10→5）` (change: annual-leave cap moves to 5 days, 10 → 5); after the archive there are 4 tasks in total. The three old tasks sit untouched in the archive, and the change is its own task with a complete record — next time someone asks why the cap is 5 days, the `[变更 2026-11-11]` line in `prd.md` is the answer.
 
