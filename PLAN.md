@@ -2238,7 +2238,7 @@ pre-commit install       # 在仓库根目录执行一次
 - Release：https://github.com/linrong1982/Sunshine/releases/tag/v0.3.9，6 个资产；发布 run 42979134926、两路 CI（42979134941、42979097187）均 success 无抖动。
 - 实测：不带参数一键装上 v0.3.9（`sunshine version` = 0.3.9）；v0.3.8 原版二进制 upgrade --dry-run 查到 v0.3.9；darwin arm64 包 checksum OK（327da167…）、Mach-O arm64。
 
-## §12.6 例子纠正：设计包做完才拆解，一次拆完（2026-11-11，未提交）
+## §12.6 例子纠正：设计包做完才拆解，一次拆完（2026-11-11，已随 v0.3.10 发布）
 
 ### 用户的纠正
 - 原例子读起来像“做好一个页面就拆一次任务、边设计边开发”；用户定：正常产品设计人员是把所有产出物都产出了，开发才进厂——高保真原型做出来后，开发才开始做；拆解只做一次，拆的是整个范围。
@@ -2254,3 +2254,9 @@ pre-commit install       # 在仓库根目录执行一次
 - `go build` / `gofmt` / `go vet` 干净，全量 `go test ./...` 全过 0 失败（19 个包）。
 - 真实二进制三模板落盘检查：native、tdd、channel-driven 的 workflow.md 里各有 1 处“拆解只做一次”；brainstorm skill 落盘有 1 处“一次拆完整个范围”。
 - 教程核对：删除行只有被改写的旧措辞（本轮 6 行 + 上轮 4 行），七处开场提示词一个字没动，标题未变。
+
+## v0.3.10 发布记录（2026-11-11）
+
+- 内容：§12.6 例子纠正——设计包做完才拆解，一次拆完（教程 §12.6 引言/设计包/拆解过渡三处同步；三份 workflow 模板 1.2 加“拆解只做一次”，brainstorm skill 第 8 步同步）+ 上轮 §12.6 顺序说明（拆解完不自动开发，评审通过、逐个激活才开始；前端归档后后端才启动）。主提交远端 `c772558`（7 个文件），tag 对象 `b4b90c5`。
+- Release：https://github.com/linrong1982/Sunshine/releases/tag/v0.3.10，6 个资产；发布 run 42982006525、两路 CI（42982006622、42981987667）均 success 无抖动。
+- 实测：不带参数一键装上 v0.3.10（`sunshine version` = 0.3.10）；v0.3.9 原版二进制 upgrade --dry-run 查到 v0.3.10；darwin arm64 包 checksum OK（9207a76a…）、Mach-O arm64。
