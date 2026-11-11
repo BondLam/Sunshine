@@ -29,8 +29,8 @@ const (
 	Backend
 	// Fullstack 表示前后端全栈项目。
 	Fullstack
-	// Design 表示产品设计先行项目：只生成通用规范与 doc/ 设计文档模板，
-	// 不生成前后端规范（技术栈待定，以后定了再 init -f 补）。
+	// Design 表示产品设计先行项目：生成全套规范（与全栈相同），
+	// 另写 doc/ 设计文档模板。
 	Design
 )
 

@@ -1529,7 +1529,316 @@ Real output:
 总计：3 个任务
 ```
 
-The parent shows `active` with 0/2 done and both sub-tasks under it; the frontend sub-task is already `in_progress` while the backend one is still `planning`, waiting for the frontend to finish. Once both sub-tasks are done and checked, the parent gets a final integration review — against the acceptance criteria in the outline design and the prototype — and then it is archived.
+The parent shows `active` with 0/2 done and both sub-tasks under it; the frontend sub-task is already `in_progress` while the backend one is still `planning`, waiting for the frontend to finish. **Frontend sub-task: implement → check → commit → archive**
+
+Here is the session during development (the conversation is an example; the commands and outputs are real values from runs):
+
+> **Claude Code:** Starting the frontend sub-task: the main session dispatches `sunshine-implement` to rework `Refund.vue` against the prototype, then dispatches `sunshine-check` to verify against the frontend spec in `check.jsonl`.
+>
+> **Claude Code:** Implement is done: the reason dropdown has three options (quality issue / wrong size / other), `required` makes it mandatory, picking "other" shows a text box, and submitting with nothing picked is blocked. Check passed too: all three options are there, `required` is there, the submit guard is there. I also added a refund-form convention to the spec. One commit? (A single commit: frontend rework + spec convention.)
+>
+> **You:** Go ahead — commit it, then archive this sub-task.
+>
+> **Claude Code:** Done. After the commit, `task finish` clears the pointer and `task archive` archives it. The parent is now 1/2 done.
+
+Implement reworked `src/Refund.vue` (against the prototype: the reason dropdown is mandatory):
+
+```vue
+<template>
+  <form @submit.prevent="submit">
+    <label>退款原因（必填）
+      <select v-model="reason" required>
+        <option value="">请选择</option>
+        <option>质量问题</option>
+        <option>尺寸不符</option>
+        <option>其他</option>
+      </select>
+    </label>
+    <label v-if="reason === '其他'">其他原因 <input v-model="otherReason" type="text" /></label>
+    <label>退款金额 <input v-model.number="amount" type="number" /></label>
+    <button type="submit">提交退款</button>
+  </form>
+</template>
+```
+
+The submit guard sits in `submit()`: `if (!this.reason) return` (line 24) — with no reason picked, it returns without sending a request.
+
+Check verifies each acceptance criterion from the outline design (real runs):
+
+```sh
+grep -c '<option>质量问题</option>\|<option>尺寸不符</option>\|<option>其他</option>' src/Refund.vue
+# 3
+grep -n 'required' src/Refund.vue
+# 4:      <select v-model="reason" required>
+grep -n "if (!this.reason) return" src/Refund.vue
+# 24:      if (!this.reason) return
+grep -n "v-if=\"reason === '其他'\"" src/Refund.vue
+# 11:    <label v-if="reason === '其他'">其他原因 <input v-model="otherReason" type="text" /></label>
+```
+
+Step 3.3 (spec update) adds this to `.sunshine/spec/frontend.md` (what actually landed):
+
+```markdown
+## 退款表单
+
+- 原因下拉框必选（质量问题 / 尺寸不符 / 其他），选“其他”时出现文本框；不选提交时表单拦住。
+```
+
+(In English: "Refund form: the reason dropdown is mandatory (quality issue / wrong size / other); picking 'other' shows a text box; submitting with nothing picked is blocked.")
+
+Step 3.4 (commit), then `task finish` clears the pointer and `task archive` archives it (real runs):
+
+```sh
+git add -A && git commit -qm "前端：退款表单按原型改版，原因下拉框必填"
+git log --oneline -1
+# 729fa17 前端：退款表单按原型改版，原因下拉框必填
+
+sunshine task finish
+# ✓ 已清除当前任务（原为：.sunshine/tasks/11-11-前端-退款表单按原型改版）
+```
+
+A plain `task archive` is refused here (`branch` and `base_branch` are both `master` — the demo never went through a PR), so add `--skip-branch-validation` (same as in 12.2):
+
+```sh
+sunshine task archive 11-11-前端-退款表单按原型改版 --skip-branch-validation
+# .sunshine/tasks/archive/2026-11/11-11-前端-退款表单按原型改版
+# 已归档：11-11-前端-退款表单按原型改版 -> archive/2026-11/
+# [OK] 已自动提交：chore(task): archive 11-11-前端-退款表单按原型改版
+```
+
+The task list now looks like this:
+
+```sh
+sunshine task list
+```
+
+Real output:
+
+```text
+全部活动任务：
+
+  - 11-11-退款流程改版/ (planning) [1/2 已完成] [演示者]
+    - 11-11-后端-退款原因必填校验/ (planning) [演示者]
+
+总计：2 个任务
+```
+
+**Backend sub-task: implement → check → commit → archive**
+
+The backend sub-task runs the same loop — line up context first, then start (real runs):
+
+```sh
+sunshine task add-context 11-11-后端-退款原因必填校验 implement src/server.js "API：缺 reason 返回 400，超限返回 NEED_APPROVAL"
+# 已添加文件：src/server.js
+
+sunshine task add-context 11-11-后端-退款原因必填校验 implement doc/design/退款流程概要设计.md "概要设计：接口与验收"
+# 已添加文件：doc/design/退款流程概要设计.md
+
+sunshine task add-context 11-11-后端-退款原因必填校验 check .sunshine/spec/backend.md "接口契约"
+# 已添加文件：.sunshine/spec/backend.md
+
+sunshine task start 11-11-后端-退款原因必填校验
+# ✓ 状态：planning → in_progress（降级）
+```
+
+Here is the session during development (the conversation is an example; the commands and outputs are real values from runs):
+
+> **Claude Code:** The backend sub-task now: implement changes `server.js`, check verifies the three acceptance criteria with curl. Shall I start?
+>
+> **You:** Go ahead.
+>
+> **Claude Code:** Done: missing `reason` returns 400, over 5000 returns `NEED_APPROVAL`, a normal request returns 200 and the record carries a `reason` field; I added a refund-API convention to the spec. Commit and archive? (A single commit: backend validation + spec convention.)
+>
+> **You:** Go ahead — commit it, then archive.
+>
+> **Claude Code:** Done. After the commit I'll archive the backend sub-task; the parent is 2/2 done, ready for the final integration review.
+
+Implement added two checks to `server.js` (following the interface contract in the outline design):
+
+```js
+if (!data.reason) {
+  res.writeHead(400, { 'Content-Type': 'application/json' })
+  res.end(JSON.stringify({ error: 'reason 必填' }))
+  return
+}
+if (data.amount > 5000) {
+  res.writeHead(200, { 'Content-Type': 'application/json' })
+  res.end(JSON.stringify({ code: 'NEED_APPROVAL', data: null }))
+  return
+}
+```
+
+Check verifies the three acceptance criteria with curl (real runs; start the service first with `node src/server.js`, port 3000):
+
+```sh
+curl -s -w '\nHTTP %{http_code}\n' -X POST localhost:3000/api/v1/refunds -H 'Content-Type: application/json' -d '{"amount": 100}'
+# {"error":"reason 必填"}
+# HTTP 400
+
+curl -s -X POST localhost:3000/api/v1/refunds -H 'Content-Type: application/json' -d '{"reason": "质量问题", "amount": 5001}'
+# {"code":"NEED_APPROVAL","data":null}
+
+curl -s -X POST localhost:3000/api/v1/refunds -H 'Content-Type: application/json' -d '{"reason": "质量问题", "amount": 100}'
+# {"code":"OK","data":{"id":2,"reason":"质量问题","amount":100,"status":"待付款"}}
+```
+
+The third criterion — the refund record carries a `reason` field — is visible in `data/refunds.json` too (the newly written second record has `reason`).
+
+Step 3.3 (spec update) adds this to `.sunshine/spec/backend.md` (what actually landed):
+
+```markdown
+## 退款接口
+
+- `POST /api/v1/refunds`：缺 `reason` 返回 400，错误体 `{"error": "reason 必填"}`；退款上限 5000 元，超限返回 `NEED_APPROVAL`；正常返回 `{ code: "OK", data: <记录> }`，记录里有 `reason` 字段。
+```
+
+(In English: "Refund API: `POST /api/v1/refunds` returns 400 with `{"error": "reason 必填"}` when `reason` is missing; the refund cap is 5000 元, over the cap returns `NEED_APPROVAL`; a normal request returns `{ code: "OK", data: <record> }`, and the record carries a `reason` field.")
+
+Step 3.4 (commit), clear the pointer, archive (real runs):
+
+```sh
+git add -A && git commit -qm "后端：退款原因必填校验，缺 reason 返回 400，超限返回 NEED_APPROVAL"
+git log --oneline -1
+# aef98d6 后端：退款原因必填校验，缺 reason 返回 400，超限返回 NEED_APPROVAL
+
+sunshine task finish
+# ✓ 已清除当前任务（原为：.sunshine/tasks/11-11-后端-退款原因必填校验）
+
+sunshine task archive 11-11-后端-退款原因必填校验 --skip-branch-validation
+# .sunshine/tasks/archive/2026-11/11-11-后端-退款原因必填校验
+# 已归档：11-11-后端-退款原因必填校验 -> archive/2026-11/
+# [OK] 已自动提交：chore(task): archive 11-11-后端-退款原因必填校验
+```
+
+The task list now holds only the parent:
+
+```sh
+sunshine task list
+```
+
+Real output:
+
+```text
+全部活动任务：
+
+  - 11-11-退款流程改版/ (planning) [2/2 已完成] [演示者]
+
+总计：1 个任务
+```
+
+**Parent task: final integration review → archive**
+
+Once both sub-tasks are done and checked, the parent gets a final integration review — against the acceptance criteria in the outline design and the prototype — and then it is archived:
+
+Here is the review exchange (the conversation is an example; the commands and outputs are real values from runs):
+
+> **Claude Code:** Final integration review, against the acceptance criteria in the outline design and the prototype: 1. the reason dropdown is mandatory and submitting with nothing picked is blocked — the frontend sub-task verified that; 2. a request without `reason` returns 400 — the backend verified that with curl; 3. the refund record carries a `reason` field — it is in `data/refunds.json`. All three pass; the parent can be archived. Shall I archive it?
+>
+> **You:** Yes, archive it.
+
+The parent was never started (it only splits the work, it implements nothing itself), so there is no pointer to clear — archive it directly (real runs):
+
+```sh
+sunshine task archive 11-11-退款流程改版 --skip-branch-validation
+# .sunshine/tasks/archive/2026-11/11-11-退款流程改版
+# 已归档：11-11-退款流程改版 -> archive/2026-11/
+# [OK] 已自动提交：chore(task): archive 11-11-退款流程改版
+
+sunshine task list
+# 全部活动任务：
+#
+#   （没有活动任务）
+#
+# 总计：0 个任务
+
+sunshine task list-archive
+# 已归档任务：
+#
+# [2026-11] - 3 个任务
+#   - 11-11-前端-退款表单按原型改版/
+#   - 11-11-后端-退款原因必填校验/
+#   - 11-11-退款流程改版/
+```
+
+**Requirement change: the cap moves from 5000 to 3000**
+
+After the project is done and archived, the business asks for the refund cap to move from 5000 元 to 3000 元. Follow the requirement-change rule in workflow 1.5: the three archived tasks stay archived — no reopening; the change gets a new task. `doc/` is a living project document, so it changes with the requirement; archived task records stay untouched.
+
+Here is the session (the conversation is an example; the commands and outputs are real values from runs):
+
+> **You:** The requirement changed: the refund cap moves from 5000 元 to 3000 元. Follow the Sunshine workflow: confirm the blast radius first, then implement.
+>
+> **Claude Code:** The blast radius is the backend only: the frontend sub-task is archived and unaffected (the form doesn't cap the amount) — no reopening; the backend sub-task is archived too — no reopening either. Here's the plan: create a new task "退款上限改成 3000 元", record `[变更 2026-11-11]` in its PRD, change 5000 to 3000 in the outline design and the prototype, change the check in `server.js` to 3000, update the spec the same way, and verify the 3001 and 3000 cases with curl. Once you confirm, I'll start. OK?
+>
+> **You:** OK, go ahead.
+
+The new task's `prd.md` records the change (what actually landed):
+
+```markdown
+## 变更记录
+
+- [变更 2026-11-11] 退款上限从 5000 元改成 3000 元（业务方要求）。只影响后端校验与设计文档：前端子任务已归档且不受影响（表单不拦金额上限），不 reopen；后端子任务已归档，不 reopen，变更走本任务。
+```
+
+(In English: "Change log: [Change 2026-11-11] The refund cap moves from 5000 元 to 3000 元 (business request). It only affects the backend validation and the design documents: the frontend sub-task is archived and unaffected (the form doesn't cap the amount) — no reopening; the backend sub-task is archived — no reopening; the change goes through this task.")
+
+The design documents change with it (real edits): the interface line in the outline design now reads "退款上限 3000 元，超限返回 `NEED_APPROVAL`"; the amount input in the prototype is now `max="3000"`.
+
+Create the task, line up context, start it (real runs):
+
+```sh
+sunshine task create "退款上限改成 3000 元" --description "变更：原 11-11-退款流程改版 退款上限 5000 元改成 3000 元" --priority P2
+# .sunshine/tasks/11-11-退款上限改成-3000-元
+
+sunshine task add-context 11-11-退款上限改成-3000-元 implement src/server.js "后端：上限 5000 改成 3000"
+# 已添加文件：src/server.js
+
+sunshine task add-context 11-11-退款上限改成-3000-元 implement doc/design/退款流程概要设计.md "概要设计：上限已改成 3000"
+# 已添加文件：doc/design/退款流程概要设计.md
+
+sunshine task add-context 11-11-退款上限改成-3000-元 check .sunshine/spec/backend.md "接口契约"
+# 已添加文件：.sunshine/spec/backend.md
+
+sunshine task start 11-11-退款上限改成-3000-元
+# ✓ 状态：planning → in_progress（降级）
+```
+
+Implement changes one line (`server.js`, line 17): `if (data.amount > 5000)` becomes `if (data.amount > 3000)`. Check verifies the new boundary both ways with curl (real runs):
+
+```sh
+curl -s -X POST localhost:3000/api/v1/refunds -H 'Content-Type: application/json' -d '{"reason": "质量问题", "amount": 3001}'
+# {"code":"NEED_APPROVAL","data":null}
+
+curl -s -X POST localhost:3000/api/v1/refunds -H 'Content-Type: application/json' -d '{"reason": "尺寸不符", "amount": 3000}'
+# {"code":"OK","data":{"id":3,"reason":"尺寸不符","amount":3000,"status":"待付款"}}
+```
+
+3001 is over the cap and returns `NEED_APPROVAL`; 3000 exactly returns 200, and the record carries a `reason` field. Step 3.3 updates the spec in `.sunshine/spec/backend.md` (the cap 5000 becomes 3000); step 3.4 commits, clears the pointer, and archives (real runs):
+
+```sh
+git add -A && git commit -qm "变更：退款上限改成 3000 元（5000→3000）"
+git log --oneline -1
+# 8d09672 变更：退款上限改成 3000 元（5000→3000）
+
+sunshine task finish
+# ✓ 已清除当前任务（原为：.sunshine/tasks/11-11-退款上限改成-3000-元）
+
+sunshine task archive 11-11-退款上限改成-3000-元 --skip-branch-validation
+# .sunshine/tasks/archive/2026-11/11-11-退款上限改成-3000-元
+# 已归档：11-11-退款上限改成-3000-元 -> archive/2026-11/
+# [OK] 已自动提交：chore(task): archive 11-11-退款上限改成-3000-元
+
+sunshine task list-archive
+# 已归档任务：
+#
+# [2026-11] - 4 个任务
+#   - 11-11-前端-退款表单按原型改版/
+#   - 11-11-后端-退款原因必填校验/
+#   - 11-11-退款上限改成-3000-元/
+#   - 11-11-退款流程改版/
+```
+
+The change is done: the three old tasks sit untouched in the archive, and the change is its own task with a complete record — next time someone asks why the cap is 3000, the `[变更 2026-11-11]` line in `prd.md` is the answer.
 
 Designers and developers each get what they need from this: the designer only touches the documents in `doc/` and the review, without ever hearing about `task start`, jsonl, or dispatch; developers enter with the work already split and the context already curated, each sub-task reading only its own packet instead of re-reading the prototype. With no design phase, the same flow runs 1.1 → 1.4 → 1.5 with no split — the mode is decided at the start, and the agent picks the route.
 
@@ -1554,7 +1863,7 @@ Everything not listed here — `task create/start/archive`, `task add-context/va
 1. **Pick platforms** ("请选择要配置的 AI 编程平台", "Select the AI programming platforms to configure"): a multi-select of all 22 platforms, with Claude Code and Cursor checked by default; selecting none cancels the init ("未选择任何平台，初始化已取消。", "No platform selected, initialization cancelled.").
 2. **Statusline confirmation** (only when Claude Code is selected): "是否为 Claude Code 安装状态栏……？" ("Install the statusline for Claude Code…?"), default no; pass `--with-statusline` to install it directly.
 3. **Pick a spec template** ("请选择规范模板", "Select a spec template"): "从零开始" (from scratch) by default, or "自定义" (enter a marketplace source and pick from it); with `--registry` the picker lists that marketplace's spec templates, and the picked one is installed instead of the blank specs.
-4. **Pick a project type** (only when nothing is detected): "检测不到项目类型，请选择" ("Project type not detected, please choose"): frontend / backend / fullstack / product design, default fullstack. Picking product design means the project starts design-first with the stack undecided: it generates only `system.md` plus the `doc/` design templates (requirements list, outline design, prototype), and no frontend/backend specs.
+4. **Pick a project type** (only when nothing is detected): "检测不到项目类型，请选择" ("Project type not detected, please choose"): frontend / backend / fullstack / product design, default fullstack. Picking product design means the project starts design-first: it generates the full spec set — `system.md`, `frontend.md`, and `backend.md` — plus the `doc/` design templates (requirements list, outline design, prototype).
 
 `-y` skips all four questions and uses the defaults; passing the matching flag (a platform flag, `--type`, `--template`) skips that question too.
 

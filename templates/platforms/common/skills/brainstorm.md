@@ -58,6 +58,8 @@ TASK_DIR=$(sunshine task create "<简短任务标题>" --description "<一句话
 9. 呈现最终规划总结并停下。同一轮不要运行 `sunshine task start`，也不要改产品代码。
 10. 只有用户在后续消息中明确批准了最新的规划总结，才授权运行 `sunshine task start` 并开始实现。如果产物在此后发生实质变化，重新做最终评审。
 
+**需求变更**：开发中途需求变了（新增或变更），不要原地改代码——只针对变化的部分回炉：回到步骤 1 问清变化点（只问 delta，不重问已定的）→ `prd.md` 里记一笔 `[变更 YYYY-MM-DD]` → `doc/` 设计文档同步改 → 受影响的子任务改 `prd.md` / `design.md` / `implement.md`，范围用 `sunshine task set-scope` 改、新文件用 `sunshine task add-context` 加进清单 → 只评审变更的部分，评审通过再动手。没被波及的子任务不停；已经归档的不 reopen，新建子任务挂在父任务下走完整流程。
+
 不要凭空编造项目专属的产品/规范层级。如果仓库已有产品、领域或规范文档，就用它们；如果没有，就按已有证据继续。
 
 ## 提问规则

@@ -2185,3 +2185,49 @@ pre-commit install       # 在仓库根目录执行一次
 
 ### 实施记录
 - 未开始：等用户定夺实施（先写 PLAN.md）。
+
+## init 产品设计类型改成全栈规范（2026-11-11，用户改主意，未提交）
+
+### 背景
+- v0.3.8 做“init 产品设计类型”时用户点选“只生成 doc/ 模板 + 通用规范”：`doc/` 三份模板 + `system.md`，不生成 `frontend.md` / `backend.md`（理由是技术栈待定，以后定了再 `init -f` 补）。
+- 2026-11-11 用户改主意（原话）：“选择产品设计，不仅仅 doc/ 模板 + 通用规范，还要加上全栈规范（system+前后端）这个才合理”。即：选产品设计时，规范按全栈生成（三份全有），外加 `doc/` 三份模板。
+- 注意：这是同一天内的决策反转，不是 v0.3.8 的实现错了；v0.3.8 的记录不动，改动另记。
+
+### 改动
+1. `internal/scaffold/scaffold.go`：`InitOptions` 注释改成 Design 与 Fullstack 一样三份全写；walk 里 `frontend.md` / `backend.md` 的跳过条件去掉 `|| SpecType == Design`（Design 不再跳过前后端 spec）；`writeDesignTemplates` 不动（doc/ 三份照写、不进哈希清单、-f 不覆盖只补缺失）。
+2. `internal/cli/init.go`：`specNextStepLine` 的 Design 分支改成“已生成 system.md、frontend.md、backend.md”+ doc/ 一句。
+3. `internal/projecttype/projecttype.go`：Design 注释改成“生成全套规范（与全栈相同），另写 doc/ 设计文档模板”。
+4. 测试：`TestInitDesignWritesDocTemplates`（spec 与哈希断言由 `(false, false)` 改 `(true, true)`）、`TestSpecNextStepLine` 的 Design 期望值、`--type 产品设计` 端到端（`assertInitSpecFiles` 由 `(false, false)` 改 `(true, true)`）。
+5. 中英文教程附录 init 参考第 4 问同步：产品设计生成全套规范 + `doc/` 模板。
+
+### 验证
+- `go build` / `gofmt` / `go vet` 干净，全量 `go test ./...` 全过 0 失败（19 个包；gofmt 曾报 `scaffold_test.go` 一处注释空格，已修）。
+- 真实二进制实跑 `--type 产品设计`：spec/ 三份全有，doc/ 三份全有，“下一步”第 2 行写三份规范 + doc/ 一句；哈希清单含三份 spec、不含 doc/。
+
+### 实施记录
+- 未提交：随下一批一起，等用户定夺（不发版时 v0.3.8 的行为保持旧的：产品设计只写 system.md + doc/）。
+
+## 需求变更处理（2026-11-11，用户问后定做，未提交）
+
+### 用户的问题
+设计先行流程（需求 → 设计文档 → 拆解 → 开发）走到开发后，需求可能再次变更（新增或变更），怎么处理。
+
+### 定下的处理（写进工作流模板 1.5 与 brainstorm skill）
+- 不走新命令，走一次只针对变化部分（delta）的回炉：回 1.1 问清变化点（只问 delta，不重问已定的）→ 按顺序更新事实来源：`prd.md` 里记一笔 `[变更 YYYY-MM-DD]`（改了什么、为什么、谁定的）→ `doc/` 设计文档（概要设计、原型）同步改 → 受影响的子任务改 `prd.md` / `design.md` / `implement.md`，范围用 `sunshine task set-scope` 改、新文件用 `sunshine task add-context` 加进清单 → 回 1.5 只评审变更的部分，评审通过再动手。
+- 定波及面时对照父任务的子任务映射：没被波及的子任务不停；还在 planning 的直接改；已经 in_progress 的先停下手头的活，回炉完再继续（状态不用改）；已经归档的不 reopen（归档的是历史），新建子任务挂在父任务下走完整流程，描述里写清原任务与变更原因。新增需求同理：迷你一轮 1.1 → 1.2 → 1.4 → 1.5，新子任务挂父任务下。
+- 全做完已归档后才来的变更：就是一个新任务，描述里链回原任务。
+- 改动位置：三份 workflow 模板 1.5 末尾（“父任务不激活……”行后）各加一段“需求变更（开发中途）”；brainstorm skill 规划流程第 10 步后加一段“需求变更”。不加步骤号（1.0–1.6 不变），新增文字里无 `[workflow-state:...]` 提及。
+
+### 教程 §12.6 续一段变更示例（真实跑通）
+- 例子：项目做完归档后，上限 5000 → 3000。演示目录 `/tmp/scenes/s6-design`（接上轮的最终状态，0 活动、3 归档）。
+- 流程：新任务 `11-11-退款上限改成-3000-元`（create --description 链回原任务）→ prd.md 记 `[变更 2026-11-11]` → 概要设计接口行与原型 `max="3000"` 同步改 → add-context 三条（server.js、概要设计进 implement，backend.md 进 check）→ start → server.js 第 17 行 `> 5000` 改 `> 3000` → curl 验新边界（3001 → NEED_APPROVAL；3000 → 200，记录 id 3）→ backend.md 规范更新 → 提交 `8d09672` → finish → archive --skip-branch-validation → list-archive 4 个任务。
+- 演示要点：旧的三个任务原样留在归档里（不 reopen），变更单独一个任务；doc/ 是活文档跟着改，已归档的任务记录不动。
+- 注意：实跑时 `pkill` 式停服务会误杀自己的 shell（上轮教训）；这次用 `nohup node` 起服务，停服务时 `process.kill` 杀会话树，事后查 3000 端口无人监听才确认已停。
+
+### 已知缺口（实话）
+- 上下文清单只能加不能删（CLI 没有 remove-context）：变更后失效的条目只能手动改 jsonl，或在 `prd.md` 里注明不用读哪份。已写进工作流规则与教程，不藏着。
+
+### 验证
+- `go build` / `gofmt` / `go vet` 干净，全量 `go test ./...` 全过 0 失败（19 个包）。
+- 真实二进制三模板落盘检查：native、tdd、channel-driven 的 workflow.md 里各有 1 处“需求变更（开发中途）”；brainstorm skill 落盘有 1 处。channel-driven 切换时因 workflow.md 已改被拒，属 `workflow --template` 的哈希守卫设计行为，加 `--force` 后换模板成功。
+- 教程核对：文档级标题中英文各 36/34 行、改前改后一致；删除行只有四行（§12.6 两句旧总结是上轮已汇报的改写、附录两行产品设计改写），七处开场提示词一个字没动。

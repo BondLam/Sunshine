@@ -41,16 +41,16 @@ func TestInitSpecTypeSkipsMismatchedSpec(t *testing.T) {
 	}
 }
 
-// TestInitDesignWritesDocTemplates 校验 SpecType=Design：spec 只写
-// system.md（前后端都不写），doc/ 下写三份设计文档模板；
+// TestInitDesignWritesDocTemplates 校验 SpecType=Design：spec 三份全写
+// （与全栈相同），doc/ 下写三份设计文档模板；
 // 模板不进哈希清单；已填过的文件 -f 重建也不覆盖。
 func TestInitDesignWritesDocTemplates(t *testing.T) {
 	dir := t.TempDir()
 	if err := InitWithOptions(dir, "张三", InitOptions{SpecType: projecttype.Design}); err != nil {
 		t.Fatalf("InitWithOptions Design 失败：%v", err)
 	}
-	assertSpecFiles(t, dir, false, false)
-	assertSpecHashes(t, dir, false, false)
+	assertSpecFiles(t, dir, true, true)
+	assertSpecHashes(t, dir, true, true)
 	assertDesignTemplates(t, dir)
 
 	// 模板不进哈希清单（doc/ 是设计人员的交付物，不归 update 管）。

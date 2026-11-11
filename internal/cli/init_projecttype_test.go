@@ -164,7 +164,7 @@ func TestSpecNextStepLine(t *testing.T) {
 		{projecttype.Backend, "已生成 system.md、backend.md"},
 		{projecttype.Fullstack, "已生成 system.md、frontend.md、backend.md"},
 		{projecttype.Unknown, "已生成 system.md、frontend.md、backend.md"},
-		{projecttype.Design, "已生成 system.md"},
+		{projecttype.Design, "已生成 system.md、frontend.md、backend.md"},
 	}
 	for _, c := range cases {
 		got := specNextStepLine(c.specType)
@@ -384,14 +384,14 @@ func TestInitEndToEndProjectType(t *testing.T) {
 		}
 	})
 
-	// --type 产品设计：spec 只剩 system.md，doc/ 下写三份设计文档模板。
+	// --type 产品设计：spec 三份全写（与全栈相同），doc/ 下写三份设计文档模板。
 	t.Run("--type 产品设计", func(t *testing.T) {
 		dir := t.TempDir()
 		out, code := runInitBinary(t, dir, "-y", "-u", "测试", "--type", "产品设计")
 		if code != 0 {
 			t.Fatalf("init 退出码 %d，输出：%s", code, out)
 		}
-		assertInitSpecFiles(t, dir, false, false)
+		assertInitSpecFiles(t, dir, true, true)
 		assertDesignTemplates(t, dir)
 		if !strings.Contains(out, "项目类型：产品设计（--type 指定）") {
 			t.Errorf("输出应含“项目类型：产品设计（--type 指定）”，实际：\n%s", out)

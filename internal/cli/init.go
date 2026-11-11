@@ -448,7 +448,7 @@ func specNextStepLine(specType projecttype.Type) string {
 	case projecttype.Backend:
 		generated = "system.md、backend.md"
 	case projecttype.Design:
-		return "  2. 规范已按默认模板生成在 .sunshine/spec/（已生成 system.md；有团队规范时再补充），产品设计文档模板已生成在 doc/（需求列表、概要设计、原型），工作流按 .sunshine/workflow.md 自动推进，一般不用改。"
+		return "  2. 规范已按默认模板生成在 .sunshine/spec/（已生成 system.md、frontend.md、backend.md；有团队规范时再补充），产品设计文档模板已生成在 doc/（需求列表、概要设计、原型），工作流按 .sunshine/workflow.md 自动推进，一般不用改。"
 	default:
 		generated = "system.md、frontend.md、backend.md"
 	}

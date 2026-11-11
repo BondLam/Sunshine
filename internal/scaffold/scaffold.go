@@ -73,7 +73,7 @@ type InitOptions struct {
 	SkipSpec bool
 	// SpecType 是本次 init 的项目类型：Frontend 只写前端 spec，
 	// Backend 只写后端 spec，Fullstack 或 Unknown（零值）三份全写；
-	// Design 只写 system.md（不写前后端 spec），另写 doc/ 设计文档模板；
+	// Design 与 Fullstack 一样三份全写，另写 doc/ 设计文档模板；
 	// system.md 与类型无关，永远写。
 	SpecType projecttype.Type
 	// Version 为空时 .version 沿用模板文件内容；非空时写入该值
@@ -116,11 +116,11 @@ func InitWithOptions(cwd, user string, opts InitOptions) error {
 		}
 		// 按项目类型跳过不匹配的 spec 文件（跳过的文件不写盘，
 		// 也不进入哈希清单）；system.md 与类型无关，永远写。
-		// 产品设计先行时技术栈待定，前后端 spec 都不写。
-		if rel == "spec/frontend.md" && (opts.SpecType == projecttype.Backend || opts.SpecType == projecttype.Design) {
+		// 产品设计先行也按全栈写三份规范（另写 doc/ 模板）。
+		if rel == "spec/frontend.md" && opts.SpecType == projecttype.Backend {
 			return nil
 		}
-		if rel == "spec/backend.md" && (opts.SpecType == projecttype.Frontend || opts.SpecType == projecttype.Design) {
+		if rel == "spec/backend.md" && opts.SpecType == projecttype.Frontend {
 			return nil
 		}
 		data, err := templates.Sunshine.ReadFile(path)
