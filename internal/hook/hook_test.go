@@ -246,6 +246,72 @@ func TestWorkflowState_MissingTagFallsBackToGeneric(t *testing.T) {
 	}
 }
 
+func TestScanWorkflowStateBlocks_SkipsMentions(t *testing.T) {
+	// 契约注释里的 `[workflow-state:STATUS]` 占位写法没有闭标签，
+	// 表格与正文里的提及不是独占一行的块；旧扫描器遇到占位写法就
+	// 整个返回空表，后面的真实块一个都解析不出来。
+	content := "# 工作流\n\n<!-- 契约注释里有 `[workflow-state:STATUS]` 占位写法，没有闭标签。 -->\n\n| 状态 | 标签 |\n| --- | --- |\n| 规划 | [workflow-state:planning] → 第 1 阶段 |\n| 执行 | [workflow-state:in_progress] → 第 2 阶段 |\n\n[workflow-state:planning]\n按规划推进：先写 prd.md，再评审。\n[/workflow-state:planning]\n\n正文提及（见 [workflow-state:in_progress]）不应成块。\n\n[workflow-state:in_progress]\n主会话默认：派发 implement/check 子代理。\n[/workflow-state:in_progress]\n"
+	got := scanWorkflowStateBlocks(content)
+	if len(got) != 2 {
+		t.Fatalf("应只解析出 planning/in_progress 两块，实际 keys=%v", keysOfMap(got))
+	}
+	if got["planning"] != "按规划推进：先写 prd.md，再评审。" {
+		t.Errorf("planning 块不对：%q", got["planning"])
+	}
+	if !strings.Contains(got["in_progress"], "派发 implement/check 子代理") {
+		t.Errorf("in_progress 块应含派发句，实际：%q", got["in_progress"])
+	}
+	if _, ok := got["STATUS"]; ok {
+		t.Errorf("STATUS 占位写法不应成块")
+	}
+}
+
+func TestScanWorkflowStateBlocks_RealNativeTemplate(t *testing.T) {
+	// 真实模板的契约注释里有无闭标签的 `[workflow-state:STATUS]`，
+	// 回归：扫描器必须解析出全部 7 个真实块，in_progress 块含派发句，
+	// no_task 块是真实短文案、不是契约注释的大段内容。
+	raw, err := os.ReadFile("../../templates/workflows/native/workflow.md")
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := scanWorkflowStateBlocks(string(raw))
+	for _, key := range []string{"no_task", "task_error", "planning", "planning-inline", "in_progress", "in_progress-inline", "completed"} {
+		if _, ok := got[key]; !ok {
+			t.Errorf("真实模板应解析出 %q，实际 keys=%v", key, keysOfMap(got))
+		}
+	}
+	if !strings.Contains(got["in_progress"], "派发 implement/check 子代理") {
+		t.Errorf("in_progress 块应含派发句，实际开头：%.120q", got["in_progress"])
+	}
+	if strings.Contains(got["no_task"], "WORKFLOW-STATE 面包屑契约") {
+		t.Errorf("no_task 块不应是契约注释的大段内容，实际开头：%.120q", got["no_task"])
+	}
+}
+
+func TestStripBreadcrumbTagBlocks_RealNativeTemplate(t *testing.T) {
+	// 回归：session-start 的剥块逻辑遇到 STATUS 占位写法就不再剥任何块，
+	// 概览里会原样带上全部块正文；修完后块正文应被去掉、正文应保留。
+	raw, err := os.ReadFile("../../templates/workflows/native/workflow.md")
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := stripBreadcrumbTagBlocks(string(raw))
+	if strings.Contains(got, "派发 implement/check 子代理") {
+		t.Errorf("剥块后不应残留 in_progress 块正文")
+	}
+	if !strings.Contains(got, "第 1 阶段：规划") {
+		t.Errorf("剥块后应保留阶段正文")
+	}
+}
+
+func keysOfMap(m map[string]string) []string {
+	var out []string
+	for k := range m {
+		out = append(out, k)
+	}
+	return out
+}
+
 func TestPromptHasSkipKeyword(t *testing.T) {
 	cases := []struct {
 		prompt  string

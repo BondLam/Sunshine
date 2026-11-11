@@ -307,3 +307,65 @@ func TestContextModes(t *testing.T) {
 		t.Errorf("context phase with missing step = %d, want 2", code)
 	}
 }
+
+func TestStartPrintsInProgressBreadcrumb(t *testing.T) {
+	root := newTestRoot(t)
+	r, _, errBuf := newTestRunner(t, root)
+	workflow := "[workflow-state:in_progress]\n主会话默认：派发 implement/check 子代理。\n[/workflow-state:in_progress]\n"
+	if err := os.WriteFile(filepath.Join(root, DirSunshine, "workflow.md"), []byte(workflow), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	name := createTask(t, r, "面包屑任务")
+	if code := r.Start(name, false); code != 0 {
+		t.Fatalf("start failed: %d", code)
+	}
+	got := errBuf.String()
+	if !strings.Contains(got, "<workflow-state>") || !strings.Contains(got, "派发 implement/check 子代理") {
+		t.Errorf("start should print in_progress breadcrumb, got: %s", got)
+	}
+	if !strings.Contains(got, "Task: 面包屑任务 (in_progress)") {
+		t.Errorf("breadcrumb header should name the task by its id, got: %s", got)
+	}
+}
+
+func TestStartPrintsGenericBreadcrumbWithoutWorkflow(t *testing.T) {
+	root := newTestRoot(t)
+	r, _, errBuf := newTestRunner(t, root)
+	name := createTask(t, r, "无工作流任务")
+	if code := r.Start(name, false); code != 0 {
+		t.Fatalf("start failed: %d", code)
+	}
+	if !strings.Contains(errBuf.String(), "Refer to workflow.md for current step.") {
+		t.Errorf("start without workflow.md should print generic breadcrumb, got: %s", errBuf.String())
+	}
+}
+
+func TestStartPrintsInlineBreadcrumbForCodexInline(t *testing.T) {
+	root := newTestRoot(t)
+	r, _, errBuf := newTestRunner(t, root)
+	workflow := "[workflow-state:in_progress]\n主会话默认：派发 implement/check 子代理。\n[/workflow-state:in_progress]\n\n[workflow-state:in_progress-inline]\n本分支仅 Codex 且 dispatch_mode=inline 时可用；直接改代码。\n[/workflow-state:in_progress-inline]\n"
+	if err := os.WriteFile(filepath.Join(root, DirSunshine, "workflow.md"), []byte(workflow), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(root, DirSunshine, "config.yaml"), []byte("codex:\n  dispatch_mode: inline\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	// 只留 CODEX_THREAD_ID 一个平台信号：DetectPlatform 的环境变量表里
+	// 没有它，start 内补的判断应把它认成 codex，再按 dispatch_mode 取 inline 块。
+	t.Setenv("SUNSHINE_HOOK_PLATFORM", "")
+	for _, v := range []string{"ZCODE_PROJECT_DIR", "CURSOR_PROJECT_DIR", "CODEBUDDY_PROJECT_DIR", "FACTORY_PROJECT_DIR", "GEMINI_PROJECT_DIR", "QODER_PROJECT_DIR", "KIRO_PROJECT_DIR", "COPILOT_PROJECT_DIR", "TRAE_PROJECT_DIR", "CLAUDE_PROJECT_DIR"} {
+		t.Setenv(v, "")
+	}
+	t.Setenv("CODEX_THREAD_ID", "thread-test")
+	name := createTask(t, r, "Codex 内联任务")
+	if code := r.Start(name, false); code != 0 {
+		t.Fatalf("start failed: %d", code)
+	}
+	got := errBuf.String()
+	if !strings.Contains(got, "本分支仅 Codex 且 dispatch_mode=inline 时可用") {
+		t.Errorf("codex-inline start should print inline breadcrumb, got: %s", got)
+	}
+	if strings.Contains(got, "派发 implement/check 子代理") {
+		t.Errorf("codex-inline start should not print dispatch breadcrumb, got: %s", got)
+	}
+}

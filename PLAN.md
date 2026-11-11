@@ -2018,3 +2018,31 @@ pre-commit install       # 在仓库根目录执行一次
 - Release 已发布：https://github.com/linrong1982/Sunshine/releases/tag/v0.3.5，6 个资产；发布 run 42789481102、两路 CI（tag 42789166884、push 42789481568）均 success 无抖动。
 - 实测验证：不带参数的一键命令装上 v0.3.5（`Sunshine 版本 0.3.5`）；0.3.4 二进制 `upgrade --dry-run` 正确查到 0.3.5；darwin_amd64 包 checksum OK（Mach-O x86_64）。
 - 注意：沙箱里之前装的 v0.3.4 二进制（/usr/local/bin/sunshine）在虚拟机更换后已不在，一键安装重新装上 v0.3.5。
+
+## task start 成功后输出 in_progress 面包屑（2026-11-10，用户定做）
+
+### 背景与核实结论
+- 用户在 Mac 上实测：已升 v0.3.5、项目 workflow.md 已更新（与 v0.3.5 native 模板逐字节一致，守卫行 212/235/244 都在），但批准 → task start → 实现这一轮里主会话还是直接写代码，没派发 sunshine-implement；同一轮稍后的 check 阶段却正确派发了 sunshine-check 真子代理（Background agent 卡片可展开，底部 agent 列表可见）。
+- 根因（源码级核实）：派发指令与守卫都在 `[workflow-state:in_progress]` 块里，该块只通过两条路进模型上下文——① agent 自己读 workflow.md，② UserPromptSubmit hook（`sunshine hook workflow-state`）在每条用户消息前注入当前状态的块。`task start` 成功后只打印“当前任务已设为”与“hook 现在会注入 jsonl 上下文”，不输出 in_progress 块；session-start hook 也只给指针（“Follow the matching per-turn workflow-state”），不给块正文。批准那条消息到达时状态还是 planning，hook 注入的是 planning 块；task start 之后没有新的用户消息，hook 不再触发，in_progress 块在那一轮里从未被递到模型面前。workflow.md 452 行“命令成功后，面包屑自动切换到 `[workflow-state:in_progress]`”的承诺在轮内并不成立。
+- check 能派发的原因：check 派发指令在 workflow.md 里有多处（路由节“`in_progress` 的实现/检查 -> 派发 `sunshine-implement` / `sunshine-check`”、2.2 节“子代理类型：`sunshine-check`”），模型转到核查阶段时读到了；implement 的派发指令只在 in_progress 块与 2.1 节派发守则里，2.1 那一刻模型没重读、hook 又没注入，所以漏了。派发机制本身是通的，缺的是 2.1 那一刻的指令递送。
+- 用户要求：task start 之后，后续的编码和 check 之类都要开启子代理处理（不追究机制细节，以结果为准）。
+
+### 方案
+只改 `sunshine task start` 的成功输出，不改 hook、不改 workflow 模板、不改派发路由：
+- `internal/task/lifecycle.go` 的 `Start()` 在两个成功出口（正常模式与无会话身份的降级模式）都输出 in_progress 面包屑，复用 hook 现成的取块逻辑：`hook.LoadConfig`（读 `codex.dispatch_mode`）→ `hook.DetectPlatform(hook.HookInput{})`（`SUNSHINE_HOOK_PLATFORM` 与平台环境变量表；Codex 另认 `CODEX_THREAD_ID`，该变量在 hook 的 `envSessionKeys` 里已核实为 Codex 会话变量，`DetectPlatform` 的表里没有，start 内补一行判断）→ `hook.LoadBreadcrumbs`（读项目 `.sunshine/workflow.md`）→ `hook.ResolveBreadcrumbKey("in_progress", platform, cfg)`（仅 Codex + dispatch_mode=inline 时取 `-inline` 块，其余一律派发版）→ `hook.BuildBreadcrumb(任务目录名, "in_progress", templates, key)`，与 hook 注入的 `<workflow-state>` 块格式完全一致（任务 ID 用目录名，与 `GetActiveTaskForWorkflow` 一致）。
+- 输出位置：正常模式放在“hook 现在会从该任务的 jsonl 文件注入上下文。”之后、`after_start` 任务钩子之前；降级模式放在写 `.current-task` 之后、返回之前。输出走 `r.errOut()`，与 Start 其余输出同一流。
+- workflow.md 缺失或无 in_progress 块时退化为 `BuildBreadcrumb` 的通用行（“Refer to workflow.md for current step.”），与 hook 行为一致，不静默跳过。
+- workflow.md 452 行文字不动：修完后“面包屑自动切换”成为事实，文字描述与行为一致。
+- 有意不做：不在 `task start` 里硬拦 Write/Edit/Bash——主会话在 in_progress 阶段仍有合法写操作（任务日志、3.3 规范更新、3.4 提交），仅凭状态分不清 2.1 与 3.3，硬拦会误伤；本次修的是指令递送，派发仍由模型按 workflow 执行。
+
+### 验证
+- 新增测试（`internal/task/lifecycle_test.go`）：① workflow.md 含 in_progress 块时 start 输出含派发句；② workflow.md 缺失时输出通用行；③ Codex + `CODEX_THREAD_ID` + `codex.dispatch_mode=inline` 时输出 inline 块、不含派发句。
+- 全量 `go test ./...`、gofmt/vet；真实二进制在临时项目实跑 `task start`，核对输出里有 `<workflow-state>` 与派发句。
+
+### 实测发现的更深根因：面包屑扫描器 bug（修 task start 输出时发现）
+- 现象：真实二进制实跑 `task start`，输出的面包屑是通用行（“Refer to workflow.md for current step.”），不是真实的 in_progress 块；随手一测，`sunshine hook workflow-state` 在真实项目里也只输出通用行。
+- 根因：`internal/hook/workflow_state.go` 的 `scanWorkflowStateBlocks` 手工扫描器有两个与 Python 原版正则 `\[workflow-state:(STATUS)\]\n(.*?)\n\s*\[/workflow-state:\1\]` 不等价的地方：① 遇到没有闭标签的开标签就 `break` 整个循环（应跳过继续找）；② 不要求开标签独占一行，表格、注释、正文里的提及也被当成块的开始（Python 要求开标签后紧跟 `\n`）。真实模板（native/tdd/channel-driven 三份都有）的契约注释第 104 行就是无闭标签的 `[workflow-state:STATUS]` 占位写法，扫描到它就整个返回空表——**hook 从一开始就没能从真实模板里注入出任何真实块**，每轮注入的都是通用行。既有 hook 测试没发现，是因为夹具 workflow.md 是干净的最小 synthetic 文件，没有占位写法和表格提及。
+- 修复（与 start 输出同批）：`scanWorkflowStateBlocks` 改为只有独占一行的开标签才算块的开始（行尾可带空格/制表符）、无闭标签的提及跳过不中断、闭标签须位于行首（仅允许前导空白），三点都与 Python 正则等价；同文件的 `stripBreadcrumbTagBlocks`（session-start 剥块用）是同一族 bug，一并改成同样的跳过逻辑（旧逻辑遇到 STATUS 占位就把剩余全文原样写出、再也不剥任何块，session-start 概览里会原样带上全部块正文）。
+- 新增测试（`internal/hook/hook_test.go`）：① synthetic 内容（占位写法+表格提及+正文提及+两个真实块）只解析出两块；② 直接读真实 native 模板断言 7 个块都在、in_progress 块含派发句、no_task 块是真实短文案；③ 真实模板剥块后无 in_progress 正文、保留阶段正文。
+- 标题对齐：start 输出的面包屑标题任务名与 hook 一致，优先用 task.json 的 `id` 字段、缺失时用目录名（`startTaskDisplayName`）；此前 start 用目录名、hook 用 id，两边标题不一致。
+- 验证：全量测试全过（0 失败，新增 6 个：task 3 个 + hook 3 个）；真实二进制两路实跑——正常模式与降级模式的 `task start` 都输出真实 in_progress 块（含“主会话默认：派发 implement/check 子代理”与守卫句），标题与 hook 一致；`hook workflow-state` 同一会话也注入真实块。

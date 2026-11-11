@@ -469,6 +469,38 @@ func (r *Runner) recordStartState(taskJSONPath, label string) {
 	}
 }
 
+// printStartBreadcrumb 在 task start 成功后输出 in_progress 面包屑。
+// workflow.md 承诺“命令成功后，面包屑自动切换到 [workflow-state:in_progress]”，
+// 但切换只靠 UserPromptSubmit hook——同一轮内（批准 → start → 实现）没有新
+// 的用户消息，hook 不再触发，派发指令就递不到模型面前，模型直接走 inline
+// 写代码。这里由 start 命令自己把新状态的块打出来，与 hook 注入的
+// <workflow-state> 块格式一致，派发指令在动手写代码之前就进上下文。
+func (r *Runner) printStartBreadcrumb(taskDir string) {
+	cfg := hook.LoadConfig(r.Root)
+	platform := hook.DetectPlatform(hook.HookInput{})
+	if platform == "" && os.Getenv("CODEX_THREAD_ID") != "" {
+		// CODEX_THREAD_ID 是已核实的 Codex 会话变量（hook 的 envSessionKeys），
+		// DetectPlatform 的环境变量表里没有它；只有 Codex 才需要按
+		// dispatch_mode 区分 inline/派发块。
+		platform = "codex"
+	}
+	templates := hook.LoadBreadcrumbs(r.Root)
+	key := hook.ResolveBreadcrumbKey("in_progress", platform, cfg)
+	fmt.Fprintln(r.errOut(), hook.BuildBreadcrumb(r.startTaskDisplayName(taskDir), "in_progress", templates, key))
+}
+
+// startTaskDisplayName 取面包屑标题里的任务名：与 hook 的
+// GetActiveTaskForWorkflow 一致，优先用 task.json 的 id 字段，缺失时用目录名。
+func (r *Runner) startTaskDisplayName(taskDir string) string {
+	name := filepath.Base(taskDir)
+	if obj, _, err := readRawObject(filepath.Join(taskDir, FileTaskJSON)); err == nil {
+		if id := obj.getStringField("id"); strings.TrimSpace(id) != "" {
+			name = id
+		}
+	}
+	return name
+}
+
 // Start 设为当前任务（对应 task.py cmd_start）。
 func (r *Runner) Start(dir string, allowEmptyContext bool) int {
 	if !r.requireRoot() {
@@ -517,6 +549,7 @@ func (r *Runner) Start(dir string, allowEmptyContext bool) int {
 		// PLAN 要求 start 写 .current-task：降级模式也写该文件指针，
 		// 以便 sunshine task current 在纯 CLI 下可见。
 		_ = writeCurrentTaskFile(r.Root, taskRel)
+		r.printStartBreadcrumb(fullPath)
 		return 0
 	}
 	active, err := SetActiveTask(r.Root, taskRel)
@@ -530,6 +563,7 @@ func (r *Runner) Start(dir string, allowEmptyContext bool) int {
 	}
 	fmt.Fprintln(r.errOut())
 	fmt.Fprintln(r.errOut(), "hook 现在会从该任务的 jsonl 文件注入上下文。")
+	r.printStartBreadcrumb(fullPath)
 	RunTaskHooks("after_start", taskJSONPath, r.Root, fileWriter(r.errOut()))
 	return 0
 }

@@ -448,15 +448,25 @@ func stripBreadcrumbTagBlocks(content string) string {
 			out.WriteString(rest)
 			break
 		}
+		after := rest[loc[1]:]
+		if !isLoneLineTag(after) {
+			// 行内提及不是块：原样保留，继续往后找。
+			out.WriteString(rest[:loc[1]])
+			rest = after
+			continue
+		}
 		status := rest[loc[2]:loc[3]]
 		closeTag := "[/workflow-state:" + status + "]"
-		closeIdx := strings.Index(rest[loc[1]:], closeTag)
+		closeIdx := findLineStartCloseTag(after, closeTag)
 		if closeIdx == -1 {
-			out.WriteString(rest)
-			break
+			// 独占一行却没有闭标签：原样保留，继续往后找（旧实现到这里
+			// 就把剩余全文原样写出、再也不剥任何块）。
+			out.WriteString(rest[:loc[1]])
+			rest = after
+			continue
 		}
 		out.WriteString(rest[:loc[0]])
-		rest = rest[loc[1]+closeIdx+len(closeTag):]
+		rest = after[closeIdx+len(closeTag):]
 	}
 	stripped := htmlCommentRe.ReplaceAllString(out.String(), "")
 	var kept []string

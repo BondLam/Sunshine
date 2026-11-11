@@ -146,6 +146,11 @@ var workflowTagOpen = regexp.MustCompile(`\[workflow-state:([A-Za-z0-9_-]+)\]`)
 
 // scanWorkflowStateBlocks 手工扫描标签块（RE2 不支持反向引用，
 // 不能用 Python 的 `\[...:\1\]` 正则直接配对闭标签）。
+// 与 Python 正则 `\[workflow-state:(STATUS)\]\n(.*?)\n\s*\[/workflow-state:\1\]`
+// 等价：只有独占一行的开标签才算块的开始（表格、注释、正文里的提及不算）；
+// 没有闭标签的提及直接跳过、不中断扫描——真实模板的契约注释里就有
+// `[workflow-state:STATUS]` 占位写法，它没有闭标签，旧实现遇到它就
+// 整个返回空表，hook 再也注入不出任何真实块。
 func scanWorkflowStateBlocks(content string) map[string]string {
 	result := map[string]string{}
 	rest := content
@@ -154,13 +159,19 @@ func scanWorkflowStateBlocks(content string) map[string]string {
 		if loc == nil {
 			break
 		}
-		status := rest[loc[2]:loc[3]]
-		// 闭标签须在下一行起始附近：`[...]\n<body>\n\s*[/...]`。
 		after := rest[loc[1]:]
+		if !isLoneLineTag(after) {
+			// 行内提及（表格、注释、正文）不是块：跳过它继续找。
+			rest = after
+			continue
+		}
+		status := rest[loc[2]:loc[3]]
 		closeTag := "[/workflow-state:" + status + "]"
-		closeIdx := strings.Index(after, closeTag)
+		closeIdx := findLineStartCloseTag(after, closeTag)
 		if closeIdx == -1 {
-			break
+			// 独占一行却没有闭标签：跳过它继续找，不中断扫描。
+			rest = after
+			continue
 		}
 		body := after[:closeIdx]
 		// body 以换行开头、以换行 + 空白结尾时去掉首尾空白行。
@@ -176,6 +187,34 @@ func scanWorkflowStateBlocks(content string) map[string]string {
 		rest = after[closeIdx+len(closeTag):]
 	}
 	return result
+}
+
+// isLoneLineTag 判断开标签之后到行尾是否只有空白：独占一行（行尾可带
+// 空格/制表符）的才是块的开始，表格、注释、正文里的提及不算。
+func isLoneLineTag(after string) bool {
+	nl := strings.IndexByte(after, '\n')
+	if nl == -1 {
+		return false
+	}
+	return strings.Trim(after[:nl], " \t") == ""
+}
+
+// findLineStartCloseTag 在 s 里找闭标签，要求标签位于行首（前面只允许
+// 空格/制表符），与 Python 正则的 \n\s*[/...] 等价；找不到返回 -1。
+func findLineStartCloseTag(s, closeTag string) int {
+	from := 0
+	for {
+		idx := strings.Index(s[from:], closeTag)
+		if idx == -1 {
+			return -1
+		}
+		abs := from + idx
+		lineStart := strings.LastIndex(s[:abs], "\n") + 1
+		if strings.Trim(s[lineStart:abs], " \t") == "" {
+			return abs
+		}
+		from = abs + len(closeTag)
+	}
 }
 
 // ResolveBreadcrumbKey 按 Codex dispatch_mode 选面包屑标签键：
