@@ -2261,7 +2261,7 @@ pre-commit install       # 在仓库根目录执行一次
 - Release：https://github.com/linrong1982/Sunshine/releases/tag/v0.3.10，6 个资产；发布 run 42982006525、两路 CI（42982006622、42981987667）均 success 无抖动。
 - 实测：不带参数一键装上 v0.3.10（`sunshine version` = 0.3.10）；v0.3.9 原版二进制 upgrade --dry-run 查到 v0.3.10；darwin arm64 包 checksum OK（9207a76a…）、Mach-O arm64。
 
-## §12.6 重写：全新项目请假申请小工具，对话驱动 + 进退场标记（2026-11-11，未提交）
+## §12.6 重写：全新项目请假申请小工具，对话驱动 + 进退场标记（2026-11-11，已只提交推送、不发版，远端提交 09503a8）
 
 - 用户纠正：§12.6 的例子不对——“改版退款流程”是旧项目改版，要用全新项目演示需求 → 设计文档 → 拆解 → 开发；篇幅不要花在讲 sunshine 子命令上，只关心全流程人机对话；要标清楚设计人员何时进厂退厂、开发人员何时进厂。
 - 新例子：团队请假申请小工具（申请页 + 审批列表页），从零开始。演示目录 `/tmp/scenes/s6-leave` 真实跑通全流程：设计包（`doc/design/需求列表.md`、`doc/design/概要设计.md`、`doc/prototype/leave-new.html`、`doc/prototype/leave-list.html`）→ 评审通过 → 一次性拆解（父任务 + 前端两页 + 后端接口）→ 前端（grep 验收 3/2/1/1，提交 `7d54a51`）→ 后端（curl 三验：缺 reason 400、11 天 NEED_APPROVAL、2 天 200 id 2，提交 `1ce3c59`）→ 父任务集成复核 → 归档（0 活动、3 归档）→ 变更示例（年假上限 10→5 天，新任务，curl 验 6 天 NEED_APPROVAL、5 天 200 id 3，提交 `d020234`，归档后 4 个任务）。
