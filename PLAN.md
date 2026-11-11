@@ -2046,3 +2046,8 @@ pre-commit install       # 在仓库根目录执行一次
 - 新增测试（`internal/hook/hook_test.go`）：① synthetic 内容（占位写法+表格提及+正文提及+两个真实块）只解析出两块；② 直接读真实 native 模板断言 7 个块都在、in_progress 块含派发句、no_task 块是真实短文案；③ 真实模板剥块后无 in_progress 正文、保留阶段正文。
 - 标题对齐：start 输出的面包屑标题任务名与 hook 一致，优先用 task.json 的 `id` 字段、缺失时用目录名（`startTaskDisplayName`）；此前 start 用目录名、hook 用 id，两边标题不一致。
 - 验证：全量测试全过（0 失败，新增 6 个：task 3 个 + hook 3 个）；真实二进制两路实跑——正常模式与降级模式的 `task start` 都输出真实 in_progress 块（含“主会话默认：派发 implement/check 子代理”与守卫句），标题与 hook 一致；`hook workflow-state` 同一会话也注入真实块。
+
+### v0.3.6 发布记录（2026-11-11）
+- 内容：task start 成功后输出 in_progress 面包屑（正常与降级两路，复用 hook 取块逻辑；仅 Codex + dispatch_mode=inline 时取 inline 块；标题任务名与 hook 一致）；修面包屑扫描器 bug（`scanWorkflowStateBlocks`：独占一行的开标签才算块、无闭标签的提及跳过不中断、闭标签须行首；同族的 session-start 剥块函数一并修）。提交 `74ea104`（6 个文件），tag v0.3.6 为注释 tag（对象 `2567fdc`）。
+- Release 已发布：https://github.com/linrong1982/Sunshine/releases/tag/v0.3.6，6 个资产；发布 run 42955259493、两路 CI（tag 42955259500、push 42955247189）均 success 无抖动。
+- 实测验证：不带参数的一键命令装上 v0.3.6（`Sunshine 版本 0.3.6`）；0.3.5 二进制 `upgrade --dry-run` 正确查到 0.3.6；darwin_amd64 包 checksum OK（Mach-O x86_64）。
