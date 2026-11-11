@@ -1358,7 +1358,7 @@ Archive the task as usual. Next time a 401 shows up, the agent reads the spec an
 
 ### 12.6 Design-first product work: requirements → design documents → split → code
 
-This scenario uses a brand-new project: a team leave-request tool (a request page plus an approval list page), built from zero. Designers and developers share one workflow, but they enter and exit at different times — each part below says who is on stage.
+This scenario uses a brand-new project: a team leave-request tool, built from zero. Designers and developers share one workflow, but they enter and exit at different times — each part below says who is on stage.
 
 **[Designer enters]**
 
@@ -1366,19 +1366,19 @@ State the requirement to Claude Code (same for Codex and Cursor):
 
 Example prompt (an example, not a record of a real session):
 
-> I want to build a brand-new team leave-request tool: a request page plus an approval list page. Let's do design first — follow the Sunshine workflow: ask me what is unclear about the rules and the prototype details first; once I confirm, create a task, write the PRD, and land the requirements list, the outline design, and the high-fidelity prototypes in doc/; after the review passes, split it into sub-tasks and then implement.
+> I want to build a brand-new team leave-request tool. Let's do design first — follow the Sunshine workflow: ask me what is unclear about the rules and the prototype details first; once I confirm, create a task, write the PRD, and land the requirements list (one item per requirement, each pointing at its page in the system prototype), the outline design, and one system prototype carrying mock data in doc/; after the review passes, split it into sub-tasks per requirement and then implement.
 
 Here is the session (the conversation is an example; the commands and outputs are real values from runs):
 
-> **Claude Code:** First the rules (one at a time, with options): 1. What leave types are there? 2. Is the reason mandatory — block the submit or let it through? 3. What is the longest a single annual-leave request can be, and what happens over the cap?
+> **Claude Code:** First, how many requirements does this product have (one at a time, with options): 1. Is leave-requesting two requirements — submit and approve — or one? 2. What leave types are there? 3. Is the reason mandatory — block the submit or let it through? 4. What is the longest a single annual-leave request can be, and what happens over the cap?
 >
-> **You:** Types are 年假 / 病假 / 事假 (annual / sick / personal leave); the reason is mandatory, block the submit without it; annual leave is at most 10 days per request, over the cap it returns `NEED_APPROVAL` for approval.
+> **You:** Two requirements: requirement one is submitting a leave request, requirement two is approving one. Types are 年假 / 病假 / 事假 (annual / sick / personal leave); the reason is mandatory, block the submit without it; annual leave is at most 10 days per request, over the cap it returns `NEED_APPROVAL` for approval.
 >
-> **Claude Code:** Now the prototype details: 1. What does the approval list page show? 2. What does the backend return when `reason` is missing?
+> **Claude Code:** Now the prototype details: 1. One requirement, one page — requirement one is the request page, requirement two is the approval list page, right? 2. What does the approval list page show? 3. What does the backend return when `reason` is missing? 4. Does the prototype carry mock data?
 >
-> **You:** The list shows applicant, type, start and end dates, days, and status, with a 通过 (approve) and 驳回 (reject) button on each row; a missing `reason` returns 400 with `{"error": "reason 必填"}` (reason required).
+> **You:** Right, requirement one is the request page, requirement two is the approval list page. The list shows applicant, type, start and end dates, days, and status, with a 通过 (approve) and 驳回 (reject) button on each row; a missing `reason` returns 400 with `{"error": "reason 必填"}` (reason required); the prototype carries mock data — three fake rows in the list （张三 pending, 李四 approved, 王五 pending) — so the demo is clickable.
 >
-> **Claude Code:** Got it. Here's the plan: create the task, write the PRD for the request page plus the approval list page; land the requirements list, the outline design, and two high-fidelity prototypes in `doc/`; after the review passes, split it into a frontend and a backend sub-task and then implement. Once you confirm, I'll create the task, write the PRD, and land the design documents. OK?
+> **Claude Code:** Got it. Here's the plan: create the task, write the PRD for both requirements; land the requirements list (one item per requirement, each pointing at its page in the system prototype), the outline design, and one system prototype (two pages plus navigation between them) in `doc/`; after the review passes, split it into two sub-tasks per requirement and then implement. Once you confirm, I'll create the task, write the PRD, and land the design documents. OK?
 >
 > **You:** OK, go ahead.
 
@@ -1387,11 +1387,10 @@ Once the questions are answered, the design package lands in the project's `doc/
 ```text
 doc/design/需求列表.md
 doc/design/概要设计.md
-doc/prototype/leave-new.html
-doc/prototype/leave-list.html
+doc/prototype/原型.html
 ```
 
-The requirements list states the rules for both pages (real file content, excerpt): the type dropdown （年假 / 病假 / 事假） is mandatory; the reason is mandatory; annual leave is at most 10 days per request, over the cap it goes to approval; each list row has a 通过 (approve) and 驳回 (reject) button. The outline design's interface lines read (real content):
+The requirements list is one item per requirement (real file content, excerpt): requirement one "提交请假申请" (submit a leave request) points at the request page in the system prototype — the type dropdown （年假 / 病假 / 事假） is mandatory, the reason is mandatory, annual leave is at most 10 days per request, over the cap it goes to approval; requirement two "审批请假申请" (approve a leave request) points at the approval list page in the system prototype — the list shows applicant, type, start and end dates, days, and status, with a 通过 (approve) and 驳回 (reject) button on each row. The outline design's interface lines read (real content):
 
 ```markdown
 - `POST /api/v1/leaves`：缺 `reason` 返回 400，错误体 `{"error": "reason 必填"}`。
@@ -1401,63 +1400,57 @@ The requirements list states the rules for both pages (real file content, excerp
 
 (In English: "`POST /api/v1/leaves`: a missing `reason` returns 400 with `{"error": "reason 必填"}`. Annual leave is at most 10 days per request; over the cap it returns `NEED_APPROVAL`. `GET /api/v1/leaves` returns all records.")
 
-Both prototypes are high-fidelity pages: the request page has a type dropdown (mandatory), start and end dates, a reason text field (mandatory), and a submit button; the approval list page is a table (applicant, type, start and end dates, days, status) with a 通过 (approve) and 驳回 (reject) button on each row.
+The system prototype is one file with two pages plus navigation between them: a "申请 | 审批列表" (Request | Approval list) nav at the top, a request page with a type dropdown (mandatory), start and end dates, a reason text field (mandatory), and a submit button, and an approval list page as a table (applicant, type, start and end dates, days, status) carrying three mock rows （张三 pending, 李四 approved, 王五 pending), each with a 通过 (approve) and 驳回 (reject) button — the demo is clickable. One prototype serves multiple requirements: requirements one and two both live in this one prototype, one page each; and the split follows the requirements — the sub-tasks split per requirement.
 
 Then comes the requirements review — the designer's last act before exiting: Claude Code lays out the whole package for you to confirm — the PRD, the design document list, and the split plan; nothing moves on until you confirm.
 
-> **Claude Code:** For review: the PRD, the requirements list, the outline design, and both prototypes are all ready, and the split is two sub-tasks — frontend implements the request page and the approval list page against the prototypes, backend builds the leave API. Once you confirm, I'll create the parent task and split it in one go. OK?
+> **Claude Code:** For review: the PRD, the requirements list, the outline design, and the system prototype are all ready, and the split is two sub-tasks — requirement one is the request page plus the POST API, requirement two is the approval list page plus the GET API. Once you confirm, I'll create the parent task and split it in one go. OK?
 >
 > **You:** OK, split it.
 
 **[Designer exits, developers enter]**
 
-The split happens once, after the review passes — it covers the whole scope, and the sub-task list is settled in one pass; the split itself starts nothing, and both sub-tasks are created in `planning`. The parent task records the sub-task map, and developers enter with the work already split and the context already curated.
+The split happens once, after the review passes — and it follows the requirements: one prototype serves multiple requirements, so the sub-tasks split per requirement, covering the whole scope, with the sub-task list settled in one pass; the split itself starts nothing, and both sub-tasks are created in `planning`. The parent task records the sub-task map, and developers enter with the work already split and the context already curated (each sub-task's context points at its own page in the system prototype).
 
-The frontend sub-task starts first. What Claude Code runs underneath (you don't type it), key output only:
+Requirement one starts first. What Claude Code runs underneath (you don't type it), key output only:
 
 ```sh
-sunshine task start 11-11-前端-请假两页按原型实现
+sunshine task start 11-11-需求一-提交请假申请
 # ✓ 状态：planning → in_progress（降级）
 ```
 
 Here is the session while it develops (the conversation is an example; the commands and outputs are real values from runs):
 
-> **Claude Code:** The frontend sub-task is starting: the main session dispatches `sunshine-implement` to change `LeaveForm.vue` and `LeaveList.vue` against the two prototypes, then dispatches `sunshine-check` to verify against the frontend spec in `check.jsonl`.
+> **Claude Code:** Requirement one is starting: the main session dispatches `sunshine-implement` to change `LeaveForm.vue` against the request page in the system prototype and add two validations to the POST in `server.js`, then dispatches `sunshine-check` to verify against the spec in `check.jsonl`.
 >
-> **Claude Code:** Implement is done: the request page has a three-item type dropdown （年假 / 病假 / 事假） with `required`, the reason is mandatory, and the form blocks the submit without one; the approval list page is a six-column table with a 通过 (approve) and 驳回 (reject) button on each row. Check passed too: all three options are there, `required` is there, the submit guard is there, the approve button is there. I added a leave-form convention to the spec. Commit once? (One commit: two frontend pages plus the spec convention.)
+> **Claude Code:** Implement is done: the request page has a three-item type dropdown （年假 / 病假 / 事假） with `required`, the reason is mandatory, and the form blocks the submit without one; a POST with a missing `reason` returns 400, over 10 days returns `NEED_APPROVAL`, a normal submit returns 200. Check passed too: all three options are there, `required` is there, the submit guard is there, a missing reason is 400, 11 days is `NEED_APPROVAL`, 2 days is 200 with `reason` and `days` in the record. I added a leave-form and a leave-API convention to the spec. Commit once? (One commit: request page plus POST API plus spec conventions.)
 >
 > **You:** Commit it, and archive this sub-task.
 >
 > **Claude Code:** Done — `task finish` clears the pointer and `task archive` archives it after the commit. The parent is now 1/2 done.
 
-Key output (real runs): the four grep checks read `3`, `2`, `1`, `1` (three type options, two `required` spots, one submit guard, one approve button); the commit is `7d54a51 前端：请假两页按原型实现` (frontend: two leave pages implemented against the prototypes); after the archive the parent shows 1/2 done.
+Key output (real runs): the three grep checks read `3`, `2`, `1` (three type options, two `required` spots, one submit guard); the three curl checks: a missing reason is `{"error":"reason 必填"}`, HTTP 400, 11 days is `{"code":"NEED_APPROVAL","data":null}`, 2 days is 200 with record `id` 2 and `days` 2; the commit is `31e6c36 需求一：提交请假申请，申请页 + POST 接口` (requirement one: submit a leave request, request page plus POST API); after the archive the parent shows 1/2 done.
 
-Only after the frontend is archived does the backend sub-task start — it runs the same loop:
+Only after requirement one is archived does requirement two start — it runs the same loop:
 
-> **Claude Code:** The backend sub-task is starting: dispatching `sunshine-implement` to add two validations to `server.js`, then `sunshine-check` to verify with curl.
+> **Claude Code:** Requirement two is starting: dispatching `sunshine-implement` to change `LeaveList.vue` against the approval list page in the system prototype — the GET API already exists — then `sunshine-check` to verify.
 >
-> **Claude Code:** Implement is done: a missing `reason` returns 400, over 10 days returns `NEED_APPROVAL`, a normal submit returns 200. Check passed too: a missing reason is 400, 11 days is `NEED_APPROVAL`, 2 days is 200 with `reason` and `days` in the record. I added a leave-API convention to the spec. Commit once?
+> **Claude Code:** Implement is done: the approval list page is a six-column table with a 通过 (approve) and 驳回 (reject) button on each row; GET returns all records. Check passed too: six header columns are there, the approve button is there, GET returns 2 records, and the second one carries `reason` and `days`. I added an approval-list and a GET-API convention to the spec. Commit once?
 >
 > **You:** Commit it, and archive this sub-task.
 
 Key output (real runs):
 
 ```sh
-curl -s -X POST localhost:3000/api/v1/leaves -H 'Content-Type: application/json' -d '{"type": "年假", "start": "2026-11-10", "end": "2026-11-11"}'
-# {"error":"reason 必填"}，HTTP 400
-
-curl -s -X POST localhost:3000/api/v1/leaves -H 'Content-Type: application/json' -d '{"type": "年假", "start": "2026-11-10", "end": "2026-11-20", "reason": "休息"}'
-# {"code":"NEED_APPROVAL","data":null}
-
-curl -s -X POST localhost:3000/api/v1/leaves -H 'Content-Type: application/json' -d '{"type": "年假", "start": "2026-11-10", "end": "2026-11-11", "reason": "休息"}'
-# {"code":"OK","data":{"id":2,"applicant":"演示者","type":"年假","start":"2026-11-10","end":"2026-11-11","days":2,"reason":"休息","status":"待审批"}}
+curl -s localhost:3000/api/v1/leaves
+# {"code":"OK","data":[{"id":1,"type":"年假","start":"2026-11-10","end":"2026-11-11","reason":"休息","status":"待审批"},{"id":2,"applicant":"演示者","type":"年假","start":"2026-11-10","end":"2026-11-11","days":2,"reason":"休息","status":"待审批"}]}
 ```
 
-The commit is `1ce3c59 后端：请假接口，缺 reason 返回 400，超 10 天返回 NEED_APPROVAL` (backend: leave API, missing reason returns 400, over 10 days returns NEED_APPROVAL); after the archive the parent shows 2/2 done.
+The commit is `b3893e2 需求二：审批请假申请，审批列表页 + GET 接口` (requirement two: approve a leave request, approval list page plus GET API); after the archive the parent shows 2/2 done.
 
-Finally the parent gets its final integration review — checked once against the acceptance criteria in the outline design and the prototypes — and then it is archived:
+Finally the parent gets its final integration review — checked once against the acceptance criteria in the outline design and the system prototype — and then it is archived:
 
-> **Claude Code:** Integration review: the request page's three types and mandatory reason match the prototype, all three API checks (400, `NEED_APPROVAL`, 200) passed, and the records carry `reason` and `days`. Archive the parent?
+> **Claude Code:** Integration review: the request page's three types and mandatory reason match the prototype, all three API checks (400, `NEED_APPROVAL`, 200) and the GET list passed, and the records carry `reason` and `days`. Archive the parent?
 >
 > **You:** Archive it.
 
@@ -1475,24 +1468,30 @@ sunshine task list-archive
 # 已归档任务：
 #
 # [2026-11] - 3 个任务
-#   - 11-11-前端-请假两页按原型实现/
-#   - 11-11-后端-请假接口/
 #   - 11-11-请假申请小工具/
+#   - 11-11-需求一-提交请假申请/
+#   - 11-11-需求二-审批请假申请/
 ```
 
-The designer enters with only a requirement and exits leaving a complete design package; developers enter with the work already split and the context already curated, and exit with 0 active tasks and 3 archived.
+The designer enters with only a requirement and exits leaving a complete design package; developers enter with the work already split per requirement and the context already curated, and exit with 0 active tasks and 3 archived.
 
-**Requirement change: the cap moves from 10 days to 5**
+**Requirement change: the cap moves from 10 days to 5 — the designer returns**
 
-After the project is done and archived, the business asks for the annual-leave cap to move from 10 days to 5 days per request. Follow the requirement-change rule in workflow 1.5: the three archived tasks stay archived — no reopening; the change gets a new task. `doc/` is a living project document, so it changes with the requirement.
+After the project is done and archived, the business asks for the annual-leave cap to move from 10 days to 5 days per request. Follow the requirement-change rule in workflow 1.5: the three archived tasks stay archived — no reopening; the change gets a new task. But the design package is the designer's deliverable, so changing it means the designer returns first.
 
-> **You:** The requirement changed: the annual-leave cap moves from 10 days to 5 days per request. Follow the Sunshine workflow: confirm the blast radius first, then implement.
+**[Designer returns]**
+
+> **You:** The requirement changed: the annual-leave cap moves from 10 days to 5 days per request. Follow the Sunshine workflow: the designer returns to change the design package first, and implementation only starts after the review passes.
 >
-> **Claude Code:** The blast radius is the backend only: the frontend sub-task is archived and unaffected (the form doesn't cap the number of days) — no reopening; the backend sub-task is archived too — no reopening either. Here's the plan: create a new task "年假上限改成 5 天", record `[变更 2026-11-11]` in its PRD, change 10 days to 5 in the outline design and the prototype, change the check in `server.js` to 5 days, update the spec the same way, and verify the 6-day and 5-day cases with curl. Once you confirm, I'll start. OK?
+> **Claude Code:** The blast radius is requirement one only: requirement two is archived and unaffected (the list page doesn't cap the number of days) — no reopening; requirement one is archived too — no reopening either. Here's the plan: the designer returns first and changes 10 days to 5 in the requirements list, the outline design, and the system prototype, then exits after the review passes; then a new task "年假上限改成 5 天" records `[变更 2026-11-11]` in its PRD, the check in `server.js` moves to 5 days, the spec updates the same way, and curl verifies the 6-day and 5-day cases. Once you confirm, I'll start. OK?
 >
 > **You:** OK, go ahead.
 
-Key output (real runs): 6 days returns `{"code":"NEED_APPROVAL","data":null}`, 5 days returns 200 with record `id` 3 and `days` 5; the commit is `d020234 变更：年假上限改成 5 天（10→5）` (change: annual-leave cap moves to 5 days, 10 → 5); after the archive there are 4 tasks in total. The three old tasks sit untouched in the archive, and the change is its own task with a complete record — next time someone asks why the cap is 5 days, the `[变更 2026-11-11]` line in `prd.md` is the answer.
+Once the designer has returned, changed the design package, and exited after the review passes, developers enter:
+
+**[Designer exits, developers enter]**
+
+Key output (real runs): 6 days returns `{"code":"NEED_APPROVAL","data":null}`, 5 days returns 200 with record `id` 3 and `days` 5; the commit is `add1c30 变更：年假上限改成 5 天（10→5）` (change: annual-leave cap moves to 5 days, 10 → 5); after the archive there are 4 tasks in total. The three old tasks sit untouched in the archive, and the change is its own task with a complete record — next time someone asks why the cap is 5 days, the `[变更 2026-11-11]` line in `prd.md` is the answer.
 
 ## Appendix: command reference
 
