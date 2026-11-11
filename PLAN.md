@@ -2153,3 +2153,35 @@ pre-commit install       # 在仓库根目录执行一次
 - Release 已发布：https://github.com/linrong1982/Sunshine/releases/tag/v0.3.8，6 个资产；发布 run 42970039441、两路 CI（42970039335、42969768358）均 success 无抖动。
 - 实测验证：不带参数的一键命令装上 v0.3.8（`Sunshine 版本 0.3.8`）；0.3.7 二进制 `upgrade --dry-run` 正确查到 0.3.8；darwin_amd64 包 checksum OK（Mach-O x86_64）。注：验证时沙箱 /usr/local/bin 里的 0.3.7 二进制已被 VM 更换清掉（/usr/local/bin 不跨 VM 持久），upgrade 检查改用从 v0.3.7 Release 现下载的原版二进制跑的，结果一样。
 - 权限讨论（未定）：用户问“只让授权的人用 sunshine”能不能做。已答：能做，三条路（仓库改私有 / CLI 加授权校验 / 两者结合），并说明公开源码的前提下纯 CLI 校验防不住改源码重编；v0.3.7 及之前已公开发出去了，收不回来，权限只能管以后的版本。用户选继续发 v0.3.8；授权给哪些人（团队成员 / 指定 GitHub 账号 / 付费用户）还没定，等用户再说。
+
+## License 验证：签名 license 文件 + 每日联网核查（2026-11-11，用户定方向，未实施）
+
+### 背景与用户定夺
+- 用户定 Sunshine 未来方向：仓库肯定要迁到私有、源码不公开；调用 sunshine 时要求验证 license。对内使用，担心离职后继续用。
+- 机制讨论经过（2026-11-11）：先给的推荐是离线签名的 license 文件 + 本地验签（Ed25519），不用服务器；用户问“只让授权的人用”能不能做时答了三条路（仓库改私有 / CLI 加授权校验 / 两者结合），并说明公开源码的前提下纯 CLI 校验防不住改源码重编。用户又问签发机制怎么工作，解释后用户定：先把这套写进 PLAN.md。
+- 关键结论：**光靠离线 license 解决不了离职问题**——发出去的 license 只能等过期，离职的人最长能用到有效期满。所以离线验签之外必须加一道每日联网核查（组织成员或 allowlist），离职 = 移出组织 / 从 allowlist 删掉，第二天就用不了；断网宽限 7 天兜底。
+
+### 设计要点
+- **License 文件**：JSON，字段 `id`（随机）、`name`、`email`、`issued_at`、`expires_at`、`signature`。签名是对除 `signature` 外全部字段的规范序列化做 Ed25519 签名（base64）。文件放 `~/.sunshine/license.json`（与 `~/.sunshine/channels/`、`~/.sunshine/ablations/` 同一约定）。
+- **密钥对**：`sunshine license keygen` 只做一次，生成私钥（只放签发者机器上，最好再备份一份在密码管理器里，绝不进 git、绝不进仓库）与公钥（嵌进二进制，随发版走；内嵌位置待定，如 `internal/license/` 下的 Go 常量或 pem 文件）。私钥只能签名，公钥只能验签——公钥公开了也签不出有效的 license；签名能验过 ⟺ 持有私钥的人签发 ⟺ 只有签发者能发 license。`keygen` 做一次，`issue` 想发多少发多少（每份内容不同，签名也不同，都用同一个公钥验）。
+- **签发**：`sunshine license issue --name <名字> --email <邮箱> --expiry <天数/日期>`，读私钥文件签名，输出 license 文件；签发者把文件发给同事，同事跑 `sunshine license activate --file license.json` 装进 `~/.sunshine/license.json`。`license status` 显示持有人与有效期（不拦），`license` 相关命令与 `version` / `--help` 不验 license（否则连看都看不了）。
+- **验签（每次调用都验）**：CLI 统一入口拦一道（cobra 统一入口，所有子命令都过它，只放行 version/help/license），分两步——① 用内嵌公钥验签名，证明整份内容（包括有效期）没被改过，改一个字签名就失效；② 拿当前时间跟 `expires_at` 比，过了就拒绝并提示找签发者续签。Ed25519 验签一次几十微秒，无感。默认有效期 90 天，到期前 30 天起提醒。
+- **每日联网核查（吊销）**：每天第一次调用时联网查一次“这个人还在不在”，结果缓存 24 小时。两个来源二选一（待定，取决于团队有没有 GitHub org；仓库目前在个人账号 linrong1982 下，未见 org）：① GitHub 组织成员身份——离职就是移出组织，自动吊销，用 `gh` 已登录的 token 或一个只读 token；② 私有仓库里的 allowlist 文件——离职就是从文件里删掉那一行。断网时用缓存，最多宽限 7 天；超过 7 天没核查过就拒绝。时间来源也以核查那一步的服务器时间为准，本机时钟往回拨最多拖 7 天。
+- **最坏情况**：离职的人天天联网，第二天就用不了；故意一直断网，7 天后停；有效期 90 天只是兜底。
+- **密钥轮换**：私钥泄露/丢失 → 重新 keygen → 重新发版（新公钥）→ 给所有人重发 license；旧 license 随之作废（新公钥验不过旧签名）。
+- **与迁私有的关系**：license 机制先做（公开仓库也能跑）；迁私有那天，一键安装与 `sunshine upgrade` 要改成带 token 拉取（私有仓库的 raw 与 release 都要认证），顺手一起改。迁私有后，已装到别人机器上的旧二进制仍不受 license 约束之外的管控——管住以后版本靠 license，旧版本收不回来（v0.3.8 及之前已公开发出去了）。
+
+### 改动清单（待实施）
+1. **`internal/license/`（新建）**：Ed25519 签名/验签、license 文件读写（`~/.sunshine/license.json`）、有效期检查、核查缓存（`~/.sunshine/license-check.json`，含核查时间与结果）。
+2. **`sunshine license` 命令组（新建）**：`keygen`（生成密钥对，私钥写指定路径，默认 `~/.sunshine/license-admin.key`）、`issue`（读私钥签发）、`activate --file`（装 license）、`status`（持有人/有效期/上次核查时间）。
+3. **CLI 入口验签**：统一入口拦一道，验签 + 有效期 + 每日联网核查（组织成员或 allowlist，二选一）；放行 `version` / `--help` / `license` 相关命令；拒绝时给明确提示（缺 license / 签名无效 / 已过期 / 不在授权名单 / 超过 7 天未核查）。
+4. **公钥内嵌**：发版时把公钥编进二进制；`.gitignore` 加私钥文件名，私钥绝不进仓库。
+5. **文档**：教程加一节 license（签发、激活、续签、离职吊销、常见报错）；README 提一句。
+
+### 验证（待实施）
+- 单元测试：签发→验签 round-trip；改一个字验签失败；过期拒绝；缺 license 拒绝；私钥丢了轮换后旧 license 失效。
+- 端到端：真实二进制跑 `keygen` → `issue` → `activate` → 正常命令放行；缺/坏/过期 license 时各命令拒绝，`version` 与 `license status` 不拦；核查缓存 24 小时内不重复联网（断网也能跑），超过 7 天未核查拒绝。
+- 数字（90 天有效期、30 天提醒、每天核查一次、7 天宽限）都是默认值，可调；实施前与用户确认。
+
+### 实施记录
+- 未开始：等用户定夺实施（先写 PLAN.md）。

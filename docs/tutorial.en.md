@@ -892,7 +892,7 @@ Sections 1–11 cover the main flow; this section walks through six real scenari
 | 5. Fixing a bug that keeps coming back | The same class of problem appears again and again | `mem` finds the last session first, then a task, then the lesson goes into spec |
 | 6. Design-first product work | Design comes before development | Design documents land in `doc/`; split into sub-tasks, then developers take them one by one |
 
-This section was verified with **v0.3.0** (the current Release; `sunshine version` prints `Sunshine 版本 0.3.0`). The demo directories all live under `/tmp/scenes/` (`s1-new`, `s2-old`, `s3-cross`, `s4-refactor`, `s5-bug`, `s6-design`) — delete them and nothing in any real project is affected. The `11-10` prefix in task directory names is the month-day of the day the commands were run (2026-11-10); section 12.6 was run on 2026-11-11, so its task directories start with `11-11`. Command outputs are real excerpts from runs made for this tutorial (`……` marks omitted lines, not rewritten ones); prompts shown to the agent are labeled as example prompts, not records of a real session. The CLI itself is Chinese-only, so commands and sample outputs below are kept in the original Chinese; the explanations around them are in English.
+This section was verified with **v0.3.0** (the current Release; `sunshine version` prints `Sunshine 版本 0.3.0`). The demo directories all live under `/tmp/scenes/` (`s1-new`, `s2-old`, `s3-cross`, `s4-refactor`, `s5-bug`, `s6-design`) — delete them and nothing in any real project is affected. The `11-10` prefix in task directory names is the month-day of the day the commands were run (2026-11-10); section 12.6 was run on 2026-11-11, so its task directories start with `11-11`. Command outputs are real excerpts from runs made for this tutorial (`……` marks omitted lines, not rewritten ones); prompts shown to the agent are labeled as example prompts, not records of a real session. Each of the six scenarios includes an example session with Claude Code (the conversation is an example; the commands and outputs are real values from runs) — you talk, answer, and confirm in the conversation; the commands are the agent's job, running under the hood. The CLI itself is Chinese-only, so commands and sample outputs below are kept in the original Chinese; the explanations around them are in English.
 
 ### 12.1 Starting a new project from zero: a duty-roster tool
 
@@ -920,13 +920,23 @@ Real output:
 
 An empty directory has no detectable type, so `-y` defaults to full-stack and all three specs are generated — a new project starts with a default set of specs, and the team adjusts them later, which beats starting with nothing.
 
-State the first requirement in the agent UI:
+Open the project in Claude Code and state the first requirement in plain language (same for Codex and Cursor):
 
 Example prompt (an example, not a record of a real session):
 
 > I'm starting a duty-roster tool from scratch: generate this week's roster from a CSV, first column date, second column the person on duty. Please follow the Sunshine workflow: ask me first to pin down the missing product logic (date formats, output form) and technical decisions (language, how to run it); once confirmed, create the first task, write the PRD, then implement.
 
-Under the hood the agent creates the task, lines up context, and starts it (same commands as section 4; only the key outputs are shown here):
+Here is how the session continues (the conversation is an example; the commands and outputs are real values from runs):
+
+> **Claude Code:** Three quick questions first: 1. What date format is in the CSV — `11-10`, or `2026-11-10`? 2. Where should the roster go — printed to the terminal, or written to a file? 3. What language, and how do I run it?
+>
+> **You:** Dates are month-day, like `11-10`; printing to the terminal is fine; Go, a command-line tool, run with `go run ./cmd/duty 值班表.csv`.
+>
+> **Claude Code:** Got it. Here's the plan: create the task "值班表小工具第一版" and write a PRD that says generate this week's roster from the CSV (first column date, second column person on duty) and print it to the terminal; acceptance is running `go run ./cmd/duty 值班表.csv` and seeing lines like `11-10：张三`. Once you confirm, I'll create the task, write the PRD, and start implementing. OK?
+>
+> **You:** OK, go ahead.
+
+Once you confirm, Claude Code creates the task, lines up context, and starts it under the hood — you don't type any of these commands (same commands as section 4; only the key outputs are shown here):
 
 ```sh
 sunshine task create "值班表小工具第一版" --description "按 CSV 生成本周值班表" --priority P2
@@ -1005,13 +1015,23 @@ Detection only looks at the dependencies themselves: this project has only `expr
 ?? .sunshine/
 ```
 
-The first task on an adopted project is not a feature — it is landing the remembered conventions in spec, so the agent stops having to guess them every time. One sentence in the agent UI is enough:
+The first task on an adopted project is not a feature — it is landing the remembered conventions in spec, so the agent stops having to guess them every time. One sentence to Claude Code is enough (same for Codex and Cursor):
 
 Example prompt (an example, not a record of a real session):
 
 > I'm bringing an existing project into Sunshine: the repo exists, but the conventions live mostly in people's heads, and the README has three team conventions. Please follow the Sunshine workflow: ask me first to confirm the three conventions and which spec files they belong in; once confirmed, create the task, write the PRD, then write the conventions into .sunshine/spec/ so every task from now on follows them.
 
-Under the hood the agent creates the task and writes the conventions into the matching spec files (this is what actually landed):
+Here is how the session continues (the conversation is an example; the commands and outputs are real values from runs):
+
+> **Claude Code:** I can see all three conventions: APIs return `{ code, data }`, every write logs an audit trail, and the port is fixed at 3000. Quick check on where they go — the first two into `backend.md`, but the port: `system.md` or `backend.md`?
+>
+> **You:** The first two into `backend.md`. The port is a team-wide rule — put it in `system.md`.
+>
+> **Claude Code:** Got it. Here's the plan: create the task "把现有约定落进规范", write a PRD that says land the three remembered conventions from the README into spec; acceptance is `grep -c "审计日志" .sunshine/spec/backend.md` returning 1. Once you confirm, I'll create the task, write the PRD, and write the conventions in. OK?
+>
+> **You:** OK, go ahead.
+
+Once you confirm, Claude Code creates the task and writes the conventions into the matching spec files under the hood — you don't type any of these commands (this is what actually landed):
 
 ```sh
 sunshine task create "把现有约定落进规范" --description "把 README 里靠人记的三条约定写进 .sunshine/spec" --priority P2
@@ -1043,13 +1063,23 @@ From now on the conventions no longer live only in senior engineers' heads: the 
 
 When one task spans four layers, the usual failure is changing one layer and missing another — Sunshine's answer is one task whose context list names the files in all four layers at once, so acceptance checks against the same list. The demo is a refund app (`src/Refund.vue` is the UI, `src/server.js` the API, `data/refunds.json` the data), and the task is making the refund reason mandatory.
 
-State the requirement in the agent UI:
+State the requirement to Claude Code (same for Codex and Cursor):
 
 Example prompt (an example, not a record of a real session):
 
 > I need to deliver a product feature: make the refund reason mandatory, one task across the product, API, data, and UI layers (the UI is src/Refund.vue, the API is src/server.js, the data is data/refunds.json). Please follow the Sunshine workflow: ask me first to pin down the unclear validation rules (the reason options, the error code when the field is missing) and the order to change the four layers; once confirmed, create the task, write the PRD, then implement.
 
-Under the hood the agent creates the task (same commands as section 4; only the key outputs are shown here):
+Here is how the session continues (the conversation is an example; the commands and outputs are real values from runs):
+
+> **Claude Code:** Three quick questions first: 1. What are the reason options in the dropdown? 2. What does the backend return when `reason` is missing — 400 plus which error code? 3. In what order do the four layers change?
+>
+> **You:** Three reasons: quality issue, wrong size, other — picking "other" shows a text box; missing `reason` returns 400 with `REASON_REQUIRED`; API first, then UI, data fields follow.
+>
+> **Claude Code:** Got it. Here's the plan: create the task "退款原因必填校验（全链路）", write a PRD that says change all four layers together; line up the context by layer — `src/Refund.vue`, `src/server.js`, `data/refunds.json` into `implement`, `.sunshine/spec/backend.md` into `check`; the change order goes through a channel. Once you confirm, I'll create the task, line up the context, and start it. OK?
+>
+> **You:** OK, go ahead.
+
+Once you confirm, Claude Code creates the task under the hood — you don't type any of these commands (same commands as section 4; only the key outputs are shown here):
 
 ```sh
 sunshine task create "退款原因必填校验（全链路）" --description "产品、API、数据、UI 四层一起改：原因必填" --priority P1
@@ -1082,7 +1112,7 @@ sunshine task start 11-10-退款原因必填校验-全链路
 # ✓ 状态：planning → in_progress（降级）
 ```
 
-The four layers have to change in order (API first, then UI, data fields following), so say the order in a channel. Switch the workflow to channel-driven dispatch first, then create the channel and send two coordination messages:
+The four layers have to change in order (API first, then UI, data fields following), so Claude Code says the order in a channel. Switch the workflow to channel-driven dispatch first, then create the channel and send two coordination messages:
 
 ```sh
 sunshine workflow --template channel-driven-subagent-dispatch
@@ -1141,13 +1171,23 @@ func Price(qty int, vip bool) int {
 
 (In English: "Legacy module: it runs, but the discount rules are hard-coded in ifs — every change is a gamble.")
 
-State the requirement in the agent UI:
+State the requirement to Claude Code (same for Codex and Cursor):
 
 Example prompt (an example, not a record of a real session):
 
 > I need to refactor a legacy module: the price function Price, with all the discount rules hard-coded in `if`s — the code runs, but it is no longer safe to change. Please follow the Sunshine workflow (the TDD template this time): ask me first to confirm the behavior to pin down (the expected prices for each quantity tier and VIP) and the boundaries of the refactor; once confirmed, create the task, write the PRD, then follow TDD: write characterization tests to pin the current behavior first, then refactor.
 
-Under the hood the agent switches the workflow, creates the task, and starts it:
+Here is how the session continues (the conversation is an example; the commands and outputs are real values from runs):
+
+> **Claude Code:** Two quick questions first: 1. Which cases should I pin down — the expected prices for each quantity tier, VIP and non-VIP? 2. Where does the refactor stop — only pull the discount rules out, with `Price`'s signature and return value unchanged, right?
+>
+> **You:** Pin three cases: 1 item non-VIP 100, 10 items non-VIP 900, 10 items VIP 855; only pull the discount rules out, `Price`'s signature stays, behavior must not change.
+>
+> **Claude Code:** Got it. Here's the plan: switch to the TDD template first, create the task "重构价格计算"; write characterization tests to pin those three cases (all green is the baseline), then pull the discount rules into constants and two small functions with `Price` only composing them, and run the same tests again — still all green. Once you confirm, I'll start. OK?
+>
+> **You:** OK, go ahead.
+
+Once you confirm, Claude Code switches the workflow, creates the task, and starts it under the hood — you don't type any of these commands:
 
 ```sh
 sunshine workflow --template tdd
@@ -1229,13 +1269,23 @@ Archive the task as usual and switch the workflow back to native (`--force`, sam
 
 When the same class of problem appears again and again, the most expensive part is investigating it from zero every time. The bug in this section really happened: a codex worker failing to connect with a 401 — once on November 9, again in the early hours of November 10, and once more today.
 
-State the requirement in the agent UI:
+State the requirement to Claude Code (same for Codex and Cursor):
 
 Example prompt (an example, not a record of a real session):
 
 > I need to fix a bug that keeps coming back: a codex worker failing to connect with a 401 — once on November 9, again in the early hours of November 10, and once more today. Please follow the Sunshine workflow: use mem to find the last related session first, then ask me to confirm whether this is the same class of problem and what the reproduction steps are; once confirmed, create the task, write the PRD, and write the lesson into the spec after the fix.
 
-Under the hood the agent first reproduces one occurrence as it happened (a real run):
+Here is how the session continues (the conversation is an example; the commands and outputs are real values from runs):
+
+> **Claude Code:** I checked `mem` first: the last related session is the dispatch from November 10, 05:05, whose message to the worker already mentions 401. Two quick questions: 1. Is this the same class of problem — a codex worker failing to connect with a 401? 2. How do I reproduce it — on this machine, or online?
+>
+> **You:** Same class — still 401 today; reproduce it on this machine, codex isn't logged in.
+>
+> **Claude Code:** Got it. Here's the plan: reproduce the dispatch once on this machine to confirm it's still 401; then create the task with the session id in the description, and write the lesson into spec after the fix. Once you confirm, I'll start. OK?
+>
+> **You:** OK, go ahead.
+
+Once you confirm, Claude Code reproduces one occurrence as it happened under the hood — you don't type any of these commands (a real run):
 
 ```sh
 sunshine channel create codex-401 --type chat
@@ -1310,13 +1360,27 @@ Archive the task as usual. Next time a 401 shows up, the agent reads the spec an
 
 In design-first mode, designers and developers share one workflow with different jobs: the designer states the requirement and confirms the documents; developers take the sub-tasks one by one. The demo is the same refund app, and the requirement is to rework the refund flow against a new prototype.
 
-State the requirement in the agent UI:
+State the requirement to Claude Code (same for Codex and Cursor):
 
 Example prompt (an example, not a record of a real session):
 
 > I want to rework the refund flow: the reason is mandatory, and it has to follow the new prototype. This time we do product design first — please follow the Sunshine workflow: ask me first to pin down the unclear validation rules and prototype details; once confirmed, create the task, write the PRD, then land the outline design and the high-fidelity prototype in doc/; after review, split it into sub-tasks and then implement.
 
-The agent asks questions first (one at a time, with options), updating `prd.md` after each answer. Then the design documents land in the project's `doc/`, not in `.sunshine`:
+Here is how the session continues (the conversation is an example; the commands and outputs are real values from runs):
+
+> **Claude Code:** Validation rules first, one at a time: 1. Is the reason dropdown mandatory — block the submit when nothing is picked, or let it through? 2. Is there a cap on the refund amount, and what happens over it?
+>
+> **You:** Mandatory — block the submit when nothing is picked; cap is 5000 元, over the cap returns `NEED_APPROVAL`.
+>
+> **Claude Code:** And the prototype details: 1. What order do the refund statuses flow in? 2. What does the backend return when `reason` is missing?
+>
+> **You:** Statuses flow "待付款 → 已发货 → 退款中"; missing `reason` returns 400 with `{"error": "reason 必填"}`.
+>
+> **Claude Code:** Got it. Here's the plan: create the task, write a PRD that says the reason is mandatory and the flow follows the new prototype; land the outline design and the high-fidelity prototype in `doc/`; after review, split it into a frontend and a backend sub-task, then implement. Once you confirm, I'll create the task, write the PRD, and land the design documents. OK?
+>
+> **You:** OK, go ahead.
+
+Once the questions are done, the design documents land in the project's `doc/`, not in `.sunshine`:
 
 ```text
 doc/design/退款流程概要设计.md
@@ -1352,9 +1416,15 @@ The outline design reads like this (real file content, in Chinese — goal, modu
 
 The prototype is `doc/prototype/refund.html`, one high-fidelity form page: a mandatory reason dropdown, a refund amount capped at 5000 元, and a submit button.
 
-Then comes the requirements review: the agent lists the whole package for you to confirm — the PRD, the design document list, and the split plan. Only after confirmation does the work move on.
+Then comes the requirements review: Claude Code lists the whole package for you to confirm — the PRD, the design document list, and the split plan. Only after confirmation does the work move on.
 
-After review, split. First the parent task:
+Here is the review exchange (the conversation is an example; the commands and outputs are real values from runs):
+
+> **Claude Code:** For review: the PRD, the outline design, and the prototype are all ready, and the split is two sub-tasks — frontend reworks the refund form against the prototype, backend makes the reason mandatory. Once you confirm, I'll create the parent task and split it. OK?
+>
+> **You:** OK, split it.
+
+After review, Claude Code splits it under the hood — you don't type any of these commands. First the parent task:
 
 ```sh
 sunshine task create "退款流程改版" --description "按新原型改版退款流程：原因必填 + 状态流转" --priority P1
