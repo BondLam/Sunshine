@@ -2260,3 +2260,11 @@ pre-commit install       # 在仓库根目录执行一次
 - 内容：§12.6 例子纠正——设计包做完才拆解，一次拆完（教程 §12.6 引言/设计包/拆解过渡三处同步；三份 workflow 模板 1.2 加“拆解只做一次”，brainstorm skill 第 8 步同步）+ 上轮 §12.6 顺序说明（拆解完不自动开发，评审通过、逐个激活才开始；前端归档后后端才启动）。主提交远端 `c772558`（7 个文件），tag 对象 `b4b90c5`。
 - Release：https://github.com/linrong1982/Sunshine/releases/tag/v0.3.10，6 个资产；发布 run 42982006525、两路 CI（42982006622、42981987667）均 success 无抖动。
 - 实测：不带参数一键装上 v0.3.10（`sunshine version` = 0.3.10）；v0.3.9 原版二进制 upgrade --dry-run 查到 v0.3.10；darwin arm64 包 checksum OK（9207a76a…）、Mach-O arm64。
+
+## §12.6 重写：全新项目请假申请小工具，对话驱动 + 进退场标记（2026-11-11，未提交）
+
+- 用户纠正：§12.6 的例子不对——“改版退款流程”是旧项目改版，要用全新项目演示需求 → 设计文档 → 拆解 → 开发；篇幅不要花在讲 sunshine 子命令上，只关心全流程人机对话；要标清楚设计人员何时进厂退厂、开发人员何时进厂。
+- 新例子：团队请假申请小工具（申请页 + 审批列表页），从零开始。演示目录 `/tmp/scenes/s6-leave` 真实跑通全流程：设计包（`doc/design/需求列表.md`、`doc/design/概要设计.md`、`doc/prototype/leave-new.html`、`doc/prototype/leave-list.html`）→ 评审通过 → 一次性拆解（父任务 + 前端两页 + 后端接口）→ 前端（grep 验收 3/2/1/1，提交 `7d54a51`）→ 后端（curl 三验：缺 reason 400、11 天 NEED_APPROVAL、2 天 200 id 2，提交 `1ce3c59`）→ 父任务集成复核 → 归档（0 活动、3 归档）→ 变更示例（年假上限 10→5 天，新任务，curl 验 6 天 NEED_APPROVAL、5 天 200 id 3，提交 `d020234`，归档后 4 个任务）。
+- 写法：中英文 §12.6 整节重写（中文 490→135 行、英文 496→137 行），对话驱动——对话带流程，命令只贴关键输出（task start、curl 三验、最终 list/list-archive）；三处进退场标记：**【设计人员进场】** / **【设计人员退场，开发人员进场】** / **【开发人员退场】**（英文同款 `[Designer enters]` / `[Designer exits, developers enter]` / `[Developers exit]`）。
+- 红线说明：§12.6 的开场提示词是新的（例子换了，全新项目四要素），其余六处开场提示词（§2 + §12.1–12.5）一个字没动；标题、锚点未变，§12.6 内已无退款字样。
+- 两个真实教训：① `task archive` 自动提交要 git 身份，演示目录须先 `git config user.name/email`，否则归档已移动、提交失败（前端归档那次就是这么补的）；② `pkill -f "node src/server.js"` 会把自己的 shell 一起杀掉（命令行含该字符串），停服务时不要用这招，改查端口确认。

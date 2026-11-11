@@ -1236,396 +1236,114 @@ sunshine task create "codex worker 401：spawn 前先确认登录状态" --descr
 
 ### 12.6 产品设计先行：需求 → 设计文档 → 拆解 → 开发
 
-产品设计先行时，设计人员和开发人员走的是同一条工作流，只是分工不同：设计人员先把所有产出物都做完（需求列表、概要设计、全部页面的高保真原型），评审通过后，开发人员接手子任务一个个做。拆解只做一次，拆的是整个范围——不是做好一个页面拆一次、边设计边开发。这个场景用退款演示项目，需求是按新原型改版退款流程。
+这个场景用一个全新项目：团队请假申请小工具（申请页 + 审批列表页），从零开始。设计人员和开发人员走同一条工作流，但进场、退场的时间不一样——下面每段开头都标了谁在场。
+
+**【设计人员进场】**
 
 在 Claude Code 里提需求（Codex、Cursor 同理）：
 
 示例提示词（示例，不是真实会话记录）：
 
-> 我要改版退款流程：原因必填，还要按新的原型走。这次先做产品设计——请按 sunshine 工作流走：先向我提问，把不清楚的校验规则和原型细节问清楚；确认后，帮我创建任务、写好 PRD，再把概要设计和高保真原型落到 doc/ 里；评审通过后，拆成子任务再动手实现。
+> 我要做一个全新的团队请假申请小工具：申请页 + 审批列表页。这次先做产品设计——请按 sunshine 工作流走：先向我提问，把不清楚的规则和原型细节问清楚；确认后，帮我创建任务、写好 PRD，再把需求列表、概要设计和高保真原型落到 doc/ 里；评审通过后，拆成子任务再动手实现。
 
 下面是接下来的会话示意（对话是示例；命令与输出是真实实跑值）：
 
-> **Claude Code：** 先问校验规则（一次一个，给选项）：1. 原因下拉框必选吗，不选提交时拦住还是放行？2. 退款有没有上限，超限怎么办？
+> **Claude Code：** 先问规则（一次一个，给选项）：1. 请假类型有哪些？2. 原因必填吗，不填提交时拦住还是放行？3. 年假单次最长几天，超限怎么办？
 >
-> **你：** 必选，不选提交时表单拦住；上限 5000 元，超限返回 `NEED_APPROVAL`。
+> **你：** 类型是年假 / 病假 / 事假；原因必填，不填提交时拦住；年假单次最长 10 天，超限返回 `NEED_APPROVAL` 走审批。
 >
-> **Claude Code：** 再确认原型细节：1. 退款单状态按什么顺序流转？2. 缺 `reason` 的请求，后端返回什么？
+> **Claude Code：** 再确认原型细节：1. 审批列表页显示什么？2. 缺 `reason` 的请求，后端返回什么？
 >
-> **你：** 状态按“待付款 → 已发货 → 退款中”流转；缺 `reason` 返回 400，错误体 `{"error": "reason 必填"}`。
+> **你：** 列表显示申请人、类型、起止日期、天数、状态，每条有“通过”“驳回”按钮；缺 `reason` 返回 400，错误体 `{"error": "reason 必填"}`。
 >
-> **Claude Code：** 明白了，规划是这样：建任务，PRD 里写原因必填 + 按新原型改版；概要设计和高保真原型落到 `doc/` 里；评审通过后拆成前端、后端两个子任务再动手。确认后我就建任务、写 PRD、落设计文档，没问题吗？
+> **Claude Code：** 明白了，规划是这样：建任务，PRD 里写申请页 + 审批列表页；需求列表、概要设计、两个高保真原型落到 `doc/` 里；评审通过后拆成前端、后端两个子任务再动手。确认后我就建任务、写 PRD、落设计文档，没问题吗？
 >
 > **你：** 没问题，开始吧。
 
-问完后，设计文档落盘在项目 `doc/`，不在 `.sunshine`：
+问完后，设计包落盘在项目 `doc/`，不在 `.sunshine`——设计人员先把所有产出物都做完，评审通过后开发才进场：
 
 ```text
-doc/design/退款流程概要设计.md
-doc/prototype/refund.html
+doc/design/需求列表.md
+doc/design/概要设计.md
+doc/prototype/leave-new.html
+doc/prototype/leave-list.html
 ```
 
-概要设计长这样（真实文件内容）：
+需求列表里写的是申请页和审批列表页的规则（真实文件内容，节选）：类型下拉框年假 / 病假 / 事假必选；原因必填；年假单次最长 10 天，超限走审批；列表每条有“通过”“驳回”按钮。概要设计的接口行写的是（真实内容）：
 
 ```markdown
-# 退款流程概要设计
-
-## 目标
-
-退款原因必填，退款单状态按“待付款 → 已发货 → 退款中”流转，UI、API、数据三层一起改。
-
-## 模块
-
-- 前端：`src/Refund.vue`，按原型 `doc/prototype/refund.html` 改版。
-- 后端：`src/server.js`，`POST /api/v1/refunds`。
-- 数据：`data/refunds.json`，退款记录加 `reason` 字段。
-
-## 接口
-
-- `POST /api/v1/refunds`：缺 `reason` 返回 400，错误体 `{"error": "reason 必填"}`。
-- 退款上限 5000 元，超限返回 `NEED_APPROVAL`。
-
-## 验收
-
-- 原因下拉框必选，不选提交时表单拦住。
-- 缺 `reason` 的请求返回 400。
-- 退款记录里有 `reason` 字段。
+- `POST /api/v1/leaves`：缺 `reason` 返回 400，错误体 `{"error": "reason 必填"}`。
+- 年假单次最长 10 天，超限返回 `NEED_APPROVAL`。
+- `GET /api/v1/leaves`：返回全部记录。
 ```
 
-原型是 `doc/prototype/refund.html`，一页高保真表单：原因下拉框（必填）、退款金额（上限 5000 元）、提交按钮。这个演示项目只有一个页面，所以设计包就是一份概要设计 + 一个原型；真实项目里，设计人员先把所有产出物（需求列表、概要设计、全部页面的原型）都做完，评审通过后才拆解、开发才进场——拆解只做一次，拆的是整个范围，不是做好一个页面拆一次。
+两个原型都是高保真页面：申请页是类型下拉框（必填）、起止日期、原因文本框（必填）、提交按钮；审批列表页是一张表（申请人、类型、起止日期、天数、状态），每条有“通过”“驳回”按钮。
 
-然后是需求评审：Claude Code 把整包东西列出来请你确认——PRD、设计文档清单、拆解方案；确认后才往下走。
+然后是需求评审——设计人员退场前最后一件事：Claude Code 把整包东西列出来请你确认——PRD、设计文档清单、拆解方案；确认后才往下走。
 
-下面是评审时的会话示意（对话是示例；命令与输出是真实实跑值）：
-
-> **Claude Code：** 评审一下：PRD、概要设计、原型都齐了，拆成两个子任务——前端按原型改版退款表单，后端做原因必填校验。确认后我就建父任务、拆子任务，没问题吗？
+> **Claude Code：** 评审一下：PRD、需求列表、概要设计、两个原型都齐了，拆成两个子任务——前端按原型实现申请页和审批列表页，后端做请假接口。确认后我就建父任务、一次性拆子任务，没问题吗？
 >
 > **你：** 没问题，拆吧。
 
-评审通过后，Claude Code 在底下一次性拆解——拆的是整个范围，子任务清单一次定好；这些命令你都不用敲。先建父任务：
+**【设计人员退场，开发人员进场】**
+
+评审通过后拆解只做一次——拆的是整个范围，子任务清单一次定好；拆完不自动开发，两个子任务建出来都是 `planning`。父任务记好子任务映射，开发人员进场时任务已经拆好、上下文已经配好。
+
+先启动前端子任务。Claude Code 在底下跑的（你不用敲），只贴关键输出：
 
 ```sh
-sunshine task create "退款流程改版" --description "按新原型改版退款流程：原因必填 + 状态流转" --priority P1
-```
-
-真实输出：
-
-```text
-警告：无法解析仓库默认分支（未配 remote 或离线），base_branch 暂记为当前检出分支 "master"，可用 --base-branch 覆盖。
-已创建任务：11-11-退款流程改版
-……
-.sunshine/tasks/11-11-退款流程改版
-```
-
-再建两个子任务，挂在父任务下面：
-
-```sh
-sunshine task create "前端：退款表单按原型改版" --description "Refund.vue 按原型 refund.html 改版：原因下拉框必填" --parent 11-11-退款流程改版
-sunshine task create "后端：退款原因必填校验" --description "server.js：缺 reason 返回 400" --parent 11-11-退款流程改版
-```
-
-真实输出（只贴关键行）：
-
-```text
-已链接为 11-11-退款流程改版 的子任务
-已创建任务：11-11-前端-退款表单按原型改版
-……
-已链接为 11-11-退款流程改版 的子任务
-已创建任务：11-11-后端-退款原因必填校验
-```
-
-每个子任务配自己的上下文——只放这个子任务用得上的那几份，原型只读一次，之后按指针取：
-
-```sh
-sunshine task add-context 11-11-前端-退款表单按原型改版 implement doc/prototype/refund.html "原型：退款表单页，原因下拉框必填"
-# 已添加文件：doc/prototype/refund.html
-
-sunshine task add-context 11-11-前端-退款表单按原型改版 implement doc/design/退款流程概要设计.md "概要设计：退款流程与验收"
-# 已添加文件：doc/design/退款流程概要设计.md
-
-sunshine task add-context 11-11-前端-退款表单按原型改版 check .sunshine/spec/frontend.md "前端规范"
-# 已添加文件：.sunshine/spec/frontend.md
-
-sunshine task list-context 11-11-前端-退款表单按原型改版
-```
-
-真实输出：
-
-```text
-=== 上下文文件 ===
-
-[implement.jsonl]
-  1. doc/prototype/refund.html
-     → 原型：退款表单页，原因下拉框必填
-  2. doc/design/退款流程概要设计.md
-     → 概要设计：退款流程与验收
-
-[check.jsonl]
-  1. .sunshine/spec/frontend.md
-     → 前端规范
-```
-
-父任务不激活，逐个激活子任务。先启动前端这个子任务：
-
-```sh
-sunshine task start 11-11-前端-退款表单按原型改版
-```
-
-真实输出（摘录）：
-
-```text
-ℹ 会话身份不可用；本次不持久化当前任务指针（降级模式），AI 仍可按对话上下文继续。
-提示：在能提供会话身份的 AI 会话内运行，或先设置 SUNSHINE_CONTEXT_ID 再执行 sunshine task start。
-✓ 状态：planning → in_progress（降级）
-✓ 已记录分支：master（降级）
-……
-<workflow-state>
-Task: 前端-退款表单按原型改版 (in_progress)
-……
-主会话默认：派发 implement/check 子代理。不得以任务小、改动少为由改走 inline；inline 分支只属于 Codex（见 [workflow-state:in_progress-inline]）。子代理自豁免：如果自己已经是 `sunshine-implement`，不要再派生 `sunshine-implement` 或 `sunshine-check`；如果自己已经是 `sunshine-check`，不要再派生 `sunshine-check` 或 `sunshine-implement`。派发只由主会话做。
-派发提示词以 `Active task: <task current 给出的任务路径>` 开头。读上下文的顺序：jsonl 条目 -> `prd.md` -> `design.md（如有）` -> `implement.md（如有）`。
-</workflow-state>
-```
-
-上面是在纯终端里的降级输出——没有会话身份，所以不持久化当前任务指针；在 agent 界面里跑同一条命令，`task start` 成功后直接输出同样的 in_progress 面包屑，并正常持久化指针。
-
-这时任务列表长这样：
-
-```sh
-sunshine task list
-```
-
-真实输出：
-
-```text
-全部活动任务：
-
-  - 11-11-退款流程改版/ (active) [0/2 已完成] [演示者]
-    - 11-11-前端-退款表单按原型改版/ (in_progress) [演示者] <- 当前任务
-    - 11-11-后端-退款原因必填校验/ (planning) [演示者]
-
-总计：3 个任务
-```
-
-父任务显示 `active`、0/2 已完成，两个子任务挂在下面；前端子任务已经是 `in_progress`，后端子任务还在 `planning`。
-
-顺序是这样的：评审通过后才拆解；拆完不自动开发——两个子任务建出来都是 `planning`，先启动前端，前端完整走完（实现 → 检查 → 提交 → 归档）后，再启动后端；后端走完归档后，父任务做最终集成复核再归档。
-
-**前端子任务：实现 → 检查 → 提交 → 归档**
-
-下面是开发时的会话示意（对话是示例；命令与输出是真实实跑值）：
-
-> **Claude Code：** 前端子任务开始了：主会话派 `sunshine-implement` 按原型改 `Refund.vue`，改完再派 `sunshine-check` 按 `check.jsonl` 里的前端规范验收。
->
-> **Claude Code：** implement 做完了：原因下拉框三项（质量问题 / 尺寸不符 / 其他），`required` 必选，选“其他”出文本框，不选提交时表单拦住。check 也过了：三项都在、`required` 在、提交守卫在。spec 里我补了一条退款表单约定。提交一次？（一个提交：前端改版 + spec 约定）
->
-> **你：** 提交吧，归档这个子任务。
->
-> **Claude Code：** 好，提交完 `task finish` 清指针、`task archive` 归档。父任务现在 1/2 已完成。
-
-implement 改的是 `src/Refund.vue`（按原型：原因下拉框必填）：
-
-```vue
-<template>
-  <form @submit.prevent="submit">
-    <label>退款原因（必填）
-      <select v-model="reason" required>
-        <option value="">请选择</option>
-        <option>质量问题</option>
-        <option>尺寸不符</option>
-        <option>其他</option>
-      </select>
-    </label>
-    <label v-if="reason === '其他'">其他原因 <input v-model="otherReason" type="text" /></label>
-    <label>退款金额 <input v-model.number="amount" type="number" /></label>
-    <button type="submit">提交退款</button>
-  </form>
-</template>
-```
-
-提交守卫在 `submit()` 里：`if (!this.reason) return`（第 24 行），不选原因直接返回，不发请求。
-
-check 按概要设计的验收标准逐条验（真实跑出来的）：
-
-```sh
-grep -c '<option>质量问题</option>\|<option>尺寸不符</option>\|<option>其他</option>' src/Refund.vue
-# 3
-grep -n 'required' src/Refund.vue
-# 4:      <select v-model="reason" required>
-grep -n "if (!this.reason) return" src/Refund.vue
-# 24:      if (!this.reason) return
-grep -n "v-if=\"reason === '其他'\"" src/Refund.vue
-# 11:    <label v-if="reason === '其他'">其他原因 <input v-model="otherReason" type="text" /></label>
-```
-
-3.3 规范更新补进 `.sunshine/spec/frontend.md`（真实写进去的内容）：
-
-```markdown
-## 退款表单
-
-- 原因下拉框必选（质量问题 / 尺寸不符 / 其他），选“其他”时出现文本框；不选提交时表单拦住。
-```
-
-3.4 提交改动，`task finish` 清指针、`task archive` 归档（真实跑出来的）：
-
-```sh
-git add -A && git commit -qm "前端：退款表单按原型改版，原因下拉框必填"
-git log --oneline -1
-# 729fa17 前端：退款表单按原型改版，原因下拉框必填
-
-sunshine task finish
-# ✓ 已清除当前任务（原为：.sunshine/tasks/11-11-前端-退款表单按原型改版）
-```
-
-直接 `task archive` 会被拒（`branch` 与 `base_branch` 都是 `master`，演示项目从没走过 PR），加 `--skip-branch-validation`（12.2 节同款）：
-
-```sh
-sunshine task archive 11-11-前端-退款表单按原型改版 --skip-branch-validation
-# .sunshine/tasks/archive/2026-11/11-11-前端-退款表单按原型改版
-# 已归档：11-11-前端-退款表单按原型改版 -> archive/2026-11/
-# [OK] 已自动提交：chore(task): archive 11-11-前端-退款表单按原型改版
-```
-
-这时任务列表长这样：
-
-```sh
-sunshine task list
-```
-
-真实输出：
-
-```text
-全部活动任务：
-
-  - 11-11-退款流程改版/ (planning) [1/2 已完成] [演示者]
-    - 11-11-后端-退款原因必填校验/ (planning) [演示者]
-
-总计：2 个任务
-```
-
-**后端子任务：实现 → 检查 → 提交 → 归档**
-
-前端归档后，后端子任务才启动——走同样的循环，先配上下文、再启动（真实跑出来的）：
-
-```sh
-sunshine task add-context 11-11-后端-退款原因必填校验 implement src/server.js "API：缺 reason 返回 400，超限返回 NEED_APPROVAL"
-# 已添加文件：src/server.js
-
-sunshine task add-context 11-11-后端-退款原因必填校验 implement doc/design/退款流程概要设计.md "概要设计：接口与验收"
-# 已添加文件：doc/design/退款流程概要设计.md
-
-sunshine task add-context 11-11-后端-退款原因必填校验 check .sunshine/spec/backend.md "接口契约"
-# 已添加文件：.sunshine/spec/backend.md
-
-sunshine task start 11-11-后端-退款原因必填校验
+sunshine task start 11-11-前端-请假两页按原型实现
 # ✓ 状态：planning → in_progress（降级）
 ```
 
 下面是开发时的会话示意（对话是示例；命令与输出是真实实跑值）：
 
-> **Claude Code：** 该后端子任务了：implement 改 `server.js`，check 用 curl 验三条验收。开始吗？
+> **Claude Code：** 前端子任务开始了：主会话派 `sunshine-implement` 按两个原型改 `LeaveForm.vue` 和 `LeaveList.vue`，改完再派 `sunshine-check` 按 `check.jsonl` 里的前端规范验收。
 >
-> **你：** 开始吧。
+> **Claude Code：** implement 做完了：申请页类型下拉框三项（年假 / 病假 / 事假）、`required` 必选，原因必填，不填提交时表单拦住；审批列表页表格六列，每条有“通过”“驳回”按钮。check 也过了：三项都在、`required` 在、提交守卫在、通过按钮在。spec 里我补了一条请假表单约定。提交一次？（一个提交：前端两页 + spec 约定）
 >
-> **Claude Code：** 做完了：缺 `reason` 返回 400，超 5000 返回 `NEED_APPROVAL`，正常请求 200、记录里有 `reason` 字段；spec 里补了退款接口约定。提交、归档？（一个提交：后端校验 + spec 约定）
+> **你：** 提交吧，归档这个子任务。
 >
-> **你：** 提交吧，归档。
->
-> **Claude Code：** 好，提交完归档后端子任务，父任务 2/2 已完成，可以做最终集成复核了。
+> **Claude Code：** 好，提交完 `task finish` 清指针、`task archive` 归档。父任务现在 1/2 已完成。
 
-implement 在 `server.js` 里加了两道校验（按概要设计的接口约定）：
+关键输出（真实跑出来的）：grep 四条验收是 `3`、`2`、`1`、`1`（类型三项、`required` 两处、提交守卫一处、通过按钮一处）；提交是 `7d54a51 前端：请假两页按原型实现`；归档后父任务显示 1/2 已完成。
 
-```js
-if (!data.reason) {
-  res.writeHead(400, { 'Content-Type': 'application/json' })
-  res.end(JSON.stringify({ error: 'reason 必填' }))
-  return
-}
-if (data.amount > 5000) {
-  res.writeHead(200, { 'Content-Type': 'application/json' })
-  res.end(JSON.stringify({ code: 'NEED_APPROVAL', data: null }))
-  return
-}
-```
+前端归档后，后端子任务才启动——走同样的循环：
 
-check 用 curl 验三条验收（真实跑出来的，先起服务 `node src/server.js`，端口 3000）：
+> **Claude Code：** 后端子任务开始了：派 `sunshine-implement` 给 `server.js` 加两道校验，改完派 `sunshine-check` 用 curl 验收。
+>
+> **Claude Code：** implement 做完了：缺 `reason` 返回 400，超 10 天返回 `NEED_APPROVAL`，正常提交返回 200。check 也过了：缺 reason 是 400，11 天是 `NEED_APPROVAL`，2 天是 200、记录里有 `reason` 和 `days`。spec 里我补了一条请假接口约定。提交一次？
+>
+> **你：** 提交吧，归档这个子任务。
+
+关键输出（真实跑出来的）：
 
 ```sh
-curl -s -w '\nHTTP %{http_code}\n' -X POST localhost:3000/api/v1/refunds -H 'Content-Type: application/json' -d '{"amount": 100}'
-# {"error":"reason 必填"}
-# HTTP 400
+curl -s -X POST localhost:3000/api/v1/leaves -H 'Content-Type: application/json' -d '{"type": "年假", "start": "2026-11-10", "end": "2026-11-11"}'
+# {"error":"reason 必填"}，HTTP 400
 
-curl -s -X POST localhost:3000/api/v1/refunds -H 'Content-Type: application/json' -d '{"reason": "质量问题", "amount": 5001}'
+curl -s -X POST localhost:3000/api/v1/leaves -H 'Content-Type: application/json' -d '{"type": "年假", "start": "2026-11-10", "end": "2026-11-20", "reason": "休息"}'
 # {"code":"NEED_APPROVAL","data":null}
 
-curl -s -X POST localhost:3000/api/v1/refunds -H 'Content-Type: application/json' -d '{"reason": "质量问题", "amount": 100}'
-# {"code":"OK","data":{"id":2,"reason":"质量问题","amount":100,"status":"待付款"}}
+curl -s -X POST localhost:3000/api/v1/leaves -H 'Content-Type: application/json' -d '{"type": "年假", "start": "2026-11-10", "end": "2026-11-11", "reason": "休息"}'
+# {"code":"OK","data":{"id":2,"applicant":"演示者","type":"年假","start":"2026-11-10","end":"2026-11-11","days":2,"reason":"休息","status":"待审批"}}
 ```
 
-第三条验收——退款记录里有 `reason` 字段——`data/refunds.json` 里也看得见（新写进去的第 2 条记录带 `reason`）。
+提交是 `1ce3c59 后端：请假接口，缺 reason 返回 400，超 10 天返回 NEED_APPROVAL`；归档后父任务显示 2/2 已完成。
 
-3.3 规范更新补进 `.sunshine/spec/backend.md`（真实写进去的内容）：
+最后父任务做最终集成复核——对照概要设计里的验收标准和原型，一次过一遍，再归档：
 
-```markdown
-## 退款接口
-
-- `POST /api/v1/refunds`：缺 `reason` 返回 400，错误体 `{"error": "reason 必填"}`；退款上限 5000 元，超限返回 `NEED_APPROVAL`；正常返回 `{ code: "OK", data: <记录> }`，记录里有 `reason` 字段。
-```
-
-3.4 提交、清指针、归档（真实跑出来的）：
-
-```sh
-git add -A && git commit -qm "后端：退款原因必填校验，缺 reason 返回 400，超限返回 NEED_APPROVAL"
-git log --oneline -1
-# aef98d6 后端：退款原因必填校验，缺 reason 返回 400，超限返回 NEED_APPROVAL
-
-sunshine task finish
-# ✓ 已清除当前任务（原为：.sunshine/tasks/11-11-后端-退款原因必填校验）
-
-sunshine task archive 11-11-后端-退款原因必填校验 --skip-branch-validation
-# .sunshine/tasks/archive/2026-11/11-11-后端-退款原因必填校验
-# 已归档：11-11-后端-退款原因必填校验 -> archive/2026-11/
-# [OK] 已自动提交：chore(task): archive 11-11-后端-退款原因必填校验
-```
-
-这时任务列表只剩父任务：
-
-```sh
-sunshine task list
-```
-
-真实输出：
-
-```text
-全部活动任务：
-
-  - 11-11-退款流程改版/ (planning) [2/2 已完成] [演示者]
-
-总计：1 个任务
-```
-
-**父任务：最终集成复核 → 归档**
-
-两个子任务都做完、各自通过检查后，父任务做最终集成复核——对照概要设计里的验收标准和原型，一次过一遍，再归档：
-
-下面是复核时的会话示意（对话是示例；命令与输出是真实实跑值）：
-
-> **Claude Code：** 最终集成复核，对照概要设计的验收标准和原型过一遍：1. 原因下拉框必选，不选提交时表单拦住——前端子任务已验过；2. 缺 `reason` 的请求返回 400——后端 curl 已验过；3. 退款记录里有 `reason` 字段——`data/refunds.json` 里有了。三条全过，父任务可以归档了。确认归档吗？
+> **Claude Code：** 集成复核：申请页类型三项、原因必填都对得上原型，接口三条验收（400、`NEED_APPROVAL`、200）都过了，记录里有 `reason` 和 `days`。归档父任务？
 >
-> **你：** 确认，归档吧。
+> **你：** 归档吧。
 
-父任务从没激活过（只拆解、不直接实现），所以没有指针要清，直接归档（真实跑出来的）：
+**【开发人员退场】**
 
 ```sh
-sunshine task archive 11-11-退款流程改版 --skip-branch-validation
-# .sunshine/tasks/archive/2026-11/11-11-退款流程改版
-# 已归档：11-11-退款流程改版 -> archive/2026-11/
-# [OK] 已自动提交：chore(task): archive 11-11-退款流程改版
-
 sunshine task list
 # 全部活动任务：
 #
-#   （没有活动任务）
+# （没有活动任务）
 #
 # 总计：0 个任务
 
@@ -1633,96 +1351,24 @@ sunshine task list-archive
 # 已归档任务：
 #
 # [2026-11] - 3 个任务
-#   - 11-11-前端-退款表单按原型改版/
-#   - 11-11-后端-退款原因必填校验/
-#   - 11-11-退款流程改版/
+# - 11-11-前端-请假两页按原型实现/
+# - 11-11-后端-请假接口/
+# - 11-11-请假申请小工具/
 ```
 
-**需求变更：上限从 5000 改成 3000**
+设计人员进场时只有需求，退场时留下完整的设计包；开发人员进场时任务已经拆好、上下文已经配好，退场时 0 个活动任务、3 个归档。
 
-项目做完归档后，业务方说退款上限改成 3000 元。按工作流 1.5 的需求变更规则走：已经归档的三个任务不 reopen，变更走一个新任务；`doc/` 是项目里的活文档，跟着改；已归档的任务记录不动。
+**需求变更：上限从 10 天改成 5 天**
 
-下面是会话示意（对话是示例；命令与输出是真实实跑值）：
+项目做完归档后，业务方说年假单次最长改成 5 天。按工作流 1.5 的需求变更规则走：已经归档的三个任务不 reopen，变更走一个新任务；`doc/` 是项目里的活文档，跟着改。
 
-> **你：** 需求变了：退款上限从 5000 元改成 3000 元。按 sunshine 工作流走：先确认影响范围，再动手。
+> **你：** 需求变了：年假单次最长从 10 天改成 5 天。按 sunshine 工作流走：先确认影响范围，再动手。
 >
-> **Claude Code：** 波及面是后端一个地方：前端子任务已归档且不受影响（表单不拦金额上限），不 reopen；后端子任务也已归档，不 reopen。规划是这样：建新任务「退款上限改成 3000 元」，PRD 里记一笔 `[变更 2026-11-11]`，概要设计和原型里的 5000 都改成 3000，`server.js` 的校验改成 3000，spec 同步改，curl 验 3001 和 3000 两档。确认后我就开始，没问题吗？
+> **Claude Code：** 波及面是后端一个地方：前端子任务已归档且不受影响（表单不拦天数上限），不 reopen；后端子任务也已归档，不 reopen。规划是这样：建新任务「年假上限改成 5 天」，PRD 里记一笔 `[变更 2026-11-11]`，概要设计和原型里的 10 天都改成 5 天，`server.js` 的校验改成 5 天，spec 同步改，curl 验 6 天和 5 天两档。确认后我就开始，没问题吗？
 >
 > **你：** 没问题，开始吧。
 
-新任务的 `prd.md` 里记一笔（真实写进去的内容）：
-
-```markdown
-## 变更记录
-
-- [变更 2026-11-11] 退款上限从 5000 元改成 3000 元（业务方要求）。只影响后端校验与设计文档：前端子任务已归档且不受影响（表单不拦金额上限），不 reopen；后端子任务已归档，不 reopen，变更走本任务。
-```
-
-设计文档同步改（真实改动）：概要设计的接口行改成“退款上限 3000 元，超限返回 `NEED_APPROVAL`”；原型的金额输入改成 `max="3000"`。
-
-建任务、配上下文、启动（真实跑出来的）：
-
-```sh
-sunshine task create "退款上限改成 3000 元" --description "变更：原 11-11-退款流程改版 退款上限 5000 元改成 3000 元" --priority P2
-# .sunshine/tasks/11-11-退款上限改成-3000-元
-
-sunshine task add-context 11-11-退款上限改成-3000-元 implement src/server.js "后端：上限 5000 改成 3000"
-# 已添加文件：src/server.js
-
-sunshine task add-context 11-11-退款上限改成-3000-元 implement doc/design/退款流程概要设计.md "概要设计：上限已改成 3000"
-# 已添加文件：doc/design/退款流程概要设计.md
-
-sunshine task add-context 11-11-退款上限改成-3000-元 check .sunshine/spec/backend.md "接口契约"
-# 已添加文件：.sunshine/spec/backend.md
-
-sunshine task start 11-11-退款上限改成-3000-元
-# ✓ 状态：planning → in_progress（降级）
-```
-
-implement 只改一行（`server.js` 第 17 行）：`if (data.amount > 5000)` 改成 `if (data.amount > 3000)`。check 用 curl 验新边界两档（真实跑出来的）：
-
-```sh
-curl -s -X POST localhost:3000/api/v1/refunds -H 'Content-Type: application/json' -d '{"reason": "质量问题", "amount": 3001}'
-# {"code":"NEED_APPROVAL","data":null}
-
-curl -s -X POST localhost:3000/api/v1/refunds -H 'Content-Type: application/json' -d '{"reason": "尺寸不符", "amount": 3000}'
-# {"code":"OK","data":{"id":3,"reason":"尺寸不符","amount":3000,"status":"待付款"}}
-```
-
-3001 超限返回 `NEED_APPROVAL`，3000 整好返回 200、记录里有 `reason` 字段。3.3 规范更新补进 `.sunshine/spec/backend.md`（退款上限 5000 改成 3000），3.4 提交、清指针、归档（真实跑出来的）：
-
-```sh
-git add -A && git commit -qm "变更：退款上限改成 3000 元（5000→3000）"
-git log --oneline -1
-# 8d09672 变更：退款上限改成 3000 元（5000→3000）
-
-sunshine task finish
-# ✓ 已清除当前任务（原为：.sunshine/tasks/11-11-退款上限改成-3000-元）
-
-sunshine task archive 11-11-退款上限改成-3000-元 --skip-branch-validation
-# .sunshine/tasks/archive/2026-11/11-11-退款上限改成-3000-元
-# 已归档：11-11-退款上限改成-3000-元 -> archive/2026-11/
-# [OK] 已自动提交：chore(task): archive 11-11-退款上限改成-3000-元
-
-sunshine task list-archive
-# 已归档任务：
-#
-# [2026-11] - 4 个任务
-#   - 11-11-前端-退款表单按原型改版/
-#   - 11-11-后端-退款原因必填校验/
-#   - 11-11-退款上限改成-3000-元/
-#   - 11-11-退款流程改版/
-```
-
-变更走完了：旧的三个任务原样留在归档里，变更单独一个任务、有完整的记录——下次再有人问“上限为什么是 3000”，`prd.md` 里的 `[变更 2026-11-11]` 就是答案。
-
-这个场景里设计人员和开发人员各拿自己要的东西：设计人员只碰 `doc/` 里的文档和评审确认，不用知道 `task start`、jsonl、派发这些词；开发人员进场时，任务已经拆好、上下文已经配好，每个子任务只读自己的包，不用反复翻原型。如果没有设计环节，同一套流程直接走 1.1 → 1.4 → 1.5，不用拆解——模式在开场定，走哪条路由 agent 判断。
-
-下一步可以看的：
-
-- [README.md](../README.md)：安装、快速上手、核心命令一览与配置要点。
-- [PLAN.md](../PLAN.md)：完整规划与各阶段实施记录，包括本教程没展开的设计决策。
-- [Releases](https://github.com/linrong1982/Sunshine/releases)：各版本下载与更新说明。
+关键输出（真实跑出来的）：6 天返回 `{"code":"NEED_APPROVAL","data":null}`，5 天返回 200、记录 `id` 是 3、`days` 是 5；提交是 `d020234 变更：年假上限改成 5 天（10→5）`；归档后一共 4 个任务。旧的三个任务原样留在归档里，变更单独一个任务、有完整的记录——下次再有人问“上限为什么是 5 天”，`prd.md` 里的 `[变更 2026-11-11]` 就是答案。
 
 ## 附录：命令速查
 
