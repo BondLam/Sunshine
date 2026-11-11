@@ -1402,6 +1402,8 @@ The requirements list is one item per requirement (real file content, excerpt): 
 
 The system prototype is one file with two pages plus navigation between them: a "申请 | 审批列表" (Request | Approval list) nav at the top, a request page with a type dropdown (mandatory), start and end dates, a reason text field (mandatory), and a submit button, and an approval list page as a table (applicant, type, start and end dates, days, status) carrying three mock rows （张三 pending, 李四 approved, 王五 pending), each with a 通过 (approve) and 驳回 (reject) button — the demo is clickable. One prototype serves multiple requirements: requirements one and two both live in this one prototype, one page each; and the split follows the requirements — the sub-tasks split per requirement.
 
+The designer builds the design package step by step too: clarify the requirements and write them into the requirements list first, then the outline design (structure, interfaces, acceptance), then the prototype — one page per requirement in the list, with mock data — and the complete system prototype is the end of the design phase, not the start. If building the prototype exposes a gap in the requirements, the requirements list is updated with it (through the change path), but the overall direction stays requirements first, prototype last.
+
 Then comes the requirements review — the designer's last act before exiting: Claude Code lays out the whole package for you to confirm — the PRD, the design document list, and the split plan; nothing moves on until you confirm.
 
 > **Claude Code:** For review: the PRD, the requirements list, the outline design, and the system prototype are all ready, and the split is two sub-tasks — requirement one is the request page plus the POST API, requirement two is the approval list page plus the GET API. Once you confirm, I'll create the parent task and split it in one go. OK?
@@ -1411,6 +1413,21 @@ Then comes the requirements review — the designer's last act before exiting: C
 **[Designer exits, developers enter]**
 
 The split happens once, after the review passes — and it follows the requirements: one prototype serves multiple requirements, so the sub-tasks split per requirement, covering the whole scope, with the sub-task list settled in one pass; the split itself starts nothing, and both sub-tasks are created in `planning`. The parent task records the sub-task map, and developers enter with the work already split and the context already curated (each sub-task's context points at its own page in the system prototype).
+
+One requirement is one sub-task by default (the sub-task owns its page plus its interface, with the acceptance criteria together, so it's easy to verify). But when a requirement's frontend and backend are both large, or done by different people, or the backend API serves several pages, it splits further into a frontend sub-task and a backend sub-task — mechanically, a sub-task with its own sub-tasks (`task create --parent`), the parent's `children` listing both, each in planning. The handoff between the two is the interface contract in the outline design: the backend implements the API per the contract, the frontend builds the page per the contract plus the mock data in the prototype, so the frontend doesn't wait for the backend; the parent's final integration review verifies frontend and backend together.
+
+Here is the real nested output (a separate minimal demo, only to verify that a sub-task can hold sub-tasks):
+
+```sh
+sunshine task list
+# 全部活动任务：
+#
+#   - 11-11-接续演示任务/ (in_progress) [0/2 已完成] [演示者] <- 当前任务
+#     - 11-11-需求示例-前端/ (planning) [演示者]
+#     - 11-11-需求示例-后端/ (planning) [演示者]
+#
+# 总计：3 个任务
+```
 
 **What the split produces: what lands on disk**
 
@@ -1631,6 +1648,20 @@ The PRD records it too (real content): `[变更 2026-11-11] 年假单次最长�
 Developers enter and implement against the new task's context: the check in `server.js` moves to 5 days, the spec updates the same way, and curl verifies both cases.
 
 Key output (real runs): 6 days returns `{"code":"NEED_APPROVAL","data":null}`, 5 days returns 200 with record `id` 3 and `days` 5; the commit is `add1c30 变更：年假上限改成 5 天（10→5）` (change: annual-leave cap moves to 5 days, 10 → 5); after the archive there are 4 tasks in total. The three old tasks sit untouched in the archive, and the change is its own task with a complete record — next time someone asks why the cap is 5 days, the `[变更 2026-11-11]` line in `prd.md` is the answer.
+
+**The full loop at a glance**
+
+The whole scenario runs as one closed loop, with every entry, exit, and handoff spelled out above:
+
+1. **State the requirement** (you): state what to build in Claude Code.
+2. **Clarify the requirement** (the designer enters): the agent asks first, pinning down the rules and the prototype details.
+3. **The design package** (the designer): write the requirements list first, then the outline design, then the system prototype — one page per requirement in the list, with mock data. The prototype is the end of the design phase. Handoff: the three design documents in `doc/`.
+4. **The requirements review** (you confirm): review the whole package (the design package plus the split plan); the designer exits after it passes. Handoff: the approved design package.
+5. **The split** (the agent): split the whole scope in one pass, per requirement (one requirement is one sub-task by default; split frontend and backend into two sub-tasks when both are large, with the interface contract in the outline design as the handoff); the split starts nothing. Handoff: the task directories (`task.json` parent/children, `prd.md`, `implement.jsonl`, `check.jsonl`).
+6. **Development** (developers enter): activate the sub-tasks one by one, five rounds each (implement → check → write back the spec → commit → archive), each round reading only its own context list. Handoff: the changed code, the updated spec, the commit.
+7. **Integration review and archive** (the parent task): once all sub-tasks are archived, the parent reviews once against the outline design and the prototype, then archives. Handoff: the archived task directories.
+8. **Requirement change** (the designer returns): change the design package → review only the changed part → handoff (the updated design package, the review confirmation, the new task's context lists, the `[变更]` record in the PRD) → developers enter on a new task. Archived tasks are never reopened.
+9. **Picking the work back up**: the state lives entirely in files (`task.json` status, the `.current-task` pointer, the jsonl lists, `prd.md`, `spec/`); a new session runs `/sunshine:continue` and routes by status to the matching step.
 
 ## Appendix: command reference
 
