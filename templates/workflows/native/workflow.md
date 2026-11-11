@@ -188,11 +188,12 @@ sunshine task context --mode phase --step <X.Y>  # 某工作流步骤的详细�
 
 ### 第 1 阶段：规划
 - 1.0 创建任务 `[required · once]`（征得创建任务的同意后才能创建）
-- 1.1 需求探索 `[required · repeatable]`（写 `prd.md`；复杂任务还要 `design.md` + `implement.md`）
-- 1.2 研究 `[optional · repeatable]`
-- 1.3 配置上下文 `[required · once]`——Claude Code、Cursor、OpenCode、Codex、Kiro、Gemini、Qoder、CodeBuddy、Copilot、Droid、Pi、Oh My Pi、ZCode、Snow、Reasonix、Grok、Kimi Code（仅支持子代理派发的平台；inline 平台跳过）
-- 1.4 激活任务 `[required · once]`（复核关卡，然后 `task start`；status → in_progress）
-- 1.5 完成标准
+- 1.1 需求探索 `[required · repeatable]`（写 `prd.md`；复杂任务还要 `design.md` + `implement.md`；先定设计先行还是直接开发）
+- 1.2 任务拆解 `[optional · once]`（多个可独立验证的交付物时，拆成父任务加子任务）
+- 1.3 研究 `[optional · repeatable]`
+- 1.4 配置上下文 `[required · once]`——Claude Code、Cursor、OpenCode、Codex、Kiro、Gemini、Qoder、CodeBuddy、Copilot、Droid、Pi、Oh My Pi、ZCode、Snow、Reasonix、Grok、Kimi Code（仅支持子代理派发的平台；inline 平台跳过）
+- 1.5 激活任务 `[required · once]`（需求评审，然后 `task start`；status → in_progress）
+- 1.6 完成标准
 
 <!-- 每轮面包屑：在整个第 1 阶段显示（status='planning'） -->
 
@@ -329,7 +330,7 @@ sunshine task create "<任务标题>" --slug <名称>
 
 命令成功后，每轮面包屑自动切换到 `[workflow-state:planning]`，提示 AI 留在规划阶段。
 
-这里只运行 `create`——不要顺手运行 `start`。`start` 会把 status 翻转为 `in_progress`，在规划产物复核之前就把面包屑切到实现阶段。`start` 留到步骤 1.4。
+这里只运行 `create`——不要顺手运行 `start`。`start` 会把 status 翻转为 `in_progress`，在规划产物复核之前就把面包屑切到实现阶段。`start` 留到步骤 1.5。
 
 `sunshine task current --source` 已指向某个任务时跳过本步。
 
@@ -337,25 +338,45 @@ sunshine task create "<任务标题>" --slug <名称>
 
 加载 `sunshine-brainstorm` skill，按 skill 的指南与用户交互式探索需求。
 
+**先定模式**：这次走设计先行还是直接开发——问用户一句，或看 `doc/` 里是否已有设计文档；开场提示词里已说清的不重复问。
+- **设计先行**：需求澄清 → 设计文档落盘 `doc/` → 1.2 任务拆解 → 子任务各自走 1.1→1.5 → 开发。
+- **直接开发**：没有设计环节，需求澄清 → 写 `prd.md`（轻量）或 `prd.md` + `design.md` + `implement.md`（复杂）→ 1.4 配上下文 → 1.5 激活 → 开发。
+
 brainstorm skill 会引导你：
 - 一次只问一个问题
 - 能调研的优先调研，而不是问用户
 - 优先给选项，而不是开放式提问
 - 每次用户回答后立即更新 `prd.md`
-- 范围太大时拆成父任务加子任务，前提是交付物可独立验证
+- 范围太大时走 1.2 任务拆解
 - `prd.md` 只聚焦需求与验收标准
 - 复杂任务在实现开始前产出 `design.md` 与 `implement.md`
 
-考虑父/子拆分时：
+**设计文档落盘**：设计阶段产出的文档（需求列表、概要设计、高保真原型等，按项目与设计者自定，有没有都行）落盘在项目 `doc/`，不在 `.sunshine`；首次落盘时创建 `doc/` 目录。`doc/` 里有什么就用什么，没有原型就按 PRD 或需求列表拆；什么设计文档都没有就是纯代码任务，走直接开发。产品设计文档与任务目录里的技术设计 `design.md` 不是一回事，别混淆。
+
+需求变化时随时回到本步，修订相关产物。
+
+#### 1.2 任务拆解 `[optional · once]`
+
+当一个任务包含多个可独立验证的交付物，或工作量明显超出单次实现时，拆成父任务加子任务。轻量任务、单交付物任务跳过本步。
+
+**输入**：`prd.md` + `doc/` 里的设计文档（有什么读什么）。
+
+**做法**：
+- 读设计文档，定子任务清单：每个子任务独立可验证、有明确验收标准。
+- 为每个子任务建任务目录：`sunshine task create "<子任务标题>" --description "<一句话摘要>" --parent <父任务>`；已有任务挂成子任务用 `sunshine task add-subtask <父任务> <子任务>`。
+- 父任务记好子任务映射、跨子任务验收标准与最终集成复核。
+- 子任务随后各自走 1.1（自己的 `prd.md` / `design.md` / `implement.md`）→ 1.4（自己的 jsonl）→ 1.5（自己的 `task start`）→ 第 2 阶段。
+
+**父/子规则**：
 - 一个请求包含多个可独立验证的交付物时，用父任务。
 - 父任务拥有原始需求、子任务映射、跨子任务验收标准与最终集成复核。
 - 子任务拥有可独立规划、实现、检查、归档的实际交付物。
 - 父/子结构不是依赖系统。子任务 B 依赖子任务 A 时，把顺序写进子任务 B 的 `prd.md` / `implement.md`。
 - 启动拥有下一个交付物的子任务。除非父任务自身有直接实现工作，否则不要启动父任务。
 
-需求变化时随时回到本步，修订相关产物。
+**完成标准**：每个子任务独立可验证；父任务有子任务映射与跨子任务验收标准；子任务都已建好（task.json 的 parent/children 双向一致）。
 
-#### 1.2 研究 `[optional · repeatable]`
+#### 1.3 研究 `[optional · repeatable]`
 
 研究可以在需求探索期间的任何时间做。不限于本地代码——可以用任何可用工具（MCP 服务器、skill、网页搜索等）查外部信息，包括第三方库文档、行业实践、API 参考等。
 
@@ -384,7 +405,7 @@ brainstorm skill 会引导你：
 
 **关键原则**：研究输出必须写进文件，不能只留在对话里。对话会被压缩，文件不会。
 
-#### 1.3 配置上下文 `[required · once]`
+#### 1.4 配置上下文 `[required · once]`
 
 [Claude Code, Cursor, OpenCode, codex-sub-agent, Kiro, Gemini, Qoder, CodeBuddy, Copilot, Droid, Pi, Oh My Pi, ZCode, Snow, Reasonix, Trae, Grok, Kimi Code]
 
@@ -397,6 +418,7 @@ brainstorm skill 会引导你：
 **放什么**：
 - **规范文件**——`.sunshine/spec/<包名>/<分层>/index.md`，以及与本任务相关的具体指南文件（`error-handling.md`、`conventions.md` 等）
 - **研究文件**——子代理需要查阅的 `{TASK_DIR}/research/*.md`
+- **设计文档**——`doc/` 下与本任务相关的设计产物（需求列表、概要设计、高保真原型等），只放本任务用得上的那几份，不用把整个 `doc/` 列进来
 
 **不要放什么**：
 - 代码文件（`src/**`、`packages/**/*.ts` 等）——子代理在实现期间自己读，不用预先登记
@@ -439,7 +461,9 @@ sunshine task add-context "$TASK_DIR" check "<路径>" "<原因>"
 
 [/codex-inline, Kilo, Antigravity, Devin, DeepSeek Harness]
 
-#### 1.4 激活任务 `[required · once]`
+#### 1.5 激活任务 `[required · once]`
+
+**需求评审**：激活前把整包规划产物列出来请用户确认——`prd.md`、设计文档清单（`doc/` 里与本任务相关的那几份）、拆解出的子任务（走了 1.2 时）。确认后才往下走。
 
 产物复核通过后，把任务状态翻转为 `in_progress`：
 
@@ -449,11 +473,13 @@ sunshine task start <任务目录>
 
 轻量任务 `prd.md` 可能就够了。复杂任务开始前必须存在 `prd.md`、`design.md` 与 `implement.md` 并已复核。在支持子代理派发的平台上，`implement.jsonl` 与 `check.jsonl` 开始前都必须有真实整理条目。运行时消费者出于兼容会容忍缺失或只有预置行的清单，但那不是规划就绪状态。
 
+父任务不激活（除非自身有直接实现工作）：逐个激活子任务；全部子任务完成后，父任务做最终集成复核。
+
 命令成功后，面包屑自动切换到 `[workflow-state:in_progress]`，随后进入第 2 / 3 阶段。
 
 如果 `task start` 报会话身份错误（hook 输入、`SUNSHINE_CONTEXT_ID` 或平台原生会话环境变量都没提供上下文键），按错误里的提示配好会话身份再重试。
 
-#### 1.5 完成标准
+#### 1.6 完成标准
 
 | 条件 | 是否必需 |
 |------|:---:|
@@ -566,7 +592,7 @@ check 子代理的工作：
 
 - `check` 发现 prd 缺陷 → 回第 1 阶段修 `prd.md`，再重做 2.1
 - 实现走偏了 → 回退代码，重做 2.1
-- 需要更多研究 → 做研究（同第 1.2 步），把结论写进 `research/`
+- 需要更多研究 → 做研究（同第 1.3 步），把结论写进 `research/`
 
 ---
 

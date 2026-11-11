@@ -45,11 +45,11 @@ That is the only terminal command you need. Then open the project in Claude Code
 
 `init` installs Claude Code and Cursor by default; to install only Codex, use `sunshine init --codex -y`. All init operations (platforms, template picker, three modes) are in the [tutorial appendix](docs/tutorial.en.md#appendix-command-reference).
 
-## How it works: five scenarios
+## How it works: six scenarios
 
-**Run `sunshine init` once in the terminal → ask in plain language inside the agent UI → the agent works through `workflow.md` (creates the task, writes prd/design, dispatches implement/check sub-agents, verifies, writes lessons back into the spec, finishes with `/sunshine:finish-work`) → you review the diff, accept, and commit.** The terminal commands are the agent's tools, not your daily interface — an opening prompt names four things: the workflow, ask first, confirm then create the task and write the PRD, then implement.
+**Run `sunshine init` once in the terminal → ask in plain language inside the agent UI → the agent works through `workflow.md` (creates the task, writes prd/design, dispatches implement/check sub-agents, verifies, writes lessons back into the spec, finishes with `/sunshine:finish-work`) → you review the diff, accept, and commit.** For design-first work, the design documents land in `doc/` first, then split into sub-tasks (scenario 6). The terminal commands are the agent's tools, not your daily interface — an opening prompt names four things: the workflow, ask first, confirm then create the task and write the PRD, then implement.
 
-Section 12 of the tutorial walks through five real scenarios, each one a complete end-to-end run:
+Section 12 of the tutorial walks through six real scenarios, each one a complete end-to-end run:
 
 | Scenario | When it applies |
 | --- | --- |
@@ -58,6 +58,7 @@ Section 12 of the tutorial walks through five real scenarios, each one a complet
 | [Delivering a product feature](docs/tutorial.en.md#123-delivering-a-product-feature-one-task-across-product-api-data-and-ui) | One task spans product, API, data, and UI |
 | [Refactoring a legacy module](docs/tutorial.en.md#124-refactoring-a-legacy-module-pin-the-behavior-first-then-change-the-code) | The code runs, but it is no longer safe to change |
 | [Fixing a bug that keeps coming back](docs/tutorial.en.md#125-fixing-a-bug-that-keeps-coming-back-find-the-last-session-first) | The same class of problem appears again and again |
+| [Design-first product work](docs/tutorial.en.md#126-design-first-product-work-requirements--design-documents--split--code) | Design comes before development |
 
 ## Core commands
 

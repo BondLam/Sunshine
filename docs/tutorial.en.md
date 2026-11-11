@@ -2,7 +2,7 @@
 
 The main flow in one line: **run `sunshine init` once in the terminal, then do everything else by talking to the agent in its UI (Claude Code first, Codex / Cursor the same idea) in plain language — the agent drives the work following `.sunshine/workflow.md` and calls `sunshine` commands under the hood; you review the diff, accept, and the work is committed.**
 
-That is the whole point of this tutorial: the terminal is not where you spend your day. You type one setup command, then you talk. The `sunshine task …` / `sunshine channel …` commands still exist, but they are the agent's tools, not your daily interface — they appear in this tutorial only in [section 4](#4-what-happened-under-the-hood) (what the agent actually ran, with real outputs), in [section 12](#12-five-scenarios-from-day-one-to-daily-work) (one walkthrough per scenario), and in the [appendix](#appendix-command-reference) (command reference for when you step in manually).
+That is the whole point of this tutorial: the terminal is not where you spend your day. You type one setup command, then you talk. The `sunshine task …` / `sunshine channel …` commands still exist, but they are the agent's tools, not your daily interface — they appear in this tutorial only in [section 4](#4-what-happened-under-the-hood) (what the agent actually ran, with real outputs), in [section 12](#12-six-scenarios-from-day-one-to-daily-work) (one walkthrough per scenario), and in the [appendix](#appendix-command-reference) (command reference for when you step in manually).
 
 The demo project is the same throughout: **refund reason required** — add a mandatory reason field to the refund flow. The example is small; the workflow is real.
 
@@ -129,6 +129,8 @@ This is what the agent does after you give it the request. You watch it happen i
 ```
 
 ("Target: the refund reason field is required when refunding.") Then it fills in the real requirements and acceptance criteria. A light task can stop at the PRD; a complex task also gets `design.md` (technical design) and `implement.md` (execution plan) before anything is implemented. It also organizes the context lists `implement.jsonl` / `check.jsonl` — the spec and research files the sub-agents will read. For a complex task it asks you to review the plan before starting implementation; only then does it move the task to `in_progress`.
+
+There are two modes, decided at the start of planning: design-first, where the product design documents (requirements list, outline design, high-fidelity prototype — whatever the project needs, if any) land in the project's `doc/` folder first and the work is then split into sub-tasks, or direct development, where the task goes straight from the PRD to implementation. The design documents live in `doc/`, not in `.sunshine`; `.sunshine` only keeps the index (the task record, `prd.md`, and the `implement.jsonl` / `check.jsonl` lists) pointing at them. Section 12.6 walks the design-first mode end to end.
 
 **Phase 2 — execution.** The agent dispatches sub-agents: `sunshine-implement` writes the code, then `sunshine-check` verifies it. The platform hooks inject the context automatically — the `implement.jsonl` / `check.jsonl` entries, plus `prd.md`, `design.md`, and `implement.md` if they exist — so each sub-agent starts with the right specs in its prompt. The dispatch prompt always opens with `Active task: <task path>`. The fixed order in `workflow.md` is:
 
@@ -877,9 +879,9 @@ When a new version exists (output from the default local build, whose version is
 
 A real upgrade (drop `--dry-run`) follows the same flow: check the latest version → pick the asset for the current OS and architecture → download → verify sha256 against `checksums.txt` → back up the current binary (a `.bak` next to it) → replace → run the new `--version` to verify, rolling back to the backup and reporting an error on failure. You can also pin a version or channel: `sunshine upgrade --tag 0.2.1`, `sunshine upgrade --tag beta`.
 
-## 12. Five scenarios: from day one to daily work
+## 12. Six scenarios: from day one to daily work
 
-Sections 1–11 cover the main flow; this section walks through five real scenarios, each one a complete end-to-end run:
+Sections 1–11 cover the main flow; this section walks through six real scenarios, each one a complete end-to-end run:
 
 | Scenario | When it applies | The point |
 | --- | --- | --- |
@@ -888,8 +890,9 @@ Sections 1–11 cover the main flow; this section walks through five real scenar
 | 3. Delivering a product feature | One task spans product, API, data, and UI | One task + cross-layer context + channel coordination |
 | 4. Refactoring a legacy module | The code runs, but it is no longer safe to change | Pin the behavior with tests first, then refactor, tests green throughout |
 | 5. Fixing a bug that keeps coming back | The same class of problem appears again and again | `mem` finds the last session first, then a task, then the lesson goes into spec |
+| 6. Design-first product work | Design comes before development | Design documents land in `doc/`; split into sub-tasks, then developers take them one by one |
 
-This section was verified with **v0.3.0** (the current Release; `sunshine version` prints `Sunshine 版本 0.3.0`). The demo directories all live under `/tmp/scenes/` (`s1-new`, `s2-old`, `s3-cross`, `s4-refactor`, `s5-bug`) — delete them and nothing in any real project is affected. The `11-10` prefix in task directory names is the month-day of the day the commands were run (2026-11-10). Command outputs are real excerpts from runs made for this tutorial (`……` marks omitted lines, not rewritten ones); prompts shown to the agent are labeled as example prompts, not records of a real session. The CLI itself is Chinese-only, so commands and sample outputs below are kept in the original Chinese; the explanations around them are in English.
+This section was verified with **v0.3.0** (the current Release; `sunshine version` prints `Sunshine 版本 0.3.0`). The demo directories all live under `/tmp/scenes/` (`s1-new`, `s2-old`, `s3-cross`, `s4-refactor`, `s5-bug`, `s6-design`) — delete them and nothing in any real project is affected. The `11-10` prefix in task directory names is the month-day of the day the commands were run (2026-11-10); section 12.6 was run on 2026-11-11, so its task directories start with `11-11`. Command outputs are real excerpts from runs made for this tutorial (`……` marks omitted lines, not rewritten ones); prompts shown to the agent are labeled as example prompts, not records of a real session. The CLI itself is Chinese-only, so commands and sample outputs below are kept in the original Chinese; the explanations around them are in English.
 
 ### 12.1 Starting a new project from zero: a duty-roster tool
 
@@ -1302,6 +1305,163 @@ When the task is done, the lesson goes into spec — otherwise it will happen th
 (In English: "Multi-agent dispatch: before spawning a codex worker, confirm codex is logged in on this machine; when a spawn fails, read worker.log first (401 means not logged in) instead of spawning again and again.")
 
 Archive the task as usual. Next time a 401 shows up, the agent reads the spec and checks the login first, instead of spawning another worker into the same wall.
+
+### 12.6 Design-first product work: requirements → design documents → split → code
+
+In design-first mode, designers and developers share one workflow with different jobs: the designer states the requirement and confirms the documents; developers take the sub-tasks one by one. The demo is the same refund app, and the requirement is to rework the refund flow against a new prototype.
+
+State the requirement in the agent UI:
+
+Example prompt (an example, not a record of a real session):
+
+> I want to rework the refund flow: the reason is mandatory, and it has to follow the new prototype. This time we do product design first — please follow the Sunshine workflow: ask me first to pin down the unclear validation rules and prototype details; once confirmed, create the task, write the PRD, then land the outline design and the high-fidelity prototype in doc/; after review, split it into sub-tasks and then implement.
+
+The agent asks questions first (one at a time, with options), updating `prd.md` after each answer. Then the design documents land in the project's `doc/`, not in `.sunshine`:
+
+```text
+doc/design/退款流程概要设计.md
+doc/prototype/refund.html
+```
+
+The outline design reads like this (real file content, in Chinese — goal, modules, interface, acceptance criteria: refund reason required, status flows 待付款 → 已发货 → 退款中, `POST /api/v1/refunds` returns 400 without `reason`, 5000 元 cap returns `NEED_APPROVAL`):
+
+```markdown
+# 退款流程概要设计
+
+## 目标
+
+退款原因必填，退款单状态按“待付款 → 已发货 → 退款中”流转，UI、API、数据三层一起改。
+
+## 模块
+
+- 前端：`src/Refund.vue`，按原型 `doc/prototype/refund.html` 改版。
+- 后端：`src/server.js`，`POST /api/v1/refunds`。
+- 数据：`data/refunds.json`，退款记录加 `reason` 字段。
+
+## 接口
+
+- `POST /api/v1/refunds`：缺 `reason` 返回 400，错误体 `{"error": "reason 必填"}`。
+- 退款上限 5000 元，超限返回 `NEED_APPROVAL`。
+
+## 验收
+
+- 原因下拉框必选，不选提交时表单拦住。
+- 缺 `reason` 的请求返回 400。
+- 退款记录里有 `reason` 字段。
+```
+
+The prototype is `doc/prototype/refund.html`, one high-fidelity form page: a mandatory reason dropdown, a refund amount capped at 5000 元, and a submit button.
+
+Then comes the requirements review: the agent lists the whole package for you to confirm — the PRD, the design document list, and the split plan. Only after confirmation does the work move on.
+
+After review, split. First the parent task:
+
+```sh
+sunshine task create "退款流程改版" --description "按新原型改版退款流程：原因必填 + 状态流转" --priority P1
+```
+
+Real output:
+
+```text
+警告：无法解析仓库默认分支（未配 remote 或离线），base_branch 暂记为当前检出分支 "master"，可用 --base-branch 覆盖。
+已创建任务：11-11-退款流程改版
+……
+.sunshine/tasks/11-11-退款流程改版
+```
+
+Then two sub-tasks under the parent:
+
+```sh
+sunshine task create "前端：退款表单按原型改版" --description "Refund.vue 按原型 refund.html 改版：原因下拉框必填" --parent 11-11-退款流程改版
+sunshine task create "后端：退款原因必填校验" --description "server.js：缺 reason 返回 400" --parent 11-11-退款流程改版
+```
+
+Real output (key lines only):
+
+```text
+已链接为 11-11-退款流程改版 的子任务
+已创建任务：11-11-前端-退款表单按原型改版
+……
+已链接为 11-11-退款流程改版 的子任务
+已创建任务：11-11-后端-退款原因必填校验
+```
+
+Each sub-task gets its own context — only the files that sub-task needs. The prototype is read once, at planning time; afterwards each sub-task follows pointers to it:
+
+```sh
+sunshine task add-context 11-11-前端-退款表单按原型改版 implement doc/prototype/refund.html "原型：退款表单页，原因下拉框必填"
+# 已添加文件：doc/prototype/refund.html
+
+sunshine task add-context 11-11-前端-退款表单按原型改版 implement doc/design/退款流程概要设计.md "概要设计：退款流程与验收"
+# 已添加文件：doc/design/退款流程概要设计.md
+
+sunshine task add-context 11-11-前端-退款表单按原型改版 check .sunshine/spec/frontend.md "前端规范"
+# 已添加文件：.sunshine/spec/frontend.md
+
+sunshine task list-context 11-11-前端-退款表单按原型改版
+```
+
+Real output:
+
+```text
+=== 上下文文件 ===
+
+[implement.jsonl]
+  1. doc/prototype/refund.html
+     → 原型：退款表单页，原因下拉框必填
+  2. doc/design/退款流程概要设计.md
+     → 概要设计：退款流程与验收
+
+[check.jsonl]
+  1. .sunshine/spec/frontend.md
+     → 前端规范
+```
+
+The parent task is never started; sub-tasks are started one by one. Start the frontend sub-task first:
+
+```sh
+sunshine task start 11-11-前端-退款表单按原型改版
+```
+
+Real output (excerpt):
+
+```text
+ℹ 会话身份不可用；本次不持久化当前任务指针（降级模式），AI 仍可按对话上下文继续。
+提示：在能提供会话身份的 AI 会话内运行，或先设置 SUNSHINE_CONTEXT_ID 再执行 sunshine task start。
+✓ 状态：planning → in_progress（降级）
+✓ 已记录分支：master（降级）
+……
+<workflow-state>
+Task: 前端-退款表单按原型改版 (in_progress)
+……
+主会话默认：派发 implement/check 子代理。不得以任务小、改动少为由改走 inline；inline 分支只属于 Codex（见 [workflow-state:in_progress-inline]）。子代理自豁免：如果自己已经是 `sunshine-implement`，不要再派生 `sunshine-implement` 或 `sunshine-check`；如果自己已经是 `sunshine-check`，不要再派生 `sunshine-check` 或 `sunshine-implement`。派发只由主会话做。
+派发提示词以 `Active task: <task current 给出的任务路径>` 开头。读上下文的顺序：jsonl 条目 -> `prd.md` -> `design.md（如有）` -> `implement.md（如有）`。
+</workflow-state>
+```
+
+(This is the degraded output from a plain terminal — with no session identity, the current-task pointer is not persisted. Running the same command inside the agent UI prints the same `in_progress` breadcrumb and persists the pointer normally.)
+
+The task list now looks like this:
+
+```sh
+sunshine task list
+```
+
+Real output:
+
+```text
+全部活动任务：
+
+  - 11-11-退款流程改版/ (active) [0/2 已完成] [演示者]
+    - 11-11-前端-退款表单按原型改版/ (in_progress) [演示者] <- 当前任务
+    - 11-11-后端-退款原因必填校验/ (planning) [演示者]
+
+总计：3 个任务
+```
+
+The parent shows `active` with 0/2 done and both sub-tasks under it; the frontend sub-task is already `in_progress` while the backend one is still `planning`, waiting for the frontend to finish. Once both sub-tasks are done and checked, the parent gets a final integration review — against the acceptance criteria in the outline design and the prototype — and then it is archived.
+
+Designers and developers each get what they need from this: the designer only touches the documents in `doc/` and the review, without ever hearing about `task start`, jsonl, or dispatch; developers enter with the work already split and the context already curated, each sub-task reading only its own packet instead of re-reading the prototype. With no design phase, the same flow runs 1.1 → 1.4 → 1.5 with no split — the mode is decided at the start, and the agent picks the route.
 
 Where to go next:
 

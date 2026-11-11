@@ -10,7 +10,7 @@
 - 版本号随你安装的 CLI 版本而变；本教程用当前 Release **v0.2.1** 验证（`sunshine version` 打印 `Sunshine 版本 0.2.1`）。第 11 节“有新版”的输出来自本地构建的 0.1.0 二进制，仅版本号不同，形态一致，那里会注明。
 - 演示用的目录都在 `/tmp/rewrite-zh/demo/` 下面（`demo`、`demo2`、`registry-src`、`channels`、`home`），删掉即可，不影响任何真实项目。
 
-终端命令在本教程里只出现在三处：第 4 节“底下发生了什么”（agent 实际调的命令 + 真实输出）、第 12 节“五个场景”（每个场景的实录）和末尾的附录“命令速查”。其余章节讲的是人在 agent 界面里做什么、agent 按什么干活。
+终端命令在本教程里只出现在三处：第 4 节“底下发生了什么”（agent 实际调的命令 + 真实输出）、第 12 节“六个场景”（每个场景的实录）和末尾的附录“命令速查”。其余章节讲的是人在 agent 界面里做什么、agent 按什么干活。
 
 ## 1. 终端只跑一次：init
 
@@ -72,10 +72,11 @@ agent 按 `.sunshine/workflow.md` 的三个阶段推进（下面是 workflow.md 
 
 ### 第 1 阶段：规划
 
-- **1.1 需求探索**：写 `prd.md`（需求、约束与验收标准）。轻量任务可以只有 PRD；复杂任务还要 `design.md`（技术设计）与 `implement.md`（执行计划），并且在 `task start` 之前先请你复核。
-- **1.2 研究**（可选）：需要调研时先查资料、看代码，再写设计；本演示任务简单，不走这一步。
-- **1.3 配置上下文**：把实现与验收要读的规范、调研文档整理进 `implement.jsonl` / `check.jsonl`（每行一个 `{"file": "<路径>", "reason": "<原因>"}`），供 implement/check 子代理读。
-- **1.4 激活任务**：`task start`，任务进入 `in_progress`。
+- **1.1 需求探索**：先定设计先行还是直接开发，再写 `prd.md`（需求、约束与验收标准）。轻量任务可以只有 PRD；复杂任务还要 `design.md`（技术设计）与 `implement.md`（执行计划），并且在 `task start` 之前先请你复核。设计先行时，设计文档落盘在项目 `doc/`，不在 `.sunshine`。
+- **1.2 任务拆解**（可选）：一个任务包含多个可独立验证的交付物时，拆成父任务加子任务；本演示任务只有一个交付物，不走这一步。
+- **1.3 研究**（可选）：需要调研时先查资料、看代码，再写设计；本演示任务简单，不走这一步。
+- **1.4 配置上下文**：把实现与验收要读的规范、调研文档、设计文档整理进 `implement.jsonl` / `check.jsonl`（每行一个 `{"file": "<路径>", "reason": "<原因>"}`），供 implement/check 子代理读。
+- **1.5 激活任务**：需求评审通过后 `task start`，任务进入 `in_progress`。
 
 `task create` 生成的 `prd.md` 只是一个骨架，agent 会在对话里把它填实——下面是刚创建时真实的骨架内容：
 
@@ -768,9 +769,9 @@ sunshine upgrade --dry-run
 
 真正升级时去掉 `--dry-run`：查最新版 → 按当前系统与架构选资产 → 下载 → 按 `checksums.txt` 校验 sha256 → 备份当前二进制（同目录 `.bak`，权限保留）→ 替换 → 运行新版 `--version` 校验，失败回滚备份并报错（流程见 `sunshine upgrade --help`）。也可以指定版本或通道：`sunshine upgrade --tag 0.2.0`、`sunshine upgrade --tag beta`。
 
-## 12. 五个场景：从第一天到日常
+## 12. 六个场景：从第一天到日常
 
-前面 11 节讲的是主线流程；这一节按五个真实场景走一遍，每个场景都是一个完整的端到端实录：
+前面 11 节讲的是主线流程；这一节按六个真实场景走一遍，每个场景都是一个完整的端到端实录：
 
 | 场景 | 适用时机 | 关键点 |
 | --- | --- | --- |
@@ -779,8 +780,9 @@ sunshine upgrade --dry-run
 | 3. 交付产品功能 | 一个任务横跨产品、API、数据和 UI | 一个任务 + 跨层上下文 + channel 协调 |
 | 4. 重构老模块 | 代码能跑，但已经难以安全修改 | 先用测试钉住行为，再重构，测试全程绿灯 |
 | 5. 修复反复出现的 bug | 同类问题多次出现 | mem 先找上次的会话，再建任务、把教训写进 spec |
+| 6. 产品设计先行 | 先做产品设计，再进开发 | 设计文档落盘 `doc/`，拆成子任务后开发一个个接手 |
 
-本节用当前 Release **v0.3.0** 验证（`sunshine version` 打印 `Sunshine 版本 0.3.0`），演示目录都在 `/tmp/scenes/` 下面（`s1-new`、`s2-old`、`s3-cross`、`s4-refactor`、`s5-bug`），删掉即可。任务目录名里的 `11-10` 是实跑当天的月-日（2026-11-10）。命令输出是真实跑出来的摘录，`……` 表示省略的行；与 agent 的对话示例标明是“示例提示词”，不是真实会话记录。
+本节用当前 Release **v0.3.0** 验证（`sunshine version` 打印 `Sunshine 版本 0.3.0`），演示目录都在 `/tmp/scenes/` 下面（`s1-new`、`s2-old`、`s3-cross`、`s4-refactor`、`s5-bug`、`s6-design`），删掉即可。任务目录名里的 `11-10` 是实跑当天的月-日（2026-11-10）；12.6 实跑于 2026-11-11，任务目录名前缀是 `11-11`。命令输出是真实跑出来的摘录，`……` 表示省略的行；与 agent 的对话示例标明是“示例提示词”，不是真实会话记录。
 
 ### 12.1 从零开始新项目：值班表小工具
 
@@ -1181,6 +1183,163 @@ sunshine task create "codex worker 401：spawn 前先确认登录状态" --descr
 ```
 
 任务照常归档。下次再报 401，agent 会先读 spec 查登录状态，而不是重新派一个 worker 去撞同一堵墙。
+
+### 12.6 产品设计先行：需求 → 设计文档 → 拆解 → 开发
+
+产品设计先行时，设计人员和开发人员走的是同一条工作流，只是分工不同：设计人员说需求、确认文档，开发人员接手子任务一个个做。这个场景用退款演示项目，需求是按新原型改版退款流程。
+
+在 agent 界面里提需求：
+
+示例提示词（示例，不是真实会话记录）：
+
+> 我要改版退款流程：原因必填，还要按新的原型走。这次先做产品设计——请按 sunshine 工作流走：先向我提问，把不清楚的校验规则和原型细节问清楚；确认后，帮我创建任务、写好 PRD，再把概要设计和高保真原型落到 doc/ 里；评审通过后，拆成子任务再动手实现。
+
+agent 先问问题（一次一个、给选项），每次回答后更新 prd.md；问完后，设计文档落盘在项目 `doc/`，不在 `.sunshine`：
+
+```text
+doc/design/退款流程概要设计.md
+doc/prototype/refund.html
+```
+
+概要设计长这样（真实文件内容）：
+
+```markdown
+# 退款流程概要设计
+
+## 目标
+
+退款原因必填，退款单状态按“待付款 → 已发货 → 退款中”流转，UI、API、数据三层一起改。
+
+## 模块
+
+- 前端：`src/Refund.vue`，按原型 `doc/prototype/refund.html` 改版。
+- 后端：`src/server.js`，`POST /api/v1/refunds`。
+- 数据：`data/refunds.json`，退款记录加 `reason` 字段。
+
+## 接口
+
+- `POST /api/v1/refunds`：缺 `reason` 返回 400，错误体 `{"error": "reason 必填"}`。
+- 退款上限 5000 元，超限返回 `NEED_APPROVAL`。
+
+## 验收
+
+- 原因下拉框必选，不选提交时表单拦住。
+- 缺 `reason` 的请求返回 400。
+- 退款记录里有 `reason` 字段。
+```
+
+原型是 `doc/prototype/refund.html`，一页高保真表单：原因下拉框（必填）、退款金额（上限 5000 元）、提交按钮。
+
+然后是需求评审：agent 把整包东西列出来请你确认——PRD、设计文档清单、拆解方案；确认后才往下走。
+
+评审通过后拆解。先建父任务：
+
+```sh
+sunshine task create "退款流程改版" --description "按新原型改版退款流程：原因必填 + 状态流转" --priority P1
+```
+
+真实输出：
+
+```text
+警告：无法解析仓库默认分支（未配 remote 或离线），base_branch 暂记为当前检出分支 "master"，可用 --base-branch 覆盖。
+已创建任务：11-11-退款流程改版
+……
+.sunshine/tasks/11-11-退款流程改版
+```
+
+再建两个子任务，挂在父任务下面：
+
+```sh
+sunshine task create "前端：退款表单按原型改版" --description "Refund.vue 按原型 refund.html 改版：原因下拉框必填" --parent 11-11-退款流程改版
+sunshine task create "后端：退款原因必填校验" --description "server.js：缺 reason 返回 400" --parent 11-11-退款流程改版
+```
+
+真实输出（只贴关键行）：
+
+```text
+已链接为 11-11-退款流程改版 的子任务
+已创建任务：11-11-前端-退款表单按原型改版
+……
+已链接为 11-11-退款流程改版 的子任务
+已创建任务：11-11-后端-退款原因必填校验
+```
+
+每个子任务配自己的上下文——只放这个子任务用得上的那几份，原型只读一次，之后按指针取：
+
+```sh
+sunshine task add-context 11-11-前端-退款表单按原型改版 implement doc/prototype/refund.html "原型：退款表单页，原因下拉框必填"
+# 已添加文件：doc/prototype/refund.html
+
+sunshine task add-context 11-11-前端-退款表单按原型改版 implement doc/design/退款流程概要设计.md "概要设计：退款流程与验收"
+# 已添加文件：doc/design/退款流程概要设计.md
+
+sunshine task add-context 11-11-前端-退款表单按原型改版 check .sunshine/spec/frontend.md "前端规范"
+# 已添加文件：.sunshine/spec/frontend.md
+
+sunshine task list-context 11-11-前端-退款表单按原型改版
+```
+
+真实输出：
+
+```text
+=== 上下文文件 ===
+
+[implement.jsonl]
+  1. doc/prototype/refund.html
+     → 原型：退款表单页，原因下拉框必填
+  2. doc/design/退款流程概要设计.md
+     → 概要设计：退款流程与验收
+
+[check.jsonl]
+  1. .sunshine/spec/frontend.md
+     → 前端规范
+```
+
+父任务不激活，逐个激活子任务。先启动前端这个子任务：
+
+```sh
+sunshine task start 11-11-前端-退款表单按原型改版
+```
+
+真实输出（摘录）：
+
+```text
+ℹ 会话身份不可用；本次不持久化当前任务指针（降级模式），AI 仍可按对话上下文继续。
+提示：在能提供会话身份的 AI 会话内运行，或先设置 SUNSHINE_CONTEXT_ID 再执行 sunshine task start。
+✓ 状态：planning → in_progress（降级）
+✓ 已记录分支：master（降级）
+……
+<workflow-state>
+Task: 前端-退款表单按原型改版 (in_progress)
+……
+主会话默认：派发 implement/check 子代理。不得以任务小、改动少为由改走 inline；inline 分支只属于 Codex（见 [workflow-state:in_progress-inline]）。子代理自豁免：如果自己已经是 `sunshine-implement`，不要再派生 `sunshine-implement` 或 `sunshine-check`；如果自己已经是 `sunshine-check`，不要再派生 `sunshine-check` 或 `sunshine-implement`。派发只由主会话做。
+派发提示词以 `Active task: <task current 给出的任务路径>` 开头。读上下文的顺序：jsonl 条目 -> `prd.md` -> `design.md（如有）` -> `implement.md（如有）`。
+</workflow-state>
+```
+
+上面是在纯终端里的降级输出——没有会话身份，所以不持久化当前任务指针；在 agent 界面里跑同一条命令，`task start` 成功后直接输出同样的 in_progress 面包屑，并正常持久化指针。
+
+这时任务列表长这样：
+
+```sh
+sunshine task list
+```
+
+真实输出：
+
+```text
+全部活动任务：
+
+  - 11-11-退款流程改版/ (active) [0/2 已完成] [演示者]
+    - 11-11-前端-退款表单按原型改版/ (in_progress) [演示者] <- 当前任务
+    - 11-11-后端-退款原因必填校验/ (planning) [演示者]
+
+总计：3 个任务
+```
+
+父任务显示 `active`、0/2 已完成，两个子任务挂在下面；前端子任务已经是 `in_progress`，后端子任务还在 `planning`，等前端做完再启动。两个子任务都做完、各自通过检查后，父任务做最终集成复核——对照概要设计里的验收标准和原型，一次过一遍，再归档。
+
+这个场景里设计人员和开发人员各拿自己要的东西：设计人员只碰 `doc/` 里的文档和评审确认，不用知道 `task start`、jsonl、派发这些词；开发人员进场时，任务已经拆好、上下文已经配好，每个子任务只读自己的包，不用反复翻原型。如果没有设计环节，同一套流程直接走 1.1 → 1.4 → 1.5，不用拆解——模式在开场定，走哪条路由 agent 判断。
 
 下一步可以看的：
 

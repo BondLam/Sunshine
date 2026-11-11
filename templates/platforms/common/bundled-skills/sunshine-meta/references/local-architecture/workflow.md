@@ -18,7 +18,7 @@ Phase 2: Execute -> implement against the PRD and specs, then check
 Phase 3: Finish  -> final verification, preserve lessons, and wrap up
 ```
 
-每个阶段包含编号步骤，例如 `1.3 Configure context`。这些编号不是 `task.json` 中的运行时字段；它们是供 AI 和人阅读的工作流结构。
+每个阶段包含编号步骤，例如 `1.4 Configure context`。这些编号不是 `task.json` 中的运行时字段；它们是供 AI 和人阅读的工作流结构。
 
 ## Skill 路由
 

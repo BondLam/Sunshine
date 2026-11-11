@@ -25,9 +25,10 @@ sunshine task context --mode phase
 `sunshine task context` 会显示当前任务的 `status` 字段。按 `status` + 产物情况分流。本命令代替用户记忆 Sunshine 流程；它本身不批准进入实现。
 
 - `status=planning`，且没有 `prd.md` → **1.1**（加载 `sunshine-brainstorm`）
-- `status=planning`，且只有 `prd.md` → 判断任务是轻量还是复杂。轻量可进入 **1.4** 评审；复杂回到 **1.1** 补充 `design.md` + `implement.md`。
-- `status=planning`，复杂产物齐全，但子代理 jsonl 未整理（为空，或只有旧的 `_example` 占位行）→ **1.3**
-- `status=planning`，所需产物齐全，且所需 jsonl 已整理或为内联模式 → **1.4**（请用户做开始评审；只有用户确认后才运行 `sunshine task start`）
+- `status=planning`，且只有 `prd.md` → 判断任务是轻量还是复杂。轻量可进入 **1.5** 评审；复杂回到 **1.1** 补充 `design.md` + `implement.md`。
+- `status=planning`，规划产物齐全，但任务包含多个可独立验证的交付物且尚未拆解（children 为空）→ **1.2**（任务拆解；拆完后不要继续在父任务上走 1.4/1.5，改去子任务上走 1.1→1.5）
+- `status=planning`，复杂产物齐全，但子代理 jsonl 未整理（为空，或只有旧的 `_example` 占位行）→ **1.4**
+- `status=planning`，所需产物齐全，且所需 jsonl 已整理或为内联模式 → **1.5**（请用户做开始评审；只有用户确认后才运行 `sunshine task start`）
 - `status=in_progress`，实现尚未开始 → **2.1**
 - `status=in_progress`，实现已完成、尚未检查 → **2.2**
 - `status=in_progress`，检查已通过 → **3.3**（更新规范）→ **3.4**（提交）
