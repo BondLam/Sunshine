@@ -1484,11 +1484,11 @@ Everything not listed here — `task create/start/archive`, `task add-context/va
 1. **Pick platforms** ("请选择要配置的 AI 编程平台", "Select the AI programming platforms to configure"): a multi-select of all 22 platforms, with Claude Code and Cursor checked by default; selecting none cancels the init ("未选择任何平台，初始化已取消。", "No platform selected, initialization cancelled.").
 2. **Statusline confirmation** (only when Claude Code is selected): "是否为 Claude Code 安装状态栏……？" ("Install the statusline for Claude Code…?"), default no; pass `--with-statusline` to install it directly.
 3. **Pick a spec template** ("请选择规范模板", "Select a spec template"): "从零开始" (from scratch) by default, or "自定义" (enter a marketplace source and pick from it); with `--registry` the picker lists that marketplace's spec templates, and the picked one is installed instead of the blank specs.
-4. **Pick a project type** (only when nothing is detected): "检测不到项目类型，请选择" ("Project type not detected, please choose"): frontend / backend / fullstack, default fullstack.
+4. **Pick a project type** (only when nothing is detected): "检测不到项目类型，请选择" ("Project type not detected, please choose"): frontend / backend / fullstack / product design, default fullstack. Picking product design means the project starts design-first with the stack undecided: it generates only `system.md` plus the `doc/` design templates (requirements list, outline design, prototype), and no frontend/backend specs.
 
 `-y` skips all four questions and uses the defaults; passing the matching flag (a platform flag, `--type`, `--template`) skips that question too.
 
-Project-type detection reads `package.json` dependencies and common frontend/backend config files (`vite.config.ts`, `go.mod`, etc.) and generates only the matching specs — a frontend project gets `system.md` and `frontend.md`, a backend project gets `system.md` and `backend.md`, a fullstack project gets all three. With `--registry` (specs from the template marketplace) there is no detection and no question.
+Project-type detection reads `package.json` dependencies and common frontend/backend config files (`vite.config.ts`, `go.mod`, etc.) and generates only the matching specs — a frontend project gets `system.md` and `frontend.md`, a backend project gets `system.md` and `backend.md`, a fullstack project gets all three. Product design is never detected; pick it manually (interactive question or `--type 产品设计`). With `--registry` (specs from the template marketplace) there is no detection and no question.
 
 #### Common options
 
@@ -1497,7 +1497,7 @@ Project-type detection reads `package.json` dependencies and common frontend/bac
 | `-u, --user <name>` | Developer name, written to `.sunshine/.developer`; priority: `-u` > git user.name > `developer`; new tasks default their creator and assignee to it |
 | `-y, --yes` | Skip all prompts: default platforms Claude Code + Cursor, default fullstack, default blank specs, no statusline |
 | `-f, --force` | Rebuild the skeleton and platform files even when already initialized (see "Three modes" below) |
-| `--type <前端/后端/全栈>` | Specify the project type explicitly, skipping detection and the question |
+| `--type <前端/后端/全栈/产品设计>` | Specify the project type explicitly, skipping detection and the question |
 | `--registry <source>` | Template marketplace source: `gh:owner/repo`, a full git URL, an HTTP(S) URL, a `git@` address, or a local git repository path |
 | `--template <id>` | Marketplace entry id, must be used with `--registry`; when omitted, a marketplace source errors out under `-y` and shows the picker interactively |
 | `--overwrite` / `--append` | Overwrite the target if it exists / only fill in missing files; only with `--template` |

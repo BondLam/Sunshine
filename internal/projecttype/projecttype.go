@@ -1,5 +1,6 @@
 // Package projecttype 检测单仓项目的类型（前端 / 后端 / 全栈 / 未知），
-// 并解析 --type 的手动指定值。
+// 并解析 --type 的手动指定值。产品设计不参与检测，只能手动选
+// （交互提问或 --type）：选它表示项目从产品设计先行，技术栈待定。
 //
 // 检测只看项目根目录的文件信号与 package.json 的依赖名：
 // 前端信号与后端信号都有 → 全栈；只有一侧 → 对应类型；都没有 → 未知。
@@ -28,6 +29,9 @@ const (
 	Backend
 	// Fullstack 表示前后端全栈项目。
 	Fullstack
+	// Design 表示产品设计先行项目：只生成通用规范与 doc/ 设计文档模板，
+	// 不生成前后端规范（技术栈待定，以后定了再 init -f 补）。
+	Design
 )
 
 // String 返回类型的英文名，供命令行与日志使用。
@@ -39,6 +43,8 @@ func (t Type) String() string {
 		return "backend"
 	case Fullstack:
 		return "fullstack"
+	case Design:
+		return "design"
 	default:
 		return "unknown"
 	}
@@ -53,6 +59,8 @@ func (t Type) DisplayName() string {
 		return "后端"
 	case Fullstack:
 		return "全栈"
+	case Design:
+		return "产品设计"
 	default:
 		return "未知"
 	}
@@ -68,8 +76,10 @@ func Parse(s string) (Type, error) {
 		return Backend, nil
 	case "全栈", "前后端全栈", "fullstack":
 		return Fullstack, nil
+	case "产品设计", "design":
+		return Design, nil
 	default:
-		return Unknown, fmt.Errorf("无效的项目类型：%s（合法值：前端、后端、全栈）", s)
+		return Unknown, fmt.Errorf("无效的项目类型：%s（合法值：前端、后端、全栈、产品设计）", s)
 	}
 }
 

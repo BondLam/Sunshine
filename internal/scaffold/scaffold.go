@@ -73,6 +73,7 @@ type InitOptions struct {
 	SkipSpec bool
 	// SpecType 是本次 init 的项目类型：Frontend 只写前端 spec，
 	// Backend 只写后端 spec，Fullstack 或 Unknown（零值）三份全写；
+	// Design 只写 system.md（不写前后端 spec），另写 doc/ 设计文档模板；
 	// system.md 与类型无关，永远写。
 	SpecType projecttype.Type
 	// Version 为空时 .version 沿用模板文件内容；非空时写入该值
@@ -115,10 +116,11 @@ func InitWithOptions(cwd, user string, opts InitOptions) error {
 		}
 		// 按项目类型跳过不匹配的 spec 文件（跳过的文件不写盘，
 		// 也不进入哈希清单）；system.md 与类型无关，永远写。
-		if rel == "spec/frontend.md" && opts.SpecType == projecttype.Backend {
+		// 产品设计先行时技术栈待定，前后端 spec 都不写。
+		if rel == "spec/frontend.md" && (opts.SpecType == projecttype.Backend || opts.SpecType == projecttype.Design) {
 			return nil
 		}
-		if rel == "spec/backend.md" && opts.SpecType == projecttype.Frontend {
+		if rel == "spec/backend.md" && (opts.SpecType == projecttype.Frontend || opts.SpecType == projecttype.Design) {
 			return nil
 		}
 		data, err := templates.Sunshine.ReadFile(path)
@@ -173,6 +175,44 @@ func InitWithOptions(cwd, user string, opts InitOptions) error {
 	}
 	if err := os.WriteFile(filepath.Join(target, ".template-hashes.json"), append(manifest, '\n'), 0o644); err != nil {
 		return fmt.Errorf("写入模板哈希清单失败：%w", err)
+	}
+	// 产品设计先行：写 doc/ 设计文档模板（不在 .sunshine/ 里，
+	// 不进哈希清单；已填过的内容绝不覆盖，-f 重建也不覆盖）。
+	if opts.SpecType == projecttype.Design {
+		if err := writeDesignTemplates(cwd); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// designTemplates 是产品设计文档模板：内嵌源路径 → 项目内目标路径。
+var designTemplates = []struct{ src, dst string }{
+	{"design/requirements.md", "doc/design/需求列表.md"},
+	{"design/outline.md", "doc/design/概要设计.md"},
+	{"design/prototype.html", "doc/prototype/原型.html"},
+}
+
+// writeDesignTemplates 把三份产品设计文档模板写进项目 doc/。
+// 只在目标文件不存在时写：设计人员已填的内容绝不覆盖。
+func writeDesignTemplates(cwd string) error {
+	for _, t := range designTemplates {
+		data, err := templates.Design.ReadFile(t.src)
+		if err != nil {
+			return fmt.Errorf("读取产品设计文档模板 %s 失败：%w", t.src, err)
+		}
+		dest := filepath.Join(cwd, filepath.FromSlash(t.dst))
+		if _, err := os.Stat(dest); err == nil {
+			continue
+		} else if !os.IsNotExist(err) {
+			return fmt.Errorf("检查 %s 失败：%w", t.dst, err)
+		}
+		if err := os.MkdirAll(filepath.Dir(dest), 0o755); err != nil {
+			return err
+		}
+		if err := os.WriteFile(dest, data, 0o644); err != nil {
+			return fmt.Errorf("写入 %s 失败：%w", t.dst, err)
+		}
 	}
 	return nil
 }

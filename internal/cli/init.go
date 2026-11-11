@@ -120,8 +120,10 @@ GitHub Copilot、Factory Droid）。
 
 项目类型检测：init 会检测项目类型（读 package.json 依赖与常见前后端
 配置文件），只生成对应的 spec 模板；检测不到时交互问一句；--type 可显式
-指定（合法值：前端、后端、全栈）；-y 或非交互终端时检测不到默认全栈；
---registry 写 spec 时不检测、不提问。`,
+指定（合法值：前端、后端、全栈、产品设计）；-y 或非交互终端时检测不到默认全栈；
+--registry 写 spec 时不检测、不提问。产品设计不参与检测，只能手动选：
+选它只生成通用规范（system.md）与 doc/ 设计文档模板（需求列表、概要设计、原型），
+不生成前后端规范（技术栈待定，以后定了再 init -f 补）。`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cwd, err := os.Getwd()
 		if err != nil {
@@ -286,7 +288,7 @@ func init() {
 	initCmd.Flags().BoolVar(&initCopilot, "copilot", false, "安装 GitHub Copilot 平台配置")
 	initCmd.Flags().BoolVar(&initDroid, "droid", false, "安装 Factory Droid 平台配置")
 	initCmd.Flags().BoolVar(&initWithStatusline, "with-statusline", false, "为 Claude Code 安装状态栏（仅 Claude Code 入选时有效）")
-	initCmd.Flags().StringVar(&initType, "type", "", "项目类型：前端、后端、全栈（默认自动检测，检测不到时交互选择）")
+	initCmd.Flags().StringVar(&initType, "type", "", "项目类型：前端、后端、全栈、产品设计（默认自动检测，检测不到时交互选择）")
 	registerRegistryFlags(initCmd)
 	rootCmd.AddCommand(initCmd)
 }
@@ -365,7 +367,7 @@ var promptProjectType = func() (projecttype.Type, error) {
 	var chosen string
 	err := survey.AskOne(&survey.Select{
 		Message: "检测不到项目类型，请选择：",
-		Options: []string{"前端项目", "后端项目", "前后端全栈"},
+		Options: []string{"前端项目", "后端项目", "前后端全栈", "产品设计"},
 		Default: "前后端全栈",
 	}, &chosen)
 	if err != nil {
@@ -376,6 +378,8 @@ var promptProjectType = func() (projecttype.Type, error) {
 		return projecttype.Frontend, nil
 	case "后端项目":
 		return projecttype.Backend, nil
+	case "产品设计":
+		return projecttype.Design, nil
 	default:
 		return projecttype.Fullstack, nil
 	}
@@ -443,6 +447,8 @@ func specNextStepLine(specType projecttype.Type) string {
 		generated = "system.md、frontend.md"
 	case projecttype.Backend:
 		generated = "system.md、backend.md"
+	case projecttype.Design:
+		return "  2. 规范已按默认模板生成在 .sunshine/spec/（已生成 system.md；有团队规范时再补充），产品设计文档模板已生成在 doc/（需求列表、概要设计、原型），工作流按 .sunshine/workflow.md 自动推进，一般不用改。"
 	default:
 		generated = "system.md、frontend.md、backend.md"
 	}

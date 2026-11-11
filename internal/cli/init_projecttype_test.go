@@ -44,6 +44,12 @@ func TestResolveProjectTypePriority(t *testing.T) {
 			wantSource: "--type 指定",
 		},
 		{
+			name:       "--type 产品设计",
+			in:         projectTypeInput{flag: "产品设计", detected: projecttype.Frontend, isTTY: true},
+			wantType:   projecttype.Design,
+			wantSource: "--type 指定",
+		},
+		{
 			name:    "--type 非法值报错",
 			in:      projectTypeInput{flag: "移动端", detected: projecttype.Frontend, isTTY: true},
 			wantErr: true,
@@ -102,6 +108,13 @@ func TestResolveProjectTypePriority(t *testing.T) {
 			wantSource: "手动选择",
 		},
 		{
+			name:       "TTY + unknown 提问选产品设计",
+			in:         projectTypeInput{detected: projecttype.Unknown, isTTY: true},
+			prompt:     func() (projecttype.Type, error) { return projecttype.Design, nil },
+			wantType:   projecttype.Design,
+			wantSource: "手动选择",
+		},
+		{
 			name:       "提问出错默认全栈",
 			in:         projectTypeInput{detected: projecttype.Unknown, isTTY: true},
 			prompt:     func() (projecttype.Type, error) { return projecttype.Fullstack, errors.New("EOF") },
@@ -151,6 +164,7 @@ func TestSpecNextStepLine(t *testing.T) {
 		{projecttype.Backend, "已生成 system.md、backend.md"},
 		{projecttype.Fullstack, "已生成 system.md、frontend.md、backend.md"},
 		{projecttype.Unknown, "已生成 system.md、frontend.md、backend.md"},
+		{projecttype.Design, "已生成 system.md"},
 	}
 	for _, c := range cases {
 		got := specNextStepLine(c.specType)
@@ -160,6 +174,9 @@ func TestSpecNextStepLine(t *testing.T) {
 		if !strings.HasPrefix(got, "  2. 规范已按默认模板生成在 .sunshine/spec/") {
 			t.Errorf("specNextStepLine(%v) 前缀不对：%q", c.specType, got)
 		}
+	}
+	if got := specNextStepLine(projecttype.Design); !strings.Contains(got, "doc/（需求列表、概要设计、原型）") {
+		t.Errorf("specNextStepLine(Design) 应提 doc/ 设计文档模板，实际：%q", got)
 	}
 }
 
@@ -366,4 +383,43 @@ func TestInitEndToEndProjectType(t *testing.T) {
 			t.Error("--type 非法时不应生成 .sunshine/")
 		}
 	})
+
+	// --type 产品设计：spec 只剩 system.md，doc/ 下写三份设计文档模板。
+	t.Run("--type 产品设计", func(t *testing.T) {
+		dir := t.TempDir()
+		out, code := runInitBinary(t, dir, "-y", "-u", "测试", "--type", "产品设计")
+		if code != 0 {
+			t.Fatalf("init 退出码 %d，输出：%s", code, out)
+		}
+		assertInitSpecFiles(t, dir, false, false)
+		assertDesignTemplates(t, dir)
+		if !strings.Contains(out, "项目类型：产品设计（--type 指定）") {
+			t.Errorf("输出应含“项目类型：产品设计（--type 指定）”，实际：\n%s", out)
+		}
+		if !strings.Contains(out, "doc/（需求列表、概要设计、原型）") {
+			t.Errorf("“下一步”第 2 行应提 doc/ 设计文档模板，实际：\n%s", out)
+		}
+	})
+}
+
+// assertDesignTemplates 校验 init 后 doc/ 下三份设计文档模板存在且内容是模板。
+func assertDesignTemplates(t *testing.T, dir string) {
+	t.Helper()
+	for _, tc := range []struct {
+		rel    string
+		marker string
+	}{
+		{"doc/design/需求列表.md", "# 需求列表"},
+		{"doc/design/概要设计.md", "# 概要设计"},
+		{"doc/prototype/原型.html", "（请填写产品名称）原型"},
+	} {
+		data, err := os.ReadFile(filepath.Join(dir, filepath.FromSlash(tc.rel)))
+		if err != nil {
+			t.Errorf("缺少 %s：%v", tc.rel, err)
+			continue
+		}
+		if !strings.Contains(string(data), tc.marker) {
+			t.Errorf("%s 内容不对，应含 %q", tc.rel, tc.marker)
+		}
+	}
 }

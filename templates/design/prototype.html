@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<!-- 原型：直接用浏览器打开就能看。样式只为看清结构，不是最终视觉，定稿后按视觉稿重写。 -->
+<title>（请填写产品名称）原型</title>
+<style>
+  body { font-family: system-ui, -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif; margin: 0; color: #222; line-height: 1.6; }
+  header { background: #1f2937; color: #fff; padding: 16px 24px; }
+  header h1 { margin: 0; font-size: 20px; }
+  header nav { margin-top: 8px; font-size: 14px; }
+  header nav a { color: #cbd5e1; margin-right: 16px; text-decoration: none; }
+  main { max-width: 720px; margin: 0 auto; padding: 24px; }
+  section { margin-bottom: 32px; }
+  h2 { font-size: 18px; border-bottom: 1px solid #e5e7eb; padding-bottom: 8px; }
+  label { display: block; margin: 12px 0 4px; font-size: 14px; }
+  input, select, textarea { width: 100%; box-sizing: border-box; padding: 8px; border: 1px solid #d1d5db; border-radius: 4px; }
+  button { margin-top: 16px; padding: 8px 20px; background: #2563eb; color: #fff; border: none; border-radius: 4px; cursor: pointer; }
+  .hint { color: #6b7280; font-size: 13px; }
+  footer { text-align: center; color: #9ca3af; font-size: 13px; padding: 24px; }
+</style>
+</head>
+<body>
+<header>
+  <!-- 改这里：产品名称与导航，按页面结构改 -->
+  <h1>（请填写产品名称）</h1>
+  <nav><a href="#">首页</a><a href="#">（页面一）</a><a href="#">（页面二）</a></nav>
+</header>
+<main>
+  <section>
+    <!-- 第一屏：讲清产品是干什么的，一句话 -->
+    <h2>（一句话讲清产品是干什么的）</h2>
+    <p class="hint">（改这里：写一段产品介绍，不超过三行。）</p>
+  </section>
+  <section>
+    <!-- 核心操作：按主流程放一个示例表单或列表，字段按需求列表改 -->
+    <h2>（核心操作）</h2>
+    <form onsubmit="return false">
+      <label>（字段一）（必填）
+        <input required placeholder="（示例：请输入……）">
+      </label>
+      <label>（字段二）
+        <select>
+          <option value="">（请选择……）</option>
+          <option>（选项一）</option>
+          <option>（选项二）</option>
+        </select>
+      </label>
+      <button type="submit">（提交）</button>
+    </form>
+    <p class="hint">提示：必填项不填就拦住（required），这是表单的底线；更复杂的校验规则写进概要设计的接口一节。</p>
+  </section>
+  <section>
+    <!-- 列表页示例：按需保留或删掉 -->
+    <h2>（列表）</h2>
+    <p class="hint">（改这里：没有列表页就整段删掉。）</p>
+    <ul>
+      <li>（示例条目一）</li>
+      <li>（示例条目二）</li>
+    </ul>
+  </section>
+</main>
+<footer>原型 · 以需求列表与概要设计为准</footer>
+</body>
+</html>

@@ -181,6 +181,7 @@ func TestTypeStringAndDisplayName(t *testing.T) {
 		{Frontend, "frontend", "前端"},
 		{Backend, "backend", "后端"},
 		{Fullstack, "fullstack", "全栈"},
+		{Design, "design", "产品设计"},
 	}
 	for _, tt := range tests {
 		if got := tt.typ.String(); got != tt.str {
@@ -209,6 +210,8 @@ func TestParse(t *testing.T) {
 		{"全栈", Fullstack},
 		{"前后端全栈", Fullstack},
 		{"fullstack", Fullstack},
+		{"产品设计", Design},
+		{"design", Design},
 	}
 	for _, tt := range valid {
 		t.Run("合法值 "+tt.input, func(t *testing.T) {
@@ -229,7 +232,7 @@ func TestParse(t *testing.T) {
 			if err == nil {
 				t.Fatalf("Parse(%q) 应报错，got %v", input, got)
 			}
-			want := "无效的项目类型：" + input + "（合法值：前端、后端、全栈）"
+			want := "无效的项目类型：" + input + "（合法值：前端、后端、全栈、产品设计）"
 			if err.Error() != want {
 				t.Errorf("Parse(%q) 错误文案 = %q，want %q", input, err.Error(), want)
 			}

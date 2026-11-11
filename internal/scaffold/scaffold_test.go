@@ -41,6 +41,87 @@ func TestInitSpecTypeSkipsMismatchedSpec(t *testing.T) {
 	}
 }
 
+// TestInitDesignWritesDocTemplates 校验 SpecType=Design：spec 只写
+// system.md（前后端都不写），doc/ 下写三份设计文档模板；
+// 模板不进哈希清单；已填过的文件 -f 重建也不覆盖。
+func TestInitDesignWritesDocTemplates(t *testing.T) {
+	dir := t.TempDir()
+	if err := InitWithOptions(dir, "张三", InitOptions{SpecType: projecttype.Design}); err != nil {
+		t.Fatalf("InitWithOptions Design 失败：%v", err)
+	}
+	assertSpecFiles(t, dir, false, false)
+	assertSpecHashes(t, dir, false, false)
+	assertDesignTemplates(t, dir)
+
+	// 模板不进哈希清单（doc/ 是设计人员的交付物，不归 update 管）。
+	data, err := os.ReadFile(filepath.Join(dir, ".sunshine/.template-hashes.json"))
+	if err != nil {
+		t.Fatalf("读取哈希清单失败：%v", err)
+	}
+	for _, key := range []string{"doc/design/需求列表.md", "doc/design/概要设计.md", "doc/prototype/原型.html"} {
+		if strings.Contains(string(data), key) {
+			t.Errorf("哈希清单不应含 %s", key)
+		}
+	}
+
+	// 非 Design 类型不写 doc/。
+	dir = t.TempDir()
+	if err := InitWithOptions(dir, "张三", InitOptions{SpecType: projecttype.Fullstack}); err != nil {
+		t.Fatalf("InitWithOptions Fullstack 失败：%v", err)
+	}
+	if _, err := os.Stat(filepath.Join(dir, "doc")); !os.IsNotExist(err) {
+		t.Error("Fullstack 不应生成 doc/")
+	}
+
+	// 已填过的文件 -f 重建也不覆盖；缺失的补写。
+	dir = t.TempDir()
+	if err := InitWithOptions(dir, "张三", InitOptions{SpecType: projecttype.Design}); err != nil {
+		t.Fatalf("InitWithOptions Design 失败：%v", err)
+	}
+	edited := "# 需求列表\n\n已填好的真实需求\n"
+	if err := os.WriteFile(filepath.Join(dir, "doc/design/需求列表.md"), []byte(edited), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Remove(filepath.Join(dir, "doc/prototype/原型.html")); err != nil {
+		t.Fatal(err)
+	}
+	if err := InitWithOptions(dir, "张三", InitOptions{Force: true, SpecType: projecttype.Design}); err != nil {
+		t.Fatalf("InitWithOptions Design -f 失败：%v", err)
+	}
+	kept, err := os.ReadFile(filepath.Join(dir, "doc/design/需求列表.md"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(kept) != edited {
+		t.Errorf("-f 不应覆盖已填的 需求列表.md，实际：%q", string(kept))
+	}
+	if _, err := os.Stat(filepath.Join(dir, "doc/prototype/原型.html")); err != nil {
+		t.Errorf("-f 应补写缺失的 原型.html：%v", err)
+	}
+}
+
+// assertDesignTemplates 校验 doc/ 下三份设计文档模板存在且内容是模板。
+func assertDesignTemplates(t *testing.T, dir string) {
+	t.Helper()
+	for _, tc := range []struct {
+		rel    string
+		marker string
+	}{
+		{"doc/design/需求列表.md", "# 需求列表"},
+		{"doc/design/概要设计.md", "# 概要设计"},
+		{"doc/prototype/原型.html", "（请填写产品名称）原型"},
+	} {
+		data, err := os.ReadFile(filepath.Join(dir, filepath.FromSlash(tc.rel)))
+		if err != nil {
+			t.Errorf("缺少 %s：%v", tc.rel, err)
+			continue
+		}
+		if !strings.Contains(string(data), tc.marker) {
+			t.Errorf("%s 内容不对，应含 %q", tc.rel, tc.marker)
+		}
+	}
+}
+
 // assertSpecFiles 校验 spec 目录的文件集：system.md 永远存在，
 // frontend.md / backend.md 按 wantFrontend / wantBackend 断言存在与否。
 func assertSpecFiles(t *testing.T, dir string, wantFrontend, wantBackend bool) {

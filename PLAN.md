@@ -2117,3 +2117,33 @@ pre-commit install       # 在仓库根目录执行一次
 - Release 已发布：https://github.com/linrong1982/Sunshine/releases/tag/v0.3.7，6 个资产；发布 run 42967234680、两路 CI（42967234661、42967209609）均 success 无抖动。
 - 实测验证：不带参数的一键命令装上 v0.3.7（`Sunshine 版本 0.3.7`）；0.3.6 二进制 `upgrade --dry-run` 正确查到 0.3.7；darwin_amd64 包 checksum OK（Mach-O x86_64）。
 - 用户定：设计文档模板不做，需要的话让设计人员去模板市场下载。
+
+## init 产品设计类型：空白模板选产品设计时生成 doc/ 设计文档模板（2026-11-11，用户定做）
+
+### 背景与用户定夺
+- 2026-11-11 早些时候用户定“设计文档模板不做，需要的话让设计人员去模板市场下载”（已随 v0.3.7 发布记录）。同日用户改主意：设计文档模板（需求列表、概要设计、原型各一份）还是要有，放在 `sunshine init` 选空白模板时——项目类型提问（前端/后端/全栈）里加多一个“产品设计”选项。
+- 选“产品设计”时生成什么，用户在 options widget 上点选：**只生成 doc/ 模板 + 通用规范**（不生成前后端规范；技术栈待定，以后定了再 `init -f` 补）。
+
+### 设计要点
+- **新类型 `projecttype.Design`**：不参与自动检测（没有任何代码信号能检测出“产品设计”），只能手动选——交互提问或 `--type 产品设计`（另接受英文 `design`）。`String()` 为 `design`，`DisplayName()` 为“产品设计”。
+- **只在空白模板路径出现**：项目类型提问只在需要生成默认 spec 时跑（`--registry` 写 spec 时不检测、不提问，直接默认全栈），与用户说的“选择空白时”一致。`-y` / 非交互仍默认全栈，不带设计模板。
+- **生成内容**：`doc/design/需求列表.md`、`doc/design/概要设计.md`、`doc/prototype/原型.html`（三份，中文，占位用“（请填写：……）”写法；落盘路径沿用教程 §12.6 的 `doc/design/` + `doc/prototype/` 约定）。spec 只写 `system.md`（guides 照常），不写 `frontend.md` / `backend.md`。
+- **doc/ 是设计人员的交付物，不是模板管理文件**：三份模板不进 `.sunshine/.template-hashes.json`，`sunshine update` 不碰它们；写入时只写不存在的文件——已填过的内容绝不覆盖，`init -f` 重建也不覆盖，只补写缺失的。
+- **模板内嵌**：`templates/design/` 独立 embed FS（`templates.Design`，与 `.sunshine/` 骨架的 `templates.Sunshine` 分开）；源文件名用英文（`requirements.md`、`outline.md`、`prototype.html`），落盘目标用中文名。
+
+### 改动清单
+1. **`internal/projecttype/projecttype.go`**：新增 `Design`；`String()` / `DisplayName()` / `Parse()` 跟进；`Parse` 非法值文案合法值加“产品设计”；包注释说明产品设计不参与检测。
+2. **`templates/templates.go`**：新增 `Design` embed FS（`all:design`）。
+3. **`templates/design/`（新建）**：`requirements.md`（产品信息、用户角色、功能需求表 R-001 起、非功能需求、待确认、变更记录）、`outline.md`（目标与范围、用户与场景、模块划分、关键流程、接口、数据、验收、风险）、`prototype.html`（可直接用浏览器打开的起手页：标题、导航、第一屏、示例表单、列表示例，内联样式只为看清结构）。
+4. **`internal/scaffold/scaffold.go`**：`InitWithOptions` 里 Design 时前后端 spec 都跳过；新增 `designTemplates` 映射表与 `writeDesignTemplates`（只写不存在的文件），在 `InitWithOptions` 末尾调用。
+5. **`internal/cli/init.go`**：`promptProjectType` 选项加“产品设计”（默认仍是“前后端全栈”）；`--type` flag 与 Long 说明合法值加产品设计；`specNextStepLine` 加 Design 分支（提 system.md 与 doc/ 三份模板）。
+6. **中英文教程**（`docs/tutorial.md`、`docs/tutorial.en.md`）：附录 init 参考——第 4 问加产品设计选项与含义、检测段加“产品设计不参与检测”、`--type` 表格行加产品设计。
+
+### 验证
+- `go build ./...`、`gofmt -l` 无输出、`go vet ./...` OK、全量 `go test ./...` 全过 0 失败（19 个包）；新增测试：`projecttype` 的 Design 解析/展示名、`resolveProjectType` 的 `--type 产品设计` 与提问选产品设计两路、`specNextStepLine` 的 Design 分支、scaffold 的 Design 落盘 + 不进哈希清单 + 非 Design 不写 doc/ + `-f` 不覆盖已填内容只补缺失、CLI 端到端 `--type 产品设计`。
+- 真实二进制三路实跑：① pty 交互四问全过，类型选单现 4 个选项，默认全栈下移一项选中产品设计，输出“项目类型：产品设计（手动选择）”；② `--type 产品设计`（-y）同样落盘；③ `-f` 重建：已填的 需求列表.md 内容保留、删掉的 原型.html 补写回来。两路的 spec/ 都只有 system.md，doc/ 三份都在，哈希清单无 doc/ 条目；原型 HTML 用解析器验过结构无错。
+- 注意：第一版原型模板用的【产品名称】等全角括号占位写法在写盘时被整段去掉（落盘后只剩空标签），改用“（请填写：……）”写法后正常；以后写模板文件不要用【】占位。
+
+### 实施记录（2026-11-11，已完成，未提交）
+- 改动 9 个文件 + 3 个新模板文件：projecttype、scaffold、init、templates.go、两份项目类型测试、scaffold 测试、中英文教程附录。CLI 除 init 外未动；workflow 模板未动。
+- 未提交：等用户定夺提交/发版。
