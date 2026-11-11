@@ -2146,4 +2146,10 @@ pre-commit install       # 在仓库根目录执行一次
 
 ### 实施记录（2026-11-11，已完成，未提交）
 - 改动 9 个文件 + 3 个新模板文件：projecttype、scaffold、init、templates.go、两份项目类型测试、scaffold 测试、中英文教程附录。CLI 除 init 外未动；workflow 模板未动。
-- 未提交：等用户定夺提交/发版。
+- 已随 v0.3.8 提交推送并发布（见下“v0.3.8 发布记录”）。
+
+### v0.3.8 发布记录（2026-11-11）
+- 内容：init 产品设计类型——项目类型提问加第四个选项“产品设计”（默认仍全栈）；选它只生成通用规范 system.md（guides 照常），不写前后端规范，另写 doc/ 设计文档模板：doc/design/需求列表.md、doc/design/概要设计.md、doc/prototype/原型.html。新增 projecttype.Design（不参与检测，只能手动选；--type 也支持产品设计/design）。doc/ 模板不进哈希清单，update 不碰；只写不存在的文件，已填内容绝不覆盖，init -f 重建也不覆盖，只补写缺失的。中英文教程附录 init 参考同步。提交 `5b8970b`（13 个文件），tag v0.3.8 为注释 tag（对象 `c4eafb7`）。
+- Release 已发布：https://github.com/linrong1982/Sunshine/releases/tag/v0.3.8，6 个资产；发布 run 42970039441、两路 CI（42970039335、42969768358）均 success 无抖动。
+- 实测验证：不带参数的一键命令装上 v0.3.8（`Sunshine 版本 0.3.8`）；0.3.7 二进制 `upgrade --dry-run` 正确查到 0.3.8；darwin_amd64 包 checksum OK（Mach-O x86_64）。注：验证时沙箱 /usr/local/bin 里的 0.3.7 二进制已被 VM 更换清掉（/usr/local/bin 不跨 VM 持久），upgrade 检查改用从 v0.3.7 Release 现下载的原版二进制跑的，结果一样。
+- 权限讨论（未定）：用户问“只让授权的人用 sunshine”能不能做。已答：能做，三条路（仓库改私有 / CLI 加授权校验 / 两者结合），并说明公开源码的前提下纯 CLI 校验防不住改源码重编；v0.3.7 及之前已公开发出去了，收不回来，权限只能管以后的版本。用户选继续发 v0.3.8；授权给哪些人（团队成员 / 指定 GitHub 账号 / 付费用户）还没定，等用户再说。
