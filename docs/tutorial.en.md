@@ -896,29 +896,7 @@ This section was verified with **v0.3.0** (the current Release; `sunshine versio
 
 ### 12.1 Starting a new project from zero: a duty-roster tool
 
-An empty directory, nothing in it — the cleanest starting point. Create the directory, put it in git, then `init`:
-
-```sh
-mkdir -p /tmp/scenes/s1-new && cd /tmp/scenes/s1-new && git init
-sunshine init -u 演示者 -y
-```
-
-Real output:
-
-```text
-初始化完成，开发者：演示者
-项目类型：全栈（默认）
-已安装平台：
-  - Claude Code
-  - Cursor
-下一步：
-  1. 在 agent 界面里打开项目，直接用自然语言提第一个需求；
-  2. 规范已按默认模板生成在 .sunshine/spec/（已生成 system.md、frontend.md、backend.md；有团队规范时再补充），工作流按 .sunshine/workflow.md 自动推进，一般不用改。
-```
-
-(In English: "Initialization complete, developer: 演示者 / Project type: 全栈 (default) / Installed platforms: Claude Code, Cursor / Next steps: 1. Open the project in the agent UI and state your first requirement in plain language; 2. The specs have been generated in .sunshine/spec/ from the default templates (generated: system.md, frontend.md, backend.md; add your team's specs if you have them); the workflow runs automatically following .sunshine/workflow.md and normally needs no changes.")
-
-An empty directory has no detectable type, so `-y` defaults to full-stack and all three specs are generated — a new project starts with a default set of specs, and the team adjusts them later, which beats starting with nothing.
+An empty directory, nothing in it — the cleanest starting point. Create an empty directory, put it in git, and leave the rest to Claude Code: `init`, creating the task, lining up context, starting it — all of it runs underneath, and you type no commands. An empty directory has no detectable type, so it defaults to full-stack and all three specs (system.md, frontend.md, backend.md) are generated — a new project starts with a default set of specs, and the team adjusts them later, which beats starting with nothing.
 
 Open the project in Claude Code and state the first requirement in plain language (same for Codex and Cursor):
 
@@ -935,34 +913,10 @@ Here is how the session continues (the conversation is an example; the commands 
 > **Claude Code:** Got it. Here's the plan: create the task "值班表小工具第一版" and write a PRD that says generate this week's roster from the CSV (first column date, second column person on duty) and print it to the terminal; acceptance is running `go run ./cmd/duty 值班表.csv` and seeing lines like `11-10：张三`. Once you confirm, I'll create the task, write the PRD, and start implementing. OK?
 >
 > **You:** OK, go ahead.
+>
+> **Claude Code:** The task is created, the context is lined up, the task is started. Now I'll implement it: a small tool that reads the CSV and prints the roster. Let me show you the run.
 
-Once you confirm, Claude Code creates the task, lines up context, and starts it under the hood — you don't type any of these commands (same commands as section 4; only the key outputs are shown here):
-
-```sh
-sunshine task create "值班表小工具第一版" --description "按 CSV 生成本周值班表" --priority P2
-```
-
-```text
-……
-  - 用 /sunshine:continue 或阶段上下文决定下一步
-
-.sunshine/tasks/11-10-值班表小工具第一版
-```
-
-```sh
-sunshine task add-context 11-10-值班表小工具第一版 implement .sunshine/spec/system.md "实现前先读总原则"
-# 已添加文件：.sunshine/spec/system.md
-
-sunshine task start 11-10-值班表小工具第一版 --allow-empty-context
-# ✓ 状态：planning → in_progress（降级）
-```
-
-The implementation is the agent's job — here is the program it actually wrote (a small tool that reads a CSV and prints the roster) and its real run result:
-
-```sh
-go mod init duty
-go run ./cmd/duty 值班表.csv
-```
+Here is the real run result:
 
 ```text
 11-10：张三
@@ -970,7 +924,7 @@ go run ./cmd/duty 值班表.csv
 11-12：王五
 ```
 
-Wrap-up is the same as section 4: `task finish` clears the pointer, `task archive` archives it, `task list-archive` confirms:
+> **Claude Code:** Done — the task is archived:
 
 ```text
 [2026-11] - 1 个任务
@@ -994,20 +948,7 @@ The repo exists, but the conventions live mostly in people's heads — the most 
 
 (In English: "Team conventions (always remembered by people, never written into any document): APIs return { code, data } with code an UPPER_SNAKE error code. Every write must write an audit log. The port is fixed at 3000; changing it needs the whole team to sync.")
 
-Run `init` right in this directory — `init` only adds files, it never changes existing code:
-
-```sh
-cd /tmp/scenes/s2-old
-sunshine init -u 演示者 -y
-```
-
-Real output (key line):
-
-```text
-项目类型：后端（自动检测）
-```
-
-Detection only looks at the dependencies themselves: this project has only `express`, so it is a backend project, and only `system.md` and `backend.md` are generated (`ls .sunshine/spec/` shows just those two); a pure Express backend is not misjudged as full-stack. Existing files are untouched — `git status` shows only the new Sunshine directories:
+Run `init` right in this directory — `init` only adds files, it never changes existing code. Claude Code runs `init` underneath and recognizes a backend project (only `express`), so only `system.md` and `backend.md` are generated; existing files are untouched, and git shows only the new Sunshine directories:
 
 ```text
 ?? .claude/
@@ -1027,15 +968,11 @@ Here is how the session continues (the conversation is an example; the commands 
 >
 > **You:** The first two into `backend.md`. The port is a team-wide rule — put it in `system.md`.
 >
-> **Claude Code:** Got it. Here's the plan: create the task "把现有约定落进规范", write a PRD that says land the three remembered conventions from the README into spec; acceptance is `grep -c "审计日志" .sunshine/spec/backend.md` returning 1. Once you confirm, I'll create the task, write the PRD, and write the conventions in. OK?
+> **Claude Code:** Got it. Here's the plan: create the task "把现有约定落进规范", write a PRD that says land the three remembered conventions from the README into spec; acceptance is the audit-log convention appearing once in backend.md. Once you confirm, I'll create the task, write the PRD, and write the conventions in. OK?
 >
 > **You:** OK, go ahead.
-
-Once you confirm, Claude Code creates the task and writes the conventions into the matching spec files under the hood — you don't type any of these commands (this is what actually landed):
-
-```sh
-sunshine task create "把现有约定落进规范" --description "把 README 里靠人记的三条约定写进 .sunshine/spec" --priority P2
-```
+>
+> **Claude Code:** The task is created and the conventions are written in. Here is what actually landed:
 
 ```markdown
 ## 退款接口（团队已有约定）
@@ -1050,12 +987,7 @@ sunshine task create "把现有约定落进规范" --description "把 README 里
 - 服务端口固定 3000，改端口要全组同步。
 ```
 
-The task runs its normal course (`start` → `finish` → `archive --skip-branch-validation`), and what landed is verifiable with `grep`:
-
-```sh
-grep -c "审计日志" .sunshine/spec/backend.md
-# 1
-```
+> **Claude Code:** Let me verify what landed for you: the audit-log convention appears once in backend.md. The task ran its normal course and is archived.
 
 From now on the conventions no longer live only in senior engineers' heads: the agent on a new task reads the spec, and the conventions survive people leaving. The acceptance bar for adopting an existing project is one line — **after `init`, `git status` shows no modified old files, and spec has one more convention that used to live only in memory**.
 
@@ -1078,78 +1010,12 @@ Here is how the session continues (the conversation is an example; the commands 
 > **Claude Code:** Got it. Here's the plan: create the task "退款原因必填校验（全链路）", write a PRD that says change all four layers together; line up the context by layer — `src/Refund.vue`, `src/server.js`, `data/refunds.json` into `implement`, `.sunshine/spec/backend.md` into `check`; the change order goes through a channel. Once you confirm, I'll create the task, line up the context, and start it. OK?
 >
 > **You:** OK, go ahead.
+>
+> **Claude Code:** The task is created and the context is lined up by layer: the UI, API, and data files for implementation, the backend API contract for acceptance. The four layers change API first, then UI, and I put the order in the channel — two messages: API first — POST /refunds with a missing reason returns 400 with `REASON_REQUIRED`; once the API is done, the UI — a three-option reason dropdown, with "other" showing a text box.
+>
+> **Claude Code:** The channel is bound to the task, so the task path shows in the messages; these two are numbered coordination messages, not casual notes. Waiting for a worker's reply and getting a timeout is normal when no worker answers — this section only coordinates as far as sending the messages, and spawning a real worker needs a logged-in claude / codex on this machine (section 10). At the end the workflow goes back to native and the task is archived as usual.
 
-Once you confirm, Claude Code creates the task under the hood — you don't type any of these commands (same commands as section 4; only the key outputs are shown here):
-
-```sh
-sunshine task create "退款原因必填校验（全链路）" --description "产品、API、数据、UI 四层一起改：原因必填" --priority P1
-```
-
-Line up the context by layer — the three layers to implement go into `implement`, the spec to check against goes into `check`:
-
-```sh
-sunshine task add-context 11-10-退款原因必填校验-全链路 implement src/Refund.vue "UI：原因下拉框与必填校验"
-# 已添加文件：src/Refund.vue
-
-sunshine task add-context 11-10-退款原因必填校验-全链路 implement src/server.js "API：缺 reason 返回 400"
-# 已添加文件：src/server.js
-
-sunshine task add-context 11-10-退款原因必填校验-全链路 implement data/refunds.json "数据：退款记录加 reason 字段"
-# 已添加文件：data/refunds.json
-
-sunshine task add-context 11-10-退款原因必填校验-全链路 check .sunshine/spec/backend.md "接口契约"
-# 已添加文件：.sunshine/spec/backend.md
-
-sunshine task list-context 11-10-退款原因必填校验-全链路
-# [implement.jsonl]
-#   1. src/Refund.vue
-#   2. src/server.js
-#   3. data/refunds.json
-# [check.jsonl]
-#   1. .sunshine/spec/backend.md
-
-sunshine task start 11-10-退款原因必填校验-全链路
-# ✓ 状态：planning → in_progress（降级）
-```
-
-The four layers have to change in order (API first, then UI, data fields following), so Claude Code says the order in a channel. Switch the workflow to channel-driven dispatch first, then create the channel and send two coordination messages:
-
-```sh
-sunshine workflow --template channel-driven-subagent-dispatch
-#   ✓ 已把 .sunshine/workflow.md 换成 "channel-driven-subagent-dispatch"
-
-sunshine channel create refund-reason --type chat --task .sunshine/tasks/11-10-退款原因必填校验-全链路
-# 已创建 channel 'refund-reason'（chat）位于 /tmp/scenes/s3-cross/.channels/-tmp-scenes-s3-cross/refund-reason
-
-sunshine channel send refund-reason --to impl "先改 API：POST /refunds 缺 reason 返回 400，错误码 REASON_REQUIRED"
-# {"by":"main","kind":"message","origin":"cli","seq":2,"text":"先改 API：POST /refunds 缺 reason 返回 400，错误码 REASON_REQUIRED","to":"impl","ts":"2026-11-10T05:04:00.121817199Z"}
-
-sunshine channel send refund-reason --to impl "API 改完再改 UI：原因下拉框三项，选其他出文本框"
-# {"by":"main","kind":"message","origin":"cli","seq":3,"text":"API 改完再改 UI：原因下拉框三项，选其他出文本框","to":"impl","ts":"2026-11-10T05:04:00.128921565Z"}
-
-sunshine channel messages refund-reason
-# [1] 05:04:00 [create] by=main cwd=/tmp/scenes/s3-cross 任务=.sunshine/tasks/11-10-退款原因必填校验-全链路
-# [2] 05:04:00 [message] by=main to=impl
-#          先改 API：POST /refunds 缺 reason 返回 400，错误码 REASON_REQUIRED
-# [3] 05:04:00 [message] by=main to=impl
-#          API 改完再改 UI：原因下拉框三项，选其他出文本框
-```
-
-`--task` binds the channel to the task, and the task path shows in `messages`; `send` posts a numbered JSON event, not a casual note. Waiting for the worker's `done` times out — with no worker replying, a timeout is the normal result (section 10), and `spawn` needs a logged-in claude / codex; this section only coordinates as far as sending messages:
-
-```sh
-sunshine channel wait refund-reason --from impl --kind done --timeout 2s
-# 错误：超时：等待 channel 'refund-reason' 超时（2s），仍在等待：impl（上游退出码 124）
-```
-
-Wrap up by switching the workflow back to native (`workflow.md` has changed, so `--force` is needed) and archiving the task as usual:
-
-```sh
-sunshine workflow --template native --force
-#   ✓ 已把 .sunshine/workflow.md 换成 "native"
-```
-
-The acceptance bar for a cross-layer task is in the same list: all four lines in `list-context` done, and the one spec in `check` verified line by line — whichever layer is missed shows up on the list.
+The acceptance bar for a cross-layer task is in the same list: the files in all four layers done, and the one spec for acceptance verified line by line — whichever layer is missed shows up on the list.
 
 ### 12.4 Refactoring a legacy module: pin the behavior first, then change the code
 
@@ -1186,18 +1052,8 @@ Here is how the session continues (the conversation is an example; the commands 
 > **Claude Code:** Got it. Here's the plan: switch to the TDD template first, create the task "重构价格计算"; write characterization tests to pin those three cases (all green is the baseline), then pull the discount rules into constants and two small functions with `Price` only composing them, and run the same tests again — still all green. Once you confirm, I'll start. OK?
 >
 > **You:** OK, go ahead.
-
-Once you confirm, Claude Code switches the workflow, creates the task, and starts it under the hood — you don't type any of these commands:
-
-```sh
-sunshine workflow --template tdd
-#   ✓ 已把 .sunshine/workflow.md 换成 "tdd"
-
-sunshine task create "重构价格计算" --description "把折扣规则从 Price 里抽出来，行为不变" --priority P2
-
-sunshine task start 11-10-重构价格计算 --allow-empty-context
-# ✓ 状态：planning → in_progress（降级）
-```
+>
+> **Claude Code:** The workflow is on the TDD template, the task is created and started. Writing the characterization tests to pin the three cases first:
 
 Then write characterization tests — not tests for behavior you want, but tests that pin the existing behavior as it is:
 
@@ -1220,12 +1076,7 @@ func TestPrice(t *testing.T) {
 }
 ```
 
-```sh
-go test ./...
-# ok  	shop	0.003s
-```
-
-All green is the baseline — this step changed no business code at all, it only proves "the current behavior is exactly these three cases". Only then does the refactor happen: discount rules become constants and two small functions, and `Price` only composes them:
+Let me show you the run — all green (`ok shop 0.003s`). All green is the baseline — this step changed no business code at all, it only proves "the current behavior is exactly these three cases". Only then does the refactor happen: discount rules become constants and two small functions, and `Price` only composes them:
 
 ```go
 // 折扣规则集中在这里改；Price 只做组合。
@@ -1246,14 +1097,7 @@ func Price(qty int, vip bool) int {
 
 (In English: "Discount rules change here and nowhere else; Price only composes them.")
 
-Run the same tests once more after the refactor:
-
-```sh
-go test ./...
-# ok  	shop	0.002s
-```
-
-Still all green — the behavior did not change, so the refactor stands. The red light in the TDD workflow is for new behavior; a pure refactor runs the other way around: **write characterization tests to pin the behavior (green), then refactor (still green)**. Wrap up by writing the new convention into spec, so the next change starts from the test table:
+Run the same tests once more after the refactor — still all green (`ok shop 0.002s`). The behavior did not change, so the refactor stands. The red light in the TDD workflow is for new behavior; a pure refactor runs the other way around: **write characterization tests to pin the behavior (green), then refactor (still green)**. Wrap up by writing the new convention into spec, so the next change starts from the test table:
 
 ```markdown
 ## 价格计算
@@ -1263,7 +1107,7 @@ Still all green — the behavior did not change, so the refactor stands. The red
 
 (In English: "Price calculation: discount rules live in the constants and applyBulk / applyVIP in calc.go; Price only composes them. Change a rule by changing the case table in calc_test.go first.")
 
-Archive the task as usual and switch the workflow back to native (`--force`, same reason as in 12.3).
+Archive the task as usual and switch the workflow back to native.
 
 ### 12.5 Fixing a bug that keeps coming back: find the last session first
 
@@ -1284,67 +1128,18 @@ Here is how the session continues (the conversation is an example; the commands 
 > **Claude Code:** Got it. Here's the plan: reproduce the dispatch once on this machine to confirm it's still 401; then create the task with the session id in the description, and write the lesson into spec after the fix. Once you confirm, I'll start. OK?
 >
 > **You:** OK, go ahead.
-
-Once you confirm, Claude Code reproduces one occurrence as it happened under the hood — you don't type any of these commands (a real run):
-
-```sh
-sunshine channel create codex-401 --type chat
-# 已创建 channel 'codex-401'（chat）位于 /tmp/scenes/s5-bug/.channels/-tmp-scenes-s5-bug/codex-401
-
-sunshine channel send codex-401 --to worker "线上 codex worker 又连不上了，之前报过 401，帮我查一下这次的原因"
-# {"by":"main","kind":"message","origin":"cli","seq":2,"text":"线上 codex worker 又连不上了，之前报过 401，帮我查一下这次的原因","to":"worker","ts":"2026-11-10T05:04:28.735716296Z"}
-
-sunshine channel spawn codex-401 --agent implement --provider codex --as worker
-# {
-#   "pid": 4330,
-#   "log": "/tmp/scenes/s5-bug/.channels/-tmp-scenes-s5-bug/codex-401/worker.log",
-#   "worker": "worker"
-# }
-```
-
-`--agent` takes a definition that already exists in `.sunshine/agents/` (here `implement`, not a made-up name — a missing one fails outright: `错误：找不到 agent 定义：.sunshine/agents/worker.md`). The worker started, but then failed in its log (codex is not logged in on this machine, the same precondition section 10 states):
+>
+> **Claude Code:** Reproducing the dispatch once on this machine: a channel is created, the same message goes to the worker, and the worker starts — then fails in its log (codex is not logged in on this machine, the same precondition section 10 states):
 
 ```text
 unexpected status 401 Unauthorized: Missing bearer <redacted> basic authentication in header, url: https://api.openai.com/v1/responses
 ```
 
-The worker never answered, but the session is on disk — `mem` can find this dispatch again:
-
-```sh
-sunshine mem list --platform codex
-# 范围：项目=/tmp/scenes/s5-bug  平台=codex
-# [codex   ] 2026-11-10 05:05  01a1c3d8-457  /tmp/scenes/s5-bug
-#
-# 共 1 个会话
-
-sunshine mem search 401 --platform codex
-# 范围：项目=/tmp/scenes/s5-bug  平台=codex  关键词="401"
-#
-# [codex   ] 2026-11-10 05:05  01a1c3d8-457  /tmp/scenes/s5-bug  相关度=1.000  命中=1（用户=1，助手=0）  轮次=1
-#     [用户] 线上 codex worker 又连不上了，之前报过 401，帮我查一下这次的原因
-#
-# 共 1 个会话
-
-sunshine mem context 01a1c3d8 --platform codex
-# # 上下文：[codex] 01a1c3d8-457b-7cc1-9fc3-1573da08c578
-# # 工作目录：/tmp/scenes/s5-bug
-# # 未指定关键词 — 显示前 1 轮，共 1 轮
-# # 显示轮次：1  已用预算：41/6000 字符
-# #
-# ## 第 0 轮（用户） ← 命中
-# #
-# 线上 codex worker 又连不上了，之前报过 401，帮我查一下这次的原因
-```
+> **Claude Code:** The worker never answered, but the session is on disk. `mem` finds this dispatch: the one from November 10, 05:05, session 01a1c3d8; searching 401 hits once — the sentence sent to the worker: "线上 codex worker 又连不上了，之前报过 401，帮我查一下这次的原因" (the codex worker online can't connect again — it reported 401 before; help me check the cause this time).
 
 One boundary found by actually running this, worth remembering: **`mem` searches the words in dialogue turns (user / assistant); it does not search error events**. The session from the early hours of November 10 (`01a1c376`, in `/tmp/h-test/chanproj`) had a worker fail with the same 401, but its 401 only appears in an error event, not in any dialogue turn — so searching `401` does not find it. What you search for is the sentence that was sent to the worker at the time. This run is findable because the message sent to the worker already says 401.
 
-Once the last session confirms it is the same class of problem, create the task — with the session id in the description, so the agent does not have to ask "what happened last time" all over again:
-
-```sh
-sunshine task create "codex worker 401：spawn 前先确认登录状态" --description "codex worker 再次报 401（会话 01a1c3d8）：spawn 前先确认登录状态，失败时看 worker.log" --priority P1
-```
-
-When the task is done, the lesson goes into spec — otherwise it will happen the same way next time, which is the actual fix for a recurring bug:
+Once the last session confirms it is the same class of problem, create the task — with the session id (01a1c3d8) in the description, so the agent does not have to ask "what happened last time" all over again. When the task is done, the lesson goes into spec — otherwise it will happen the same way next time, which is the actual fix for a recurring bug:
 
 ```markdown
 ## 多 Agent 派发

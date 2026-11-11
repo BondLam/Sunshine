@@ -786,27 +786,7 @@ sunshine upgrade --dry-run
 
 ### 12.1 从零开始新项目：值班表小工具
 
-空目录，什么都没有——这是最干净的起点。先建目录、进 git，再 init：
-
-```sh
-mkdir -p /tmp/scenes/s1-new && cd /tmp/scenes/s1-new && git init
-sunshine init -u 演示者 -y
-```
-
-真实输出：
-
-```text
-初始化完成，开发者：演示者
-项目类型：全栈（默认）
-已安装平台：
-  - Claude Code
-  - Cursor
-下一步：
-  1. 在 agent 界面里打开项目，直接用自然语言提第一个需求；
-  2. 规范已按默认模板生成在 .sunshine/spec/（已生成 system.md、frontend.md、backend.md；有团队规范时再补充），工作流按 .sunshine/workflow.md 自动推进，一般不用改。
-```
-
-空目录检测不到类型，`-y` 默认按全栈处理，三份规范全生成——新项目先有一套默认规范，后面再按团队习惯改，比一开始就空着强。
+空目录，什么都没有——这是最干净的起点。先建个空目录、进 git，剩下的交给 Claude Code：init、建任务、配上下文、启动，全是它在底下跑，你不用敲命令。空目录检测不到类型，默认按全栈处理，三份规范（system.md、frontend.md、backend.md）全生成——新项目先有一套默认规范，后面再按团队习惯改，比一开始就空着强。
 
 在 Claude Code 里打开项目，用自然语言提第一个需求（Codex、Cursor 同理）：
 
@@ -823,34 +803,10 @@ sunshine init -u 演示者 -y
 > **Claude Code：** 明白了，规划是这样：建任务「值班表小工具第一版」，PRD 里写按 CSV 生成本周值班表（第一列日期、第二列值班人），输出打印到终端；验收就是跑 `go run ./cmd/duty 值班表.csv` 能按行打出 `11-10：张三` 这种格式。确认后我就建任务、写 PRD、开始实现，没问题吗？
 >
 > **你：** 没问题，开始吧。
+>
+> **Claude Code：** 任务建好了，上下文配好了，任务启动了。我现在开始实现：写个读 CSV 打印值班表的小程序，跑给你看。
 
-确认后，Claude Code 在底下建任务、整理上下文、启动——这些命令你都不用敲（命令与第 4 节一样，这里只贴关键输出）：
-
-```sh
-sunshine task create "值班表小工具第一版" --description "按 CSV 生成本周值班表" --priority P2
-```
-
-```text
-……
-  - 用 /sunshine:continue 或阶段上下文决定下一步
-
-.sunshine/tasks/11-10-值班表小工具第一版
-```
-
-```sh
-sunshine task add-context 11-10-值班表小工具第一版 implement .sunshine/spec/system.md "实现前先读总原则"
-# 已添加文件：.sunshine/spec/system.md
-
-sunshine task start 11-10-值班表小工具第一版 --allow-empty-context
-# ✓ 状态：planning → in_progress（降级）
-```
-
-实现是 agent 的活——这里是它真实写出来的代码（一个读 CSV 打印值班表的小程序）与真实运行结果：
-
-```sh
-go mod init duty
-go run ./cmd/duty 值班表.csv
-```
+跑给你看的结果是真实的：
 
 ```text
 11-10：张三
@@ -858,7 +814,7 @@ go run ./cmd/duty 值班表.csv
 11-12：王五
 ```
 
-收尾与第 4 节一样：`task finish` 清指针、`task archive` 归档，`task list-archive` 确认：
+> **Claude Code：** 做完了，任务归档了：
 
 ```text
 [2026-11] - 1 个任务
@@ -880,20 +836,7 @@ go run ./cmd/duty 值班表.csv
 - 端口固定 3000，改端口要全组同步。
 ```
 
-直接在这个目录里 init——init 只加文件，不改现有代码：
-
-```sh
-cd /tmp/scenes/s2-old
-sunshine init -u 演示者 -y
-```
-
-真实输出（只贴关键行）：
-
-```text
-项目类型：后端（自动检测）
-```
-
-只认依赖本身：这个项目只有 `express`，判为后端，只生成 `system.md` 与 `backend.md`（`ls .sunshine/spec/` 只有这两份）；纯 Express 后端不会被误判为全栈。现有文件原样不动，`git status` 里只有新增的 Sunshine 目录：
+直接在这个目录里 init——init 只加文件，不改现有代码。Claude Code 在底下跑 init，认出这是后端项目（只有 `express`），只生成 `system.md` 与 `backend.md`；现有文件原样不动，git 里只有新增的 Sunshine 目录：
 
 ```text
 ?? .claude/
@@ -913,15 +856,11 @@ sunshine init -u 演示者 -y
 >
 > **你：** 前两条进 `backend.md`；端口是全组约定，放 `system.md`。
 >
-> **Claude Code：** 好，规划是这样：建任务「把现有约定落进规范」，PRD 里写把 README 里三条靠人记的约定写进 spec；验收就是 `grep -c "审计日志" .sunshine/spec/backend.md` 能查到 1。确认后我就建任务、写 PRD、把约定写进去，没问题吗？
+> **Claude Code：** 好，规划是这样：建任务「把现有约定落进规范」，PRD 里写把 README 里三条靠人记的约定写进 spec；验收就是审计日志在 backend.md 里出现 1 次。确认后我就建任务、写 PRD、把约定写进去，没问题吗？
 >
 > **你：** 没问题，开始吧。
-
-确认后，Claude Code 在底下建任务、把约定写进对应的 spec 文件——这些命令你都不用敲（下面是真实写进去的内容）：
-
-```sh
-sunshine task create "把现有约定落进规范" --description "把 README 里靠人记的三条约定写进 .sunshine/spec" --priority P2
-```
+>
+> **Claude Code：** 任务建好了，约定写进去了，下面是真实写进去的内容：
 
 ```markdown
 ## 退款接口（团队已有约定）
@@ -936,12 +875,7 @@ sunshine task create "把现有约定落进规范" --description "把 README 里
 - 服务端口固定 3000，改端口要全组同步。
 ```
 
-任务照常走完（`start` → `finish` → `archive --skip-branch-validation`），写进去的约定用 `grep` 就能验证：
-
-```sh
-grep -c "审计日志" .sunshine/spec/backend.md
-# 1
-```
+> **Claude Code：** 写进去的约定验给你看：审计日志在 backend.md 里出现 1 次。任务照常走完、归档了。
 
 从这时起，约定不再只活在老员工的记忆里：新任务的 agent 会读 spec，老员工离职也不带走规范。存量项目接入的验收标准就一条——**init 之后 `git status` 里没有被改过的旧文件，spec 里多了一条以前只靠人记的约定**。
 
@@ -964,78 +898,12 @@ grep -c "审计日志" .sunshine/spec/backend.md
 > **Claude Code：** 明白了，规划是这样：建任务「退款原因必填校验（全链路）」，PRD 里写四层一起改；上下文清单按层列齐——`src/Refund.vue`、`src/server.js`、`data/refunds.json` 进 implement，`.sunshine/spec/backend.md` 进 check；改动顺序走 channel 说清楚。确认后我就建任务、配上下文、启动，没问题吗？
 >
 > **你：** 没问题，开始吧。
+>
+> **Claude Code：** 任务建好了，上下文清单按层列齐了：实现时读 UI、API、数据三层的文件，验收对照后端接口契约。四层按先 API 再 UI 的顺序改，顺序我发到 channel 里说清楚，两条消息：先改 API——POST /refunds 缺 reason 返回 400，错误码 REASON_REQUIRED；API 改完再改 UI——原因下拉框三项，选其他出文本框。
+>
+> **Claude Code：** channel 和任务绑在一起，消息里能看到任务路径；这两条是带序号的协调消息，不是随手一句话。没有 worker 回复时等一会儿就超时，这是正常的——本节的协调只做到发消息这一步，拉起真实 worker 的前提是本机有已登录的 claude / codex（第 10 节讲过）。收尾时工作流切回 native，任务照常归档。
 
-确认后，Claude Code 在底下建任务——这些命令你都不用敲（命令与第 4 节一样，这里只贴关键输出）：
-
-```sh
-sunshine task create "退款原因必填校验（全链路）" --description "产品、API、数据、UI 四层一起改：原因必填" --priority P1
-```
-
-上下文清单按层列齐——实现时要读的三层进 `implement`，验收要对照的规范进 `check`：
-
-```sh
-sunshine task add-context 11-10-退款原因必填校验-全链路 implement src/Refund.vue "UI：原因下拉框与必填校验"
-# 已添加文件：src/Refund.vue
-
-sunshine task add-context 11-10-退款原因必填校验-全链路 implement src/server.js "API：缺 reason 返回 400"
-# 已添加文件：src/server.js
-
-sunshine task add-context 11-10-退款原因必填校验-全链路 implement data/refunds.json "数据：退款记录加 reason 字段"
-# 已添加文件：data/refunds.json
-
-sunshine task add-context 11-10-退款原因必填校验-全链路 check .sunshine/spec/backend.md "接口契约"
-# 已添加文件：.sunshine/spec/backend.md
-
-sunshine task list-context 11-10-退款原因必填校验-全链路
-# [implement.jsonl]
-#   1. src/Refund.vue
-#   2. src/server.js
-#   3. data/refunds.json
-# [check.jsonl]
-#   1. .sunshine/spec/backend.md
-
-sunshine task start 11-10-退款原因必填校验-全链路
-# ✓ 状态：planning → in_progress（降级）
-```
-
-四层要按顺序改（先 API 再 UI，数据字段跟着走），Claude Code 用 channel 把顺序说清楚——先把工作流切到 channel 驱动派发，再建 channel、发两条协调消息：
-
-```sh
-sunshine workflow --template channel-driven-subagent-dispatch
-#   ✓ 已把 .sunshine/workflow.md 换成 "channel-driven-subagent-dispatch"
-
-sunshine channel create refund-reason --type chat --task .sunshine/tasks/11-10-退款原因必填校验-全链路
-# 已创建 channel 'refund-reason'（chat）位于 /tmp/scenes/s3-cross/.channels/-tmp-scenes-s3-cross/refund-reason
-
-sunshine channel send refund-reason --to impl "先改 API：POST /refunds 缺 reason 返回 400，错误码 REASON_REQUIRED"
-# {"by":"main","kind":"message","origin":"cli","seq":2,"text":"先改 API：POST /refunds 缺 reason 返回 400，错误码 REASON_REQUIRED","to":"impl","ts":"2026-11-10T05:04:00.121817199Z"}
-
-sunshine channel send refund-reason --to impl "API 改完再改 UI：原因下拉框三项，选其他出文本框"
-# {"by":"main","kind":"message","origin":"cli","seq":3,"text":"API 改完再改 UI：原因下拉框三项，选其他出文本框","to":"impl","ts":"2026-11-10T05:04:00.128921565Z"}
-
-sunshine channel messages refund-reason
-# [1] 05:04:00 [create] by=main cwd=/tmp/scenes/s3-cross 任务=.sunshine/tasks/11-10-退款原因必填校验-全链路
-# [2] 05:04:00 [message] by=main to=impl
-#          先改 API：POST /refunds 缺 reason 返回 400，错误码 REASON_REQUIRED
-# [3] 05:04:00 [message] by=main to=impl
-#          API 改完再改 UI：原因下拉框三项，选其他出文本框
-```
-
-`--task` 把 channel 和任务绑在一起，`messages` 里能看到任务路径；`send` 发出去的是带序号的 JSON 事件，不是随手一句话。等 worker 回 `done` 时 `wait` 会超时——没有 worker 回复时超时就是正常结果（第 10 节讲过），`spawn` 拉起真实 worker 的前提是有已登录的 claude / codex，本节的协调只做到发消息这一步：
-
-```sh
-sunshine channel wait refund-reason --from impl --kind done --timeout 2s
-# 错误：超时：等待 channel 'refund-reason' 超时（2s），仍在等待：impl（上游退出码 124）
-```
-
-收尾时把工作流切回 native（`workflow.md` 已改过，要加 `--force`），任务照常归档：
-
-```sh
-sunshine workflow --template native --force
-#   ✓ 已把 .sunshine/workflow.md 换成 "native"
-```
-
-跨层任务的验收标准也在清单里：`list-context` 的四行全改完、`check` 的那一份规范逐条过——哪层漏了，清单上看得见。
+跨层任务的验收标准也在清单里：四层的文件全改完，验收的那一份规范逐条过——哪层漏了，清单上看得见。
 
 ### 12.4 重构老模块：先钉住行为，再动代码
 
@@ -1070,18 +938,8 @@ func Price(qty int, vip bool) int {
 > **Claude Code：** 明白了，规划是这样：先切到 TDD 模板，建任务「重构价格计算」；先写特征测试把这三档钉住（全绿是基线），再把折扣规则抽成常量与两个小函数，`Price` 只做组合，改完同一套测试再跑一次还是全绿。确认后我就开始，没问题吗？
 >
 > **你：** 没问题，开始吧。
-
-确认后，Claude Code 在底下先切工作流、建任务、启动——这些命令你都不用敲：
-
-```sh
-sunshine workflow --template tdd
-#   ✓ 已把 .sunshine/workflow.md 换成 "tdd"
-
-sunshine task create "重构价格计算" --description "把折扣规则从 Price 里抽出来，行为不变" --priority P2
-
-sunshine task start 11-10-重构价格计算 --allow-empty-context
-# ✓ 状态：planning → in_progress（降级）
-```
+>
+> **Claude Code：** 工作流切到 TDD 模板了，任务建好了，启动了。先写特征测试把三档钉住：
 
 然后写特征测试（characterization test）——不是测“想要的行为”，是把现有行为原样钉住：
 
@@ -1104,12 +962,7 @@ func TestPrice(t *testing.T) {
 }
 ```
 
-```sh
-go test ./...
-# ok  	shop	0.003s
-```
-
-测试全绿是基线——这一步没改任何业务代码，只证明了“现在的行为就是这三行用例”。接下来才重构：折扣规则抽成常量与两个小函数，`Price` 只做组合：
+跑给你看，全绿（`ok shop 0.003s`）——测试全绿是基线，这一步没改任何业务代码，只证明了“现在的行为就是这三行用例”。接下来才重构：折扣规则抽成常量与两个小函数，`Price` 只做组合：
 
 ```go
 // 折扣规则集中在这里改；Price 只做组合。
@@ -1128,14 +981,7 @@ func Price(qty int, vip bool) int {
 }
 ```
 
-重构后同一套测试再跑一次：
-
-```sh
-go test ./...
-# ok  	shop	0.002s
-```
-
-还是全绿——行为没变，改动才算成立。TDD 工作流里的红灯是给新行为的，纯重构的顺序是反过来的：**先写特征测试钉住行为（绿灯），再重构（还是绿灯）**。收尾时把新约定写进 spec，以后改规则先改用例表：
+重构后同一套测试再跑一次，还是全绿（`ok shop 0.002s`）——行为没变，改动才算成立。TDD 工作流里的红灯是给新行为的，纯重构的顺序是反过来的：**先写特征测试钉住行为（绿灯），再重构（还是绿灯）**。收尾时把新约定写进 spec，以后改规则先改用例表：
 
 ```markdown
 ## 价格计算
@@ -1143,7 +989,7 @@ go test ./...
 - 折扣规则集中在 calc.go 的常量与 applyBulk / applyVIP，Price 只做组合；改规则先改 calc_test.go 的用例表。
 ```
 
-任务照常归档，工作流切回 native（`--force`，原因同 12.3 节）。
+任务照常归档，工作流切回 native。
 
 ### 12.5 修复反复出现的 bug：先找上次的会话
 
@@ -1164,67 +1010,18 @@ go test ./...
 > **Claude Code：** 明白了，规划是这样：先在本机复现一次当时的派发，确认还是 401；再建任务，描述里写清会话编号，修完把教训写进 spec。确认后我就开始，没问题吗？
 >
 > **你：** 没问题，开始吧。
-
-确认后，Claude Code 在底下先复现一次当时的派发——这些命令你都不用敲（真实跑出来的）：
-
-```sh
-sunshine channel create codex-401 --type chat
-# 已创建 channel 'codex-401'（chat）位于 /tmp/scenes/s5-bug/.channels/-tmp-scenes-s5-bug/codex-401
-
-sunshine channel send codex-401 --to worker "线上 codex worker 又连不上了，之前报过 401，帮我查一下这次的原因"
-# {"by":"main","kind":"message","origin":"cli","seq":2,"text":"线上 codex worker 又连不上了，之前报过 401，帮我查一下这次的原因","to":"worker","ts":"2026-11-10T05:04:28.735716296Z"}
-
-sunshine channel spawn codex-401 --agent implement --provider codex --as worker
-# {
-#   "pid": 4330,
-#   "log": "/tmp/scenes/s5-bug/.channels/-tmp-scenes-s5-bug/codex-401/worker.log",
-#   "worker": "worker"
-# }
-```
-
-`--agent` 填的是 `.sunshine/agents/` 里已有的定义（这里是 `implement`，不是随便起的名字——填不存在的会直接报错：`错误：找不到 agent 定义：.sunshine/agents/worker.md`）。worker 拉起来了，但随即在日志里报了错（本机 codex 没登录，第 10 节讲过的前提）：
+>
+> **Claude Code：** 我先在本机复现一次当时的派发：建了个 channel，给 worker 发了那句话，拉起 worker——worker 拉起来了，但随即在日志里报了错（本机 codex 没登录，第 10 节讲过的前提）：
 
 ```text
 unexpected status 401 Unauthorized: Missing bearer <redacted> basic authentication in header, url: https://api.openai.com/v1/responses
 ```
 
-worker 没回任何话，但会话已经落盘——`mem` 能找回这次派发：
-
-```sh
-sunshine mem list --platform codex
-# 范围：项目=/tmp/scenes/s5-bug  平台=codex
-# [codex   ] 2026-11-10 05:05  01a1c3d8-457  /tmp/scenes/s5-bug
-#
-# 共 1 个会话
-
-sunshine mem search 401 --platform codex
-# 范围：项目=/tmp/scenes/s5-bug  平台=codex  关键词="401"
-#
-# [codex   ] 2026-11-10 05:05  01a1c3d8-457  /tmp/scenes/s5-bug  相关度=1.000  命中=1（用户=1，助手=0）  轮次=1
-#     [用户] 线上 codex worker 又连不上了，之前报过 401，帮我查一下这次的原因
-#
-# 共 1 个会话
-
-sunshine mem context 01a1c3d8 --platform codex
-# # 上下文：[codex] 01a1c3d8-457b-7cc1-9fc3-1573da08c578
-# # 工作目录：/tmp/scenes/s5-bug
-# # 未指定关键词 — 显示前 1 轮，共 1 轮
-# # 显示轮次：1  已用预算：41/6000 字符
-# #
-# ## 第 0 轮（用户） ← 命中
-# #
-# 线上 codex worker 又连不上了，之前报过 401，帮我查一下这次的原因
-```
+> **Claude Code：** worker 没回任何话，但会话已经落盘了。mem 找得到这次派发：11 月 10 日 05:05 的那次，会话编号 01a1c3d8；搜 401 命中 1 次，就是发给 worker 的那句话——“线上 codex worker 又连不上了，之前报过 401，帮我查一下这次的原因”。
 
 一个实测得出的边界要记住：**`mem` 搜的是对话轮次（用户/助手）里的文字，不搜错误事件**。11 月 10 日凌晨那个会话（`01a1c376`，`/tmp/h-test/chanproj`）的 worker 同样报了 401，但它的 401 只在错误事件里，对话里没有，所以搜 `401` 搜不到它——要找的是当时发给 worker 的那句话。这次能搜到，是因为发给 worker 的消息里就写了 401。
 
-找到上次的会话、确认是同一类问题之后，再建任务——描述里写清会话编号，agent 不用重新问一遍“上次是怎么回事”：
-
-```sh
-sunshine task create "codex worker 401：spawn 前先确认登录状态" --description "codex worker 再次报 401（会话 01a1c3d8）：spawn 前先确认登录状态，失败时看 worker.log" --priority P1
-```
-
-任务做完，教训要写进 spec，否则下次还是一样——这是“反复出现”的真正解法：
+找到上次的会话、确认是同一类问题之后，再建任务——描述里写清会话编号（01a1c3d8），agent 不用重新问一遍“上次是怎么回事”。任务做完，教训要写进 spec，否则下次还是一样——这是“反复出现”的真正解法：
 
 ```markdown
 ## 多 Agent 派发
