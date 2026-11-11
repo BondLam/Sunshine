@@ -1358,7 +1358,7 @@ Archive the task as usual. Next time a 401 shows up, the agent reads the spec an
 
 ### 12.6 Design-first product work: requirements → design documents → split → code
 
-In design-first mode, designers and developers share one workflow with different jobs: the designer states the requirement and confirms the documents; developers take the sub-tasks one by one. The demo is the same refund app, and the requirement is to rework the refund flow against a new prototype.
+In design-first mode, designers and developers share one workflow with different jobs: the designer finishes all deliverables first (requirements list, outline design, high-fidelity prototypes for every page), and only after the review passes do developers take the sub-tasks one by one. The split happens once, for the whole scope — not one page at a time as design progresses. The demo is the same refund app, and the requirement is to rework the refund flow against a new prototype.
 
 State the requirement to Claude Code (same for Codex and Cursor):
 
@@ -1414,7 +1414,7 @@ The outline design reads like this (real file content, in Chinese — goal, modu
 - 退款记录里有 `reason` 字段。
 ```
 
-The prototype is `doc/prototype/refund.html`, one high-fidelity form page: a mandatory reason dropdown, a refund amount capped at 5000 元, and a submit button.
+The prototype is `doc/prototype/refund.html`, one high-fidelity form page: a mandatory reason dropdown, a refund amount capped at 5000 元, and a submit button. This demo project has a single page, so its design package is one outline design plus one prototype; in a real project, the designer finishes every deliverable (requirements list, outline design, prototypes for all pages) before the review — the split happens once, for the whole scope, never one page at a time.
 
 Then comes the requirements review: Claude Code lists the whole package for you to confirm — the PRD, the design document list, and the split plan. Only after confirmation does the work move on.
 
@@ -1424,7 +1424,7 @@ Here is the review exchange (the conversation is an example; the commands and ou
 >
 > **You:** OK, split it.
 
-After review, Claude Code splits it under the hood — you don't type any of these commands. First the parent task:
+After review, Claude Code splits it under the hood in one go — the split covers the whole scope, and the sub-task list is settled in one pass; you don't type any of these commands. First the parent task:
 
 ```sh
 sunshine task create "退款流程改版" --description "按新原型改版退款流程：原因必填 + 状态流转" --priority P1
@@ -1529,7 +1529,11 @@ Real output:
 总计：3 个任务
 ```
 
-The parent shows `active` with 0/2 done and both sub-tasks under it; the frontend sub-task is already `in_progress` while the backend one is still `planning`, waiting for the frontend to finish. **Frontend sub-task: implement → check → commit → archive**
+The parent shows `active` with 0/2 done and both sub-tasks under it; the frontend sub-task is already `in_progress` while the backend one is still `planning`.
+
+Here is the order: the split only happens after the review passes; the split itself starts nothing — both sub-tasks are created in `planning`, the frontend starts first, and only after it has run its full loop (implement → check → commit → archive) does the backend start; once the backend is done and archived, the parent gets its final integration review and is archived.
+
+**Frontend sub-task: implement → check → commit → archive**
 
 Here is the session during development (the conversation is an example; the commands and outputs are real values from runs):
 
@@ -1625,7 +1629,7 @@ Real output:
 
 **Backend sub-task: implement → check → commit → archive**
 
-The backend sub-task runs the same loop — line up context first, then start (real runs):
+Only after the frontend is archived does the backend sub-task start — it runs the same loop: line up context first, then start (real runs):
 
 ```sh
 sunshine task add-context 11-11-后端-退款原因必填校验 implement src/server.js "API：缺 reason 返回 400，超限返回 NEED_APPROVAL"
