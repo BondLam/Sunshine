@@ -2338,3 +2338,49 @@ pre-commit install       # 在仓库根目录执行一次
 - 主提交远端 `92626af`（本地 `f4264db`，32 个文件：18 个新 agent 定义 + 14 个修改），tag 对象 `a2df33f`，Release：https://github.com/linrong1982/Sunshine/releases/tag/v0.3.11，6 个资产；发布 run 43134240817、两路 CI（43134240787、43134211026）均 success 无抖动。
 - 实测：不带参数一键装上 v0.3.11（`sunshine version` = 0.3.11）；v0.3.10 原版二进制 upgrade --dry-run 查到 v0.3.11；darwin arm64 包 checksum OK（`0ac0f5fa…`，Mach-O arm64）。
 - 其后 PLAN.md 发布记录补提交一笔（远端 SHA 见 GOAL.md）。
+
+## v0.4.0：只读观测后台 `sunshine serve` v1（实施说明，2026-11-12，用户已批“开始做 v1”）
+
+- 设计方案：`~/workspace/goals/go-sunshine-trellis/files/只读观测后台设计方案.md`（已全部定完：v1 18 项、暂缓 8 项、7 个待定问题、前端 Alpine.js、视觉深色霓虹、虚拟智能体 Canvas 动画）。实施以该方案为准，不另发明；方案与本节不一致时以方案为准并记一笔。
+- 目标：新增 `sunshine serve` 命令（Go + Gin，嵌进二进制），本机只读观测后台：顶栏指标行 + 实时时钟、任务总览/详情、Channel 列表/事件流/worker、Forum、会话/记忆、项目健康、设计文档、Journal，顶部 hero 区一块 Canvas 2D 虚拟智能体动画（核心脉冲 + worker 轨道节点 + 事件脉冲 + 五轮流程线 + HUD 数字，全部由真实事件/状态驱动）。
+- 已定决策（实施时照此办）：
+  - 默认只绑 `127.0.0.1`，端口 **17890**；flags：`--port`（被占报错、不自动跳）、`--interval`（轮询秒数，默认 3，范围 1–30）、`--addr`（显式开 0.0.0.0 时必须同时有鉴权——v1 无鉴权，`--addr` 非 127.0.0.1 时直接拒绝并提示等 license 落地）。
+  - 轮询默认 **3 秒**；子任务进度口径 **`ChildrenProgress`**（页面注明“归档子女算完成”）；v1 只看当前项目（serve 在哪个项目目录跑就看哪个项目；channel 列表只显示当前项目 projectKey 下的 channel）。
+  - workflow 模板名：项目 `.sunshine/workflow.md` 的 sha256 对三个内嵌模板（native/tdd/channel-driven）的哈希，命中显示名、未命中显示“已修改”（init 写的 workflow.md 与模板同源字节一致；实现时先核实内嵌模板哈希可取，若比对机制有问题则回退到不展示）。
+  - 前端：**Alpine.js**（单个 JS 文件，vendored 进仓库并嵌进二进制，pin 版本并记在本节；不用 HTMX、不用 SPA、不用 CDN）；样式单个 CSS 文件嵌进二进制，不用 Tailwind CDN（离线可用）。
+  - 视觉：**深色霓虹科幻**（整个页面深色底 + 霓虹辉光蓝/青为主，琥珀等候、红色错误；深色实体卡，仍不用玻璃卡片；HUD 等宽数字）。万表归一纸色体系的一次有意例外，仅限后台大屏；文档/教程保持纸色。
+  - 虚拟智能体动画：Canvas 2D + requestAnimationFrame，单文件 JS 嵌进二进制；不用 three.js、不用 WebGL、不用 CDN。诚实规则：环境层（呼吸、慢轨道）只表示“系统活着在监听”，事件层（脉冲、闪烁、点亮）只由真实事件/状态变化触发；**绝不伪造事件、绝不让节点假装在跑**；页面不可见时暂停（visibilitychange），`prefers-reduced-motion` 时只显示静态帧，低端机自动降粒子数，Canvas 不可用时 hero 区退化为静态卡片。
+  - token 专项：**暂缓**（2026-11-12 用户说 token 验证暂时不做）；v1 不含 token 面板、不画 token 消耗墙（没有数据的面板宁可空着/注明，不用假数据填充）；质检台 PASS/DROP 等 v2 埋点（check 完成事件）才有结构化结果，v1 不做。
+  - Native 活动流：v1 用 **mtime 比对**（每轮轮询比对 task.json、prd.md、implement/check.jsonl、doc/ 的 mtime，变化记一条活动）；hook 埋点是 v2 的事，**本批不改 hook**。
+- 代码落点（已核实 2026-11-12）：
+  - 工作树干净，HEAD = 远端 main = `cd2d965`；Go 1.27，module `github.com/linrong1982/Sunshine`。
+  - **Gin 不在 go.mod 里**（已核实：go.mod 只有 survey/go-git/cobra/yaml/sqlite 等，无 gin）。实施须 `go get github.com/gin-gonic/gin`，go.mod/go.sum 的变化记在本节；版本 pin 当时最新的稳定版。
+  - 新建 `internal/serve/`（Gin 路由 + handlers + 数据组装）与 `internal/cli/serve.go`（cobra 命令，`init()` 里 `root.AddCommand`，与 ablate.go:43、channel.go:32 同一模式）；前端静态文件（index.html、app.js、hero.js、style.css、alpine.min.js vendored）放 `internal/serve/static/`，用 `//go:embed` 嵌进二进制（与 templates/templates.go 同一模式）。
+  - 复用内部包拿结构化数据，不重新解析文件、不解析 CLI 纯文本输出：`internal/task`（list/current/context）、`internal/channel/store`（ChannelSummary、events.jsonl、`ReduceWorkerRegistry`）、`internal/mem`（MemSessionInfo/MemProjectSummary）、`internal/update`（`AnalyzeChanges`）、`internal/upgrade`（`ResolveTag`/`LatestVersionFunc`）、`internal/config`、`internal/platforms`。**两处禁区**：`task list-archive` 本身无 `--json`，serve 复用内部目录扫描，不要调它解析文本；`update --dry-run` 返回值计数字段基本是 0，健康数据必须直接复用 `AnalyzeChanges`。
+  - 只读：全部 GET，无任何 POST/PUT/DELETE；不写盘（除 Gin 自身日志外不落文件）；不改 task.json schema、不改 hook、不改事件 kind、不接 license（v1 无鉴权，只绑本机是前提）。
+  - 非 Sunshine 项目目录下跑 `serve` 直接拒绝（找不到 `.sunshine/`，与其它命令一致）；`serve` 在项目子目录里跑也行（往上找 `.sunshine/`）。
+- API 清单（与方案一一对应，全部 GET）：`/api/status`、`/api/tasks`、`/api/tasks/current`、`/api/tasks/:id`、`/api/tasks/archive?month=`、`/api/tasks/:id/commits`、`/api/channels`、`/api/channels/:name/events?since=&kind=&from=&last=`、`/api/channels/:name/workers`、`/api/channels/:name/workers/:worker/log?lines=`、`/api/channels/:name/threads`、`/api/channels/:name/threads/:thread`、`/api/mem/sessions?platform=`、`/api/mem/projects`、`/api/health`、`/api/version`、`/api/design`、`/api/journal`。另有 `/` 返回页面（index.html）。事件流用 `?since=<seq>` 增量拉取；不要用 channel `wait`（阻塞等待，不适合 HTTP 轮询）。
+- 测试与核对（缺一不可）：
+  - 全量 `go build`/`gofmt`/`go vet`/`go test ./...` 0 失败；新增 `internal/serve/*_test.go`（handlers 的 JSON 字段、端口/绑定守卫、非项目目录拒绝、模板名哈希比对命中/未命中、mtime 活动流）。
+  - 真实二进制端到端（临时项目目录 + 构造的 task.json/channel events.jsonl/doc/）：`sunshine serve --port <端口>` 起服务，curl 逐个端点核对字段与设计方案一致；`/` 返回的 HTML 含 Alpine.js 与 hero canvas 挂载点、含深色样式；`--port` 被占报错；`--addr 0.0.0.0` 被拒；非项目目录被拒；`serve --help` 中文。
+  - 沙箱无真实 channel 事件流、不能真看浏览器渲染效果——前端视觉（深色霓虹、动画）以代码审查 + 静态检查为准，真实渲染由用户在 Mac 上自验；不要谎称“已看过渲染效果”。
+  - 全文无 trellis 残留、无 `{{}}` 占位、无模拟数据（grep 核对：任何写死的示例数字/事件都必须删掉，活动流与动画只认真实文件与真实事件）。
+- 发版：**本批不发版**——只做实现 + 验证，不打 tag、不发 Release。`sunshine serve` 随下一版（v0.4.0）发版，等用户指令再走既定发版固定动作。
+- 风险：Gin 是新依赖（go.mod/go.sum 变化 + 二进制体积变化）；Alpine.js 须 vendored（不要运行时从 CDN 拉）；沙箱验证只能到 curl/JSON 层，渲染效果待用户 Mac 实测。
+
+## 实施结果（2026-11-12，只提交、不发版）
+
+- **Gin 版本**：`github.com/gin-gonic/gin v1.12.0`（`go get` 当时最新稳定版）；go.mod +25 行（1 个直接依赖 + 间接依赖）、go.sum +64 行。
+- **Alpine.js 版本**：**v3.17.5**（jsDelivr 查到的最新 3.x，pin 死；`internal/serve/static/alpine.min.js` 原样 vendored，未改源码）。
+- **新增/修改文件**：
+  - 新增 `internal/serve/serve.go`（Server、路由、Run、版本/workflow 模板名/模板缓存、display_status 规则抄录）、`static.go`（`//go:embed all:static`，`/` 与 `/static/*`）、`activity.go`（mtime 快照 + 环形缓冲 100 条）、`handlers_tasks.go`、`handlers_channels.go`、`handlers_misc.go`、`serve_test.go`（23 个测试）。
+  - 新增 `internal/serve/static/`：`index.html`、`style.css`、`app.js`、`hero.js`、`alpine.min.js`。
+  - 新增 `internal/cli/serve.go`（cobra 命令，全中文）与 `internal/cli/serve_test.go`（4 个测试）。
+  - 修改 `internal/cli/root.go`（`init()` 加 `RegisterServeCommand` 一行）、`go.mod`、`go.sum`。
+- **验证结果**：
+  - `go build`/`gofmt`/`go vet` 全过；`go test ./...` **19 个包全过**（含 serve 23 个、cli serve 4 个测试）。
+  - 真实二进制端到端（`/tmp/srv-e2e` 临时项目：init + 2 任务 + 子任务 + 归档 + doc/ + channel e2e-chan 手工事件 + forum-1 + mem 夹具）：18 个 GET 端点 + `/` + `/static` 逐个 curl 核对，字段与设计方案一致。`/api/status` 含 `poll_interval_sec=3`、`workflow_template` 命中 `"native"`、`latest_version` 实测解析到 `"0.3.11"`；事件增量 `?since=3` 正常、progress 事件不丢；worker impl-1 running/mid-turn、check-1 done/exitCode 0、workersAlive 1/total 2；归档提交定位到真实提交 `8068cb6`；mtime 活动流 touch 后出现 file_change 条目；mem 会话夹具被正确读出。守卫：端口被占中文报错 exit 1、`--addr 0.0.0.0` 被拒、非项目目录被拒、子目录启动 200、`--interval 0/31` 被拒、`serve --help` 全中文。
+  - **实施中修掉的 1 个 bug**：`/api/tasks/:id` 与 `/api/tasks/:id/commits` 对已归档任务返回 404（`ResolveTaskDir` 只认活动任务），已加 `resolveTaskDirWithArchive` 回退（活动 → 归档 `FindArchivedTaskByDirName`），补测试 `TestArchivedTaskDetailAndCommits`。另核对中发现 workers 缺 impl-1 是我的手工事件夹具缺 `as` 字段（spawned 事件取 `as` 不取 `worker`），不是后端 bug，夹具修正后正常。
+  - **契约外多给的字段**（只增不改）：mem 会话同时出小写与首字母大写两套键；`/api/health` 另给 drift 计数与顶层 added/updatable/modified/unchanged/deleted；`/api/design` 另给 docs 数组；事件另给 from/author/text/summary/target。新增 `/api/activity`（mtime 活动流与 channel 事件合并；设计方案 liveness 一节已定 mtime 流，前端需一个端点取它）。
+- **未验证项**：浏览器真实渲染效果（深色霓虹、Canvas 动画）待用户 Mac 自验；真实 channel 事件流（live worker、supervisor pid 探活非空）只在夹具事件上验证，未在真实跑起来的 channel 上验证；`/api/tasks/:id/commits` 的 git 定位只在单提交夹具上验证。
+- **发版**：本批只提交、不发版（无 tag、无 Release），等用户指令。

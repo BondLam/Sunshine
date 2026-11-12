@@ -52,6 +52,7 @@ func init() {
 	RegisterChannelCommand(rootCmd)
 	RegisterChannelForumCommand()
 	RegisterUpgradeCommand(rootCmd)
+	RegisterServeCommand(rootCmd)
 }
 
 // chineseHelpTemplate 是中文帮助模板（cobra 默认模板为英文）。
