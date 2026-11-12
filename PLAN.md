@@ -2305,7 +2305,7 @@ pre-commit install       # 在仓库根目录执行一次
 - 规模：中文 450→242 行、英文 462→252 行，共删 418 行、增 48 行。
 - 核对：标题一致；开场提示词逐块与 HEAD 比对一致（中文 9 处、英文 6 处）；§12.6 一字未动；中英文各 5 处进退场标记；无 `****` 残留；全量测试无 FAIL。
 
-## v0.3.11：原型 agent + token 精简（2026-11-12，已实现并验证，待发版）
+## v0.3.11：原型 agent + token 精简（2026-11-12，已随 v0.3.11 发布）
 
 - 动因（用户指出）：生成高保真原型就是写代码（HTML/CSS/JS + mock 数据），不应由主会话在设计阶段顺手写——原型文本会住在主会话上下文里，之后每轮（评审、拆解、子任务规划、父任务复核）都要再付一次。省的不是写原型的成本（谁写都一样），而是重复上下文成本。另附一次 token 审计，见下。
 - 定下的模型：**原型归设计管（需求、评审、验收在设计阶段），生产交给子代理**。新增 `sunshine-prototype` agent；初版生成与结构性大改走该 agent，小修（改个按钮颜色、一行文案）留在主会话，用 grep 只读相关那一页。
@@ -2333,3 +2333,8 @@ pre-commit install       # 在仓库根目录执行一次
 - 两处我亲自改的：汇报格式示例页名由“需求一的页面/需求二的页面”改成“申请页/审批列表页”（17 个文件，codex .toml 无此例）；本节实施说明里 codebuddy 一句有误已纠正（platforms.go:391 是 `mdAgents("codebuddy", ".codebuddy/agents")`）。
 - 两处定夺：kiro prototype.json 的 agentSpawn hook 块保留（与 research.json 同形；hook 对 prototype 直接返回 nil，是一次无害空调用）；native/tdd 1.1 的“用 Task 工具派发”不展开 Kimi 等平台变体（派发协议已通用于所有平台与所有子代理，主平台是 Claude Code）。
 - reasonix 缺 research 是故意的（上游 Trellis 自身的 reasonix 模板目录就只有 check 与 implement 两份；`platforms_new_test.go:301` 有测试钉死），不用另立任务。
+
+## v0.3.11 发布记录（2026-11-12）
+- 主提交远端 `92626af`（本地 `f4264db`，32 个文件：18 个新 agent 定义 + 14 个修改），tag 对象 `a2df33f`，Release：https://github.com/linrong1982/Sunshine/releases/tag/v0.3.11，6 个资产；发布 run 43134240817、两路 CI（43134240787、43134211026）均 success 无抖动。
+- 实测：不带参数一键装上 v0.3.11（`sunshine version` = 0.3.11）；v0.3.10 原版二进制 upgrade --dry-run 查到 v0.3.11；darwin arm64 包 checksum OK（`0ac0f5fa…`，Mach-O arm64）。
+- 其后 PLAN.md 发布记录补提交一笔（远端 SHA 见 GOAL.md）。
