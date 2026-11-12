@@ -2414,3 +2414,9 @@ pre-commit install       # 在仓库根目录执行一次
 - 做法（在已验证的 v0.4.2 面板逻辑上改样式，不推倒重做）：① hero 画布整块去掉（hero.js 不再加载，serve_test.go 的 script 顺序断言同步改）；② 页面改 Tailwind Play CDN + 卡片布局：深色底、实体卡片、无辉光无渐变，顶部状态栏 + 指标卡片行 + 左智能体团/右信号流 + 热力格 + 下方原有详情面板（任务总览/详情、Channel、mem、健康、设计、journal 全部保留）；③ 保留已验证的面板数据逻辑（LAST SIGNAL、智能体团 5 行、热力格 5×12、信号流、底部 9 格指标、归档数与 API 对照）；④ Tailwind Play CDN 需联网（浏览器端加载），离线可用以后再处理。
 - 不做：中央星环/轨道升级、token 面板、巡检蛛、任何模拟数据。
 - 验证：go 全量 + node --check + jsdom 两路渲染（控制台零报错）；用户 Mac 实测后发版（发版另等用户指令）。
+
+## v0.4.2 发布记录（2026-11-12）
+- 主提交远端 `963d0c8`（本地 `a59a9f3`，5 个文件：serve 改 Tailwind 卡片运维仪表盘——hero 画布整块去掉、页面不再加载 hero.js（文件留着以后精美版再用），Tailwind Play CDN + 深色实体卡片、无辉光无渐变；保留已验证的面板数据逻辑 LAST SIGNAL/智能体团/热力格/信号流/9 格指标；hero-caption 文案改成中性真实说明），tag 对象 `a7af48a`，Release：https://github.com/linrong1982/Sunshine/releases/tag/v0.4.2，6 个资产；发布 run 43150423965、两路 CI（43150424060、43150398406）均 success 无抖动。
+- 验证：go build/vet/gofmt 全过；go test ./... 20 个包全过；node --check app.js 过；jsdom 真实渲染验证（有数据/空项目两路）控制台零报错（Tailwind CDN 在 jsdom 里正常加载到）；云端浏览器打不开沙箱 localhost 做真实截图（预期：serve 只绑 127.0.0.1、无隧道），最终观感待用户 Mac 实测。
+- 实测：不带参数一键装上 v0.4.2（`sunshine version` = 0.4.2）；v0.4.1 原版二进制 upgrade --dry-run 查到 v0.4.2（下载地址指向 v0.4.2 linux amd64，试运行未做修改）；darwin arm64 包 checksum OK（`77aa316f…`，Mach-O arm64）。
+- 其后 PLAN.md 发布记录补提交一笔（远端 SHA 见 GOAL.md）。
