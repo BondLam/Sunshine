@@ -1207,6 +1207,14 @@ Then comes the requirements review — the designer's last act before exiting: C
 
 **[Designer exits, developers enter]**
 
+When developers enter (especially when design and development are done by different people), open the project in the agent UI first, then say one entry prompt:
+
+Example prompt (an example, not a real conversation record):
+
+> The design review passed and the subtasks are split. Now let's start development following the sunshine workflow: first list the parent task's subtasks and the first subtask's context for me to confirm; after I confirm, start from the first subtask and work through them one by one; start each subtask, then check it, write the specs back, commit, and archive it before starting the next one; once all subtasks are archived, run the final integration review on the parent task and archive it.
+
+After confirmation, development follows the five rounds below; if the session closes and reopens midway, run `/sunshine:continue` — it routes by the `task.json` status.
+
 The split happens once, after the review passes — and it follows the requirements: one prototype serves multiple requirements, so the sub-tasks split per requirement, covering the whole scope, with the sub-task list settled in one pass; the split itself starts nothing, and both sub-tasks are created in `planning`. The parent task records the sub-task map, and developers enter with the work already split and the context already curated (each sub-task's context points at its own page in the system prototype).
 
 One requirement is one sub-task by default (the sub-task owns its page plus its interface, with the acceptance criteria together, so it's easy to verify). But when a requirement's frontend and backend are both large, or done by different people, or the backend API serves several pages, it splits further into a frontend sub-task and a backend sub-task — mechanically, a sub-task with its own sub-tasks (`task create --parent`), the parent's `children` listing both, each in planning. The handoff between the two is the interface contract in the outline design: the backend implements the API per the contract, the frontend builds the page per the contract plus the mock data in the prototype, so the frontend doesn't wait for the backend; the parent's final integration review verifies frontend and backend together.
