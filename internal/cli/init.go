@@ -125,6 +125,7 @@ GitHub Copilot、Factory Droid）。
 选它只生成通用规范（system.md）与 doc/ 设计文档模板（需求列表、概要设计、原型），
 不生成前后端规范（技术栈待定，以后定了再 init -f 补）。`,
 	RunE: func(cmd *cobra.Command, args []string) error {
+		printInitBanner()
 		cwd, err := os.Getwd()
 		if err != nil {
 			return err
