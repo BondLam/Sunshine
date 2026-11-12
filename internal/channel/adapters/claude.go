@@ -25,7 +25,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/linrong1982/Sunshine/internal/channel/store"
+	"github.com/BondLam/Sunshine/internal/channel/store"
 )
 
 // InlineSystemPromptMaxChars 是系统提示词内联在 argv 里的长度上限：

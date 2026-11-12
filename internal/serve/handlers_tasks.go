@@ -15,7 +15,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"github.com/linrong1982/Sunshine/internal/task"
+	"github.com/BondLam/Sunshine/internal/task"
 )
 
 // ---------------------------------------------------------------------------

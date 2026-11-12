@@ -7,7 +7,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/linrong1982/Sunshine/internal/registry"
+	"github.com/BondLam/Sunshine/internal/registry"
 )
 
 // testMarketIndex 是夹具市场索引：1 spec + 1 skill + 1 workflow

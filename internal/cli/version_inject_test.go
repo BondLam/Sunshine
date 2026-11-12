@@ -9,7 +9,7 @@ func TestVersionDefaults(t *testing.T) {
 	if got := Version(); got != "0.1.0" {
 		t.Errorf("Version() 默认值不对：%q，想要 %q", got, "0.1.0")
 	}
-	if got := Repo(); got != "github.com/linrong1982/Sunshine" {
-		t.Errorf("Repo() 默认值不对：%q，想要 %q", got, "github.com/linrong1982/Sunshine")
+	if got := Repo(); got != "github.com/BondLam/Sunshine" {
+		t.Errorf("Repo() 默认值不对：%q，想要 %q", got, "github.com/BondLam/Sunshine")
 	}
 }

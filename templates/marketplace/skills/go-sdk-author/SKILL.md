@@ -519,4 +519,4 @@ go mod graph | grep acme/sdk
 
 ## 与 Sunshine 的对照
 
-Sunshine 本身就是这套做法的实例：单 Go module（`github.com/linrong1982/Sunshine`）、`cmd/sunshine` 入口、`internal/` 放全部实现、`go:embed` 内嵌模板随二进制发布、`-ldflags -X` 注入版本、`goreleaser` 打 5 个平台产物、GitHub Release 发版、`sunshine upgrade` 自更新。照着它的仓库结构抄布局，再按本 skill 检查公开面与发布流程即可。
+Sunshine 本身就是这套做法的实例：单 Go module（`github.com/BondLam/Sunshine`）、`cmd/sunshine` 入口、`internal/` 放全部实现、`go:embed` 内嵌模板随二进制发布、`-ldflags -X` 注入版本、`goreleaser` 打 5 个平台产物、GitHub Release 发版、`sunshine upgrade` 自更新。照着它的仓库结构抄布局，再按本 skill 检查公开面与发布流程即可。

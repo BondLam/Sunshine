@@ -4,7 +4,7 @@ import (
 	"context"
 	"testing"
 
-	"github.com/linrong1982/Sunshine/internal/channel/store"
+	"github.com/BondLam/Sunshine/internal/channel/store"
 )
 
 func TestSpawnSendReadInterruptDoneLoop(t *testing.T) {

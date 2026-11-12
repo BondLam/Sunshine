@@ -12,8 +12,8 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/linrong1982/Sunshine/internal/projecttype"
-	"github.com/linrong1982/Sunshine/templates"
+	"github.com/BondLam/Sunshine/internal/projecttype"
+	"github.com/BondLam/Sunshine/templates"
 )
 
 // RecordHashes 把 files（相对项目根的路径，如 ".claude/settings.json"）的

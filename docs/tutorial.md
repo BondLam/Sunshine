@@ -17,10 +17,10 @@
 先装好 CLI（安装方法也在 [README.cn.md](../README.cn.md)）：
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/linrong1982/Sunshine/main/install.sh | sh
+curl -fsSL https://raw.githubusercontent.com/BondLam/Sunshine/main/install.sh | sh
 ```
 
-Windows 请到 [Releases](https://github.com/linrong1982/Sunshine/releases) 页下载对应 zip，解压后把 `sunshine.exe` 放进 PATH；已有 Go 的机器也可以 `go install github.com/linrong1982/Sunshine/cmd/sunshine@latest`。
+Windows 请到 [Releases](https://github.com/BondLam/Sunshine/releases) 页下载对应 zip，解压后把 `sunshine.exe` 放进 PATH；已有 Go 的机器也可以 `go install github.com/BondLam/Sunshine/cmd/sunshine@latest`。
 
 确认版本，然后初始化你的项目——这是你在终端里唯一必须跑的一步：
 
@@ -762,7 +762,7 @@ sunshine upgrade --dry-run
 ```text
 正在升级 Sunshine：0.1.0 → 0.2.1（通道 latest）
 资产：sunshine_0.2.1_linux_amd64.tar.gz
-下载地址：https://github.com/linrong1982/Sunshine/releases/download/v0.2.1/sunshine_0.2.1_linux_amd64.tar.gz
+下载地址：https://github.com/BondLam/Sunshine/releases/download/v0.2.1/sunshine_0.2.1_linux_amd64.tar.gz
 备份：将把当前二进制备份为 /tmp/rewrite-zh/sunshine.bak
 [试运行] 未做任何修改。
 ```

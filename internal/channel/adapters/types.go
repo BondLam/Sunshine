@@ -21,7 +21,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/linrong1982/Sunshine/internal/channel/store"
+	"github.com/BondLam/Sunshine/internal/channel/store"
 )
 
 // Provider 是 worker 适配器的供应商：目前只支持 claude 与 codex。

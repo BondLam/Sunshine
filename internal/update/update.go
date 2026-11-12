@@ -7,8 +7,8 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/linrong1982/Sunshine/internal/migrate"
-	"github.com/linrong1982/Sunshine/internal/platforms"
+	"github.com/BondLam/Sunshine/internal/migrate"
+	"github.com/BondLam/Sunshine/internal/platforms"
 )
 
 // LatestVersionFunc 是“最新版”检查（上游 getLatestNpmVersion 的对应实现：

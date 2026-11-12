@@ -6,7 +6,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/linrong1982/Sunshine/internal/mem"
+	"github.com/BondLam/Sunshine/internal/mem"
 )
 
 // 对话清理：注入标签剥离、启动注入轮次识别、压缩边界 marker。

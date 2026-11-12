@@ -3,7 +3,7 @@ package channel
 import (
 	"context"
 
-	"github.com/linrong1982/Sunshine/internal/channel/store"
+	"github.com/BondLam/Sunshine/internal/channel/store"
 )
 
 // RequestInterrupt 只追加 interrupt_requested 事件（持久化意图，

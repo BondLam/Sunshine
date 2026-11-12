@@ -4,7 +4,7 @@ import (
 	"os"
 
 	"github.com/AlecAivazis/survey/v2"
-	"github.com/linrong1982/Sunshine/internal/lifecycle"
+	"github.com/BondLam/Sunshine/internal/lifecycle"
 	"github.com/spf13/cobra"
 )
 

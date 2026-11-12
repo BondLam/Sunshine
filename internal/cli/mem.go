@@ -9,8 +9,8 @@ import (
 	"os"
 	"strings"
 
-	"github.com/linrong1982/Sunshine/internal/mem"
-	"github.com/linrong1982/Sunshine/internal/mem/adapters"
+	"github.com/BondLam/Sunshine/internal/mem"
+	"github.com/BondLam/Sunshine/internal/mem/adapters"
 	"github.com/spf13/cobra"
 )
 

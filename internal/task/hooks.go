@@ -11,7 +11,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/linrong1982/Sunshine/internal/config"
+	"github.com/BondLam/Sunshine/internal/config"
 )
 
 // ---------------------------------------------------------------------------

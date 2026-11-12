@@ -16,7 +16,7 @@
 package supervisor
 
 import (
-	"github.com/linrong1982/Sunshine/internal/channel/store"
+	"github.com/BondLam/Sunshine/internal/channel/store"
 )
 
 // InboxPolicy 是 worker 收件箱策略（复用 store 的定义）。

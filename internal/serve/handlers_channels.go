@@ -10,8 +10,8 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"github.com/linrong1982/Sunshine/internal/channel"
-	"github.com/linrong1982/Sunshine/internal/channel/store"
+	"github.com/BondLam/Sunshine/internal/channel"
+	"github.com/BondLam/Sunshine/internal/channel/store"
 )
 
 // ---------------------------------------------------------------------------

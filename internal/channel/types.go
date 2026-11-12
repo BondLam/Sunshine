@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/linrong1982/Sunshine/internal/channel/store"
+	"github.com/BondLam/Sunshine/internal/channel/store"
 )
 
 // 本文件是 API 层的共享类型：forum 与 core API 共用。

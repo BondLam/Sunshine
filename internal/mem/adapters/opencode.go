@@ -5,7 +5,7 @@ import (
 	"database/sql"
 	"fmt"
 
-	"github.com/linrong1982/Sunshine/internal/mem"
+	"github.com/BondLam/Sunshine/internal/mem"
 )
 
 // OpenCode 会话库：$XDG_DATA_HOME/opencode/opencode.db

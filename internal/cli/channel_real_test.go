@@ -14,7 +14,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/linrong1982/Sunshine/internal/channel"
+	"github.com/BondLam/Sunshine/internal/channel"
 )
 
 // setupRealChannelTest 搭真实后端测试环境：temp存储根与工作目录。

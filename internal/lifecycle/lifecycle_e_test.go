@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/linrong1982/Sunshine/templates"
+	"github.com/BondLam/Sunshine/templates"
 )
 
 // writeTestFile 把 content 写到 dir 下的相对路径 rel（自动建目录）。

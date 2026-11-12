@@ -4,8 +4,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/linrong1982/Sunshine/internal/update"
-	"github.com/linrong1982/Sunshine/internal/upgrade"
+	"github.com/BondLam/Sunshine/internal/update"
+	"github.com/BondLam/Sunshine/internal/upgrade"
 	"github.com/spf13/cobra"
 )
 
@@ -32,7 +32,7 @@ func TestRegisterUpgradeCommand(t *testing.T) {
 		t.Error("upgrade 帮助残留 trellis 字样")
 	}
 	// LatestVersionFunc 已接线。“未配置”路径改由占位值显式构造验证
-	// （默认仓库已是真实地址 github.com/linrong1982/Sunshine，
+	// （默认仓库已是真实地址 github.com/BondLam/Sunshine，
 	// 不再靠默认值是占位值来覆盖该分支；update 侧对此只警告不中断）。
 	if update.LatestVersionFunc == nil {
 		t.Fatal("LatestVersionFunc 未接线")

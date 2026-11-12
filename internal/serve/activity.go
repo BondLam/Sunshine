@@ -8,8 +8,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/linrong1982/Sunshine/internal/hook"
-	"github.com/linrong1982/Sunshine/internal/task"
+	"github.com/BondLam/Sunshine/internal/hook"
+	"github.com/BondLam/Sunshine/internal/task"
 )
 
 // activityEntry 是 /api/activity 的一条条目。

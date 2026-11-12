@@ -9,7 +9,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/linrong1982/Sunshine/internal/workflow"
+	"github.com/BondLam/Sunshine/internal/workflow"
 )
 
 // resetWorkflowFlags 恢复 workflow 命令的 flag 变量默认值。

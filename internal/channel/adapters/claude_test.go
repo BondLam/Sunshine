@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/linrong1982/Sunshine/internal/channel/store"
+	"github.com/BondLam/Sunshine/internal/channel/store"
 )
 
 // 以下 JSONL 样例取自上游研究探针的真实输出格式

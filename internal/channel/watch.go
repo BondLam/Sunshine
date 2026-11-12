@@ -5,7 +5,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/linrong1982/Sunshine/internal/channel/store"
+	"github.com/BondLam/Sunshine/internal/channel/store"
 )
 
 // WatchEvents 流式监听某 channel 的新事件。默认只推监听开始后

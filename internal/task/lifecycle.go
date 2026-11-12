@@ -11,7 +11,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/linrong1982/Sunshine/internal/hook"
+	"github.com/BondLam/Sunshine/internal/hook"
 )
 
 // Runner 是 task 命令的执行器：持有项目根与输出 writer，便于测试注入。

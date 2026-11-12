@@ -9,7 +9,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/linrong1982/Sunshine/internal/mem"
+	"github.com/BondLam/Sunshine/internal/mem"
 )
 
 // Claude 会话布局：~/.claude/projects/<清理后的 cwd>/<sessionId>.jsonl，

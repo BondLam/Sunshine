@@ -4,7 +4,7 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/linrong1982/Sunshine/internal/config"
+	"github.com/BondLam/Sunshine/internal/config"
 )
 
 // PreserveExistingRegistryConfig 把用户已有的 registry.spec 追加到

@@ -6,7 +6,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/linrong1982/Sunshine/internal/task"
+	"github.com/BondLam/Sunshine/internal/task"
 	"github.com/spf13/cobra"
 )
 

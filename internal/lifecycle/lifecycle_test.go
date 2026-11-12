@@ -11,8 +11,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/linrong1982/Sunshine/internal/platforms"
-	"github.com/linrong1982/Sunshine/templates"
+	"github.com/BondLam/Sunshine/internal/platforms"
+	"github.com/BondLam/Sunshine/templates"
 )
 
 // setupProject 在临时目录里搭建一个真实的已初始化项目：

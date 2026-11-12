@@ -15,7 +15,7 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/linrong1982/Sunshine/internal/channel/store"
+	"github.com/BondLam/Sunshine/internal/channel/store"
 )
 
 // ShutdownGrace 是关停宽限：先关 stdin，等 3 秒；

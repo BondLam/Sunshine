@@ -12,9 +12,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/linrong1982/Sunshine/internal/lifecycle"
-	"github.com/linrong1982/Sunshine/internal/platforms"
-	"github.com/linrong1982/Sunshine/templates"
+	"github.com/BondLam/Sunshine/internal/lifecycle"
+	"github.com/BondLam/Sunshine/internal/platforms"
+	"github.com/BondLam/Sunshine/templates"
 	"github.com/spf13/cobra"
 )
 

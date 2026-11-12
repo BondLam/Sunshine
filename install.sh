@@ -2,7 +2,7 @@
 # Sunshine 一键安装脚本
 #
 # 用法（装最新版）：
-#   curl -fsSL https://raw.githubusercontent.com/linrong1982/Sunshine/main/install.sh | sh
+#   curl -fsSL https://raw.githubusercontent.com/BondLam/Sunshine/main/install.sh | sh
 #
 # 装指定版本（二选一）：
 #   curl -fsSL .../install.sh | sh -s -- v0.3.1
@@ -12,10 +12,10 @@
 #   SUNSHINE_INSTALL_DIR="$HOME/bin" sh install.sh
 #
 # 只支持 macOS / Linux（x86_64 与 arm64）。Windows 请到 Release 页下载 zip：
-#   https://github.com/linrong1982/Sunshine/releases
+#   https://github.com/BondLam/Sunshine/releases
 set -eu
 
-REPO="linrong1982/Sunshine"
+REPO="BondLam/Sunshine"
 PROG="sunshine"
 
 die() { printf '%s\n' "install.sh: $*" >&2; exit 1; }
@@ -30,7 +30,7 @@ case "$VERSION" in
   -h|--help)
     cat <<'EOF'
 用法：sh install.sh [版本]
-  curl -fsSL https://raw.githubusercontent.com/linrong1982/Sunshine/main/install.sh | sh
+  curl -fsSL https://raw.githubusercontent.com/BondLam/Sunshine/main/install.sh | sh
   curl -fsSL .../install.sh | sh -s -- v0.3.1
   SUNSHINE_VERSION=v0.3.1 sh install.sh
   SUNSHINE_INSTALL_DIR="$HOME/bin" sh install.sh
@@ -40,13 +40,19 @@ EOF
 esac
 if [ "$VERSION" = "latest" ]; then
   echo "正在查询最新版本……"
-  # 先走 releases/latest 的 302 跳转（不走 API：不怕限流、不用解析 JSON）；
+  # 先走 releases/latest 的跳转（不走 API：不怕限流、不用解析 JSON）；
+  # 跟随全部跳转取最终地址再取版本号——仓库改名会多一跳 301（旧名 → 新名），
+  # 只读第一次 Location 会拿到中间地址、解析不出版本号（见 v0.5.1 后的实测）；
   # 拿不到时再试 API；都拿不到就报错，不让空版本流到后面。
-  VERSION="$(curl -fsSI "https://github.com/$REPO/releases/latest" \
-    | grep -i '^location:' | sed -E 's#.*/tag/([^/[:space:]]+).*#\1#')"
+  VERSION="$(curl -fsSL -o /dev/null -w '%{url_effective}' "https://github.com/$REPO/releases/latest" 2>/dev/null \
+    | sed -E 's#.*/tag/(v[0-9][^/[:space:]]*).*#\1#' || true)"
+  case "$VERSION" in
+    v[0-9]*.[0-9]*.[0-9]*) ;;
+    *) VERSION="" ;;
+  esac
   if [ -z "$VERSION" ]; then
-    VERSION="$(curl -fsSL "https://api.github.com/repos/$REPO/releases/latest" \
-      | grep '"tag_name":' | sed -E 's/.*"tag_name": *"([^"]+)".*/\1/')"
+    VERSION="$(curl -fsSL "https://api.github.com/repos/$REPO/releases/latest" 2>/dev/null \
+      | grep '"tag_name":' | sed -E 's/.*"tag_name": *"([^"]+)".*/\1/' || true)"
   fi
   [ -n "$VERSION" ] || die "查不到最新版本，请检查网络，或用 SUNSHINE_VERSION=v0.3.1 指定版本"
 fi

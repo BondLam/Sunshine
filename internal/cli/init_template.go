@@ -6,7 +6,7 @@ import (
 	"strings"
 
 	"github.com/AlecAivazis/survey/v2"
-	"github.com/linrong1982/Sunshine/internal/registry"
+	"github.com/BondLam/Sunshine/internal/registry"
 )
 
 // 交互选模板的两个固定选项（标签即选单里显示的文字）。

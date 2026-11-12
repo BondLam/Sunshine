@@ -4,9 +4,9 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/linrong1982/Sunshine/internal/config"
-	"github.com/linrong1982/Sunshine/internal/registry"
-	"github.com/linrong1982/Sunshine/internal/scaffold"
+	"github.com/BondLam/Sunshine/internal/config"
+	"github.com/BondLam/Sunshine/internal/registry"
+	"github.com/BondLam/Sunshine/internal/scaffold"
 	"github.com/spf13/cobra"
 )
 

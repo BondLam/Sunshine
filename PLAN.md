@@ -1406,8 +1406,8 @@ rename 由 E 组负责。未动 `internal/channel/`（B 组）、
 
 ### 版本注入
 
-- `internal/cli/root.go` 的 `const version = "0.1.0"` 改为 var（ldflags 可注入：`-X github.com/linrong1982/Sunshine/internal/cli.version=<tag>`），默认值保持 `"0.1.0"`（开发构建行为不变）；goreleaser 发布时从 git tag 注入。`sunshine --version` 打印该值；`init` 写入 `.sunshine/.version` 的仍是该值。
-- 仓库地址同样用 ldflags 变量注入（`github.com/linrong1982/Sunshine/internal/cli.repo`）：升级与 update 的最新版检查共用它。仓库已定为 `github.com/linrong1982/Sunshine`（2026-11-09），`go.mod` 的 module 名已同步改为 `github.com/linrong1982/Sunshine`，全部 import 路径与 ldflags 包路径已随之改掉。
+- `internal/cli/root.go` 的 `const version = "0.1.0"` 改为 var（ldflags 可注入：`-X github.com/BondLam/Sunshine/internal/cli.version=<tag>`），默认值保持 `"0.1.0"`（开发构建行为不变）；goreleaser 发布时从 git tag 注入。`sunshine --version` 打印该值；`init` 写入 `.sunshine/.version` 的仍是该值。
+- 仓库地址同样用 ldflags 变量注入（`github.com/BondLam/Sunshine/internal/cli.repo`）：升级与 update 的最新版检查共用它。仓库已定为 `github.com/BondLam/Sunshine`（2026-11-09），`go.mod` 的 module 名已同步改为 `github.com/BondLam/Sunshine`，全部 import 路径与 ldflags 包路径已随之改掉。
 
 ### goreleaser 配置（`.goreleaser.yaml`）
 
@@ -1469,40 +1469,40 @@ rename 由 E 组负责。未动 `internal/channel/`（B 组）、
 
 - 正式版：`v<主>.<次>.<修订>`，例如 `v0.2.0`。`sunshine --version` 与 `init` 写入 `.sunshine/.version` 的都是该值（去掉 `v` 前缀的纯版本号）。
 - 预发布：正式版后加 `-beta.<n>` 或 `-rc.<n>`，例如 `v0.2.0-beta.1`。当前版本含 `-beta` 时 `sunshine upgrade` 默认跟 beta 通道，含 `-rc` 时跟 rc 通道，否则跟 latest 通道；也可用 `sunshine upgrade --tag <版本或通道>` 显式指定。
-- 版本注入：发布时 goreleaser 用 ldflags 从 git tag 注入版本（`-X github.com/linrong1982/Sunshine/internal/cli.version=<tag>`）；本地开发构建不注入时默认 `0.1.0`。
+- 版本注入：发布时 goreleaser 用 ldflags 从 git tag 注入版本（`-X github.com/BondLam/Sunshine/internal/cli.version=<tag>`）；本地开发构建不注入时默认 `0.1.0`。
 
 ### 仓库地址（已定，2026-11-09）
 
-仓库已定为 `github.com/linrong1982/Sunshine`，以下三处已同步换成真实地址（首次推送前完成）：
+仓库已定为 `github.com/BondLam/Sunshine`，以下三处已同步换成真实地址（首次推送前完成）：
 
 | 位置 | 换后值 |
 | --- | --- |
-| `internal/cli/root.go` 的 `repo` 变量（ldflags 可注入，默认值） | `github.com/linrong1982/Sunshine` |
-| `.goreleaser.yaml` 里的仓库引用（`builds` 的 ldflags 与 `release.github` 的 owner/name） | `github.com/linrong1982/Sunshine` |
-| `go.mod` 的 module 名 | `github.com/linrong1982/Sunshine`（全部 import 路径与 ldflags 包路径已随之改掉） |
+| `internal/cli/root.go` 的 `repo` 变量（ldflags 可注入，默认值） | `github.com/BondLam/Sunshine` |
+| `.goreleaser.yaml` 里的仓库引用（`builds` 的 ldflags 与 `release.github` 的 owner/name） | `github.com/BondLam/Sunshine` |
+| `go.mod` 的 module 名 | `github.com/BondLam/Sunshine`（全部 import 路径与 ldflags 包路径已随之改掉） |
 
 `sunshine upgrade` 与 `update` 的最新版检查共用同一个仓库变量（`internal/update/update.go` 的 `LatestVersionFunc`），换一处即两处生效。旧占位值 `github.com/sunshine/sunshine` 仅保留在 `internal/upgrade/upgrade.go` 的 `PlaceholderRepo` 哨兵常量里（显式传入该值仍视为未配置）。
 
 ### 首次推送记录（2026-11-09）
 
-- 339 个文件已推到 `https://github.com/linrong1982/Sunshine.git` 的 main 分支，远端提交 `2c3d007`，本地已 `git fetch` + `git reset --hard origin/main` 对齐，工作树干净。
+- 339 个文件已推到 `https://github.com/BondLam/Sunshine.git` 的 main 分支，远端提交 `2c3d007`，本地已 `git fetch` + `git reset --hard origin/main` 对齐，工作树干净。
 - 沙箱出站代理挡住了 git 协议与 SSH（22 与 443 端口均被重置），`git push` 无法用；改走 GitHub Git Data API（连接器文档见 `~/workspace/custom-connectors/custom.github/CONNECTOR.md`，脚本在该目录的 `bin/push-initial.py`）。
 - 空仓库上 Git Data API 拒绝建 blob/tree（409 "Git Repository is empty"），先用 Contents API 推 `.gitignore` 建种子提交 `211458f`，再以它为父提交推完整提交（tree 与本地提交一致，均为 `4a039f79`）。
 - 移动 main 引用时报 403：提交含 `.github/workflows/ci.yml`，token 除 Contents 读写外还需 Workflows 读写（GitHub 返回头 `x-accepted-github-permissions: contents=write; contents=write,workflows=write`）。用户在 token 上补了 Workflows 读写权限后重试成功；token 本身不用重建。
 
 ### v0.1.0 发布记录（2026-11-09）
 
-- 新增 `.github/workflows/release.yml`（tag `v*` 触发，goreleaser 发布 GitHub Release，`permissions: contents: write`）；同时修正 `.goreleaser.yaml` 里 `release.github` 的 owner/name（之前仍是占位 `sunshine/sunshine`，已改为 `linrong1982/Sunshine`）。
+- 新增 `.github/workflows/release.yml`（tag `v*` 触发，goreleaser 发布 GitHub Release，`permissions: contents: write`）；同时修正 `.goreleaser.yaml` 里 `release.github` 的 owner/name（之前仍是占位 `sunshine/sunshine`，已改为 `BondLam/Sunshine`）。
 - 第一轮 tag v0.1.0 触发的 CI 与发布工作流全部失败、0 个 job：job ID 用了中文（`检查`、`发布配置检查`、`发布`），GitHub job ID 只接受 ASCII 字母/数字/横线/下划线且以字母或下划线开头，中文只能放在 display name（`name` 字段）里。已修正 job ID（`check`、`goreleaser-check`、`release`），删掉旧 tag 后在新提交上重打 v0.1.0。
-- Release 已发布：https://github.com/linrong1982/Sunshine/releases/tag/v0.1.0，6 个资产（checksums.txt + darwin/linux amd64/arm64、windows amd64 共 5 个包），CI 与发布工作流均 success。实测验证：从 Release 下载的 darwin/amd64 包 checksum 通过，解出 Mach-O x86_64 二进制；本地构建的 sunshine（0.1.0）跑 `upgrade` 与 `upgrade --dry-run` 均对真实 Release 查到最新 0.1.0 并报“已是最新”，自更新检查链路已通。
+- Release 已发布：https://github.com/BondLam/Sunshine/releases/tag/v0.1.0，6 个资产（checksums.txt + darwin/linux amd64/arm64、windows amd64 共 5 个包），CI 与发布工作流均 success。实测验证：从 Release 下载的 darwin/amd64 包 checksum 通过，解出 Mach-O x86_64 二进制；本地构建的 sunshine（0.1.0）跑 `upgrade` 与 `upgrade --dry-run` 均对真实 Release 查到最新 0.1.0 并报“已是最新”，自更新检查链路已通。
 
 ### v0.2.0 发布记录（2026-11-09）
 
 - 内容：“待一并处理”7 项批次（迁移清单 0.2.0、SSH 克隆验证、config version 字段去重、go-sdk-author、ExtractDialogue 切片统一、search 预加载缓存）+ 新增 `install.sh` 一键安装脚本与 `README.md`。
-- install.sh（仓库根目录）：macOS / Linux 一行安装，`curl -fsSL https://raw.githubusercontent.com/linrong1982/Sunshine/main/install.sh | sh`，自动识别 OS/架构、默认装最新版（GitHub API 查 latest）、sha256 校验、落盘 `/usr/local/bin`（不可写时退到 `~/.local/bin`）；支持 `sh -s -- v0.2.0` / `SUNSHINE_VERSION` 指定版本、`SUNSHINE_INSTALL_DIR` 指定目录。写完后用真实 v0.1.0 Release 验了三路（指定版本、latest 解析、管道形式）全过；发布后又用真实一键命令对 v0.2.0 复验通过。写脚本时踩到一个坑：`SUNSHINE_INSTALL_DIR` 指定的目录不存在时 `[ ! -w "$DIR" ]` 为真，会误退回 `~/.local/bin`——已改成“显式指定目录时建不出/不可写直接报错”，并用 `install -m 755` 代替 `mv`（沙箱里 mv 跨文件系统报无法保留属主的警告）。
+- install.sh（仓库根目录）：macOS / Linux 一行安装，`curl -fsSL https://raw.githubusercontent.com/BondLam/Sunshine/main/install.sh | sh`，自动识别 OS/架构、默认装最新版（GitHub API 查 latest）、sha256 校验、落盘 `/usr/local/bin`（不可写时退到 `~/.local/bin`）；支持 `sh -s -- v0.2.0` / `SUNSHINE_VERSION` 指定版本、`SUNSHINE_INSTALL_DIR` 指定目录。写完后用真实 v0.1.0 Release 验了三路（指定版本、latest 解析、管道形式）全过；发布后又用真实一键命令对 v0.2.0 复验通过。写脚本时踩到一个坑：`SUNSHINE_INSTALL_DIR` 指定的目录不存在时 `[ ! -w "$DIR" ]` 为真，会误退回 `~/.local/bin`——已改成“显式指定目录时建不出/不可写直接报错”，并用 `install -m 755` 代替 `mv`（沙箱里 mv 跨文件系统报无法保留属主的警告）。
 - 用户问“发版的 releases 都是打包文件，利于后续安装吗”——答：包本身是 Go CLI 标准做法，也是 `sunshine upgrade` 用的格式，但首次安装要手动下载解压放 PATH；这次先加 install.sh，Homebrew 以后再说（要多建 homebrew-tap 仓库 + 存一个能写它的密钥，setup 更重）。
 - 推送：批次提交 `c431dde`（28 文件）与 install.sh 提交 `06be4d5` 均走 GitHub API（`push-initial.py`），本地已对齐，工作树干净；tag v0.2.0 为注释 tag（对象 `a6e618b`），同样经 Git Tags API 创建。
-- Release 已发布：https://github.com/linrong1982/Sunshine/releases/tag/v0.2.0，6 个资产（checksums.txt + 5 个平台包）。CI（2 次）与发布工作流均 success。实测验证：用真实一键命令装上 v0.2.0，`--version` 打印“Sunshine 版本 0.2.0”；0.1.0 二进制跑 `upgrade --dry-run` 正确查到 0.2.0 并给出升级计划；linux 与 darwin 包 checksum 均 OK，darwin/amd64 解出 Mach-O x86_64 二进制。
+- Release 已发布：https://github.com/BondLam/Sunshine/releases/tag/v0.2.0，6 个资产（checksums.txt + 5 个平台包）。CI（2 次）与发布工作流均 success。实测验证：用真实一键命令装上 v0.2.0，`--version` 打印“Sunshine 版本 0.2.0”；0.1.0 二进制跑 `upgrade --dry-run` 正确查到 0.2.0 并给出升级计划；linux 与 darwin 包 checksum 均 OK，darwin/amd64 解出 Mach-O x86_64 二进制。
 
 ### 本地验证命令（发版前）
 
@@ -1693,7 +1693,7 @@ pre-commit install       # 在仓库根目录执行一次
 - **本批次已随 v0.2.1 提交推送并发布**（见下“v0.2.1 发布记录”）。
 
 - 内容：SSH 三段式路径解析修复 + README 补齐与中英文教程（上一节的批次）。提交 `e70d56b`（351 个文件），tag v0.2.1 为注释 tag（对象 `59d13c8`）。
-- Release 已发布：https://github.com/linrong1982/Sunshine/releases/tag/v0.2.1，6 个资产。实测验证：真实一键命令装上 v0.2.1（`--version` 打印 0.2.1）；0.2.0 二进制 `upgrade --dry-run` 正确查到 0.2.1；darwin 包 checksum OK，解出 Mach-O x86_64 二进制。
+- Release 已发布：https://github.com/BondLam/Sunshine/releases/tag/v0.2.1，6 个资产。实测验证：真实一键命令装上 v0.2.1（`--version` 打印 0.2.1）；0.2.0 二进制 `upgrade --dry-run` 正确查到 0.2.1；darwin 包 checksum OK，解出 Mach-O x86_64 二进制。
 - **CI 抖动（本次发现，未随发版修）**：打 tag 触发的 CI 与发布均 success；但推 main 提交触发的那次 CI 里 `TestSupervisorClosedLoop` 失败了一次（同一次提交、同一套代码，另一路 CI 全过）。日志：`supervisor_test.go:149: 应有 turn_started 与 turn_finished(done)：[create spawned message turn_started message done]`——`turn_finished` 在读事件时还没落盘。根因：`supervisorSink.Emit`（`internal/channel/supervisor/run.go`）先落 `done`、再 `tracker.Finish()` 后落 `turn_finished`，两者之间有窗口；测试只等 `done` 就读事件，赶上调度间隙就会误判。这是测试的时序假设问题，不是生产行为问题（事件最终都会落盘；该测试本地 20 次全过，同一提交另一路 CI 也全过）。修复方向（测试侧）：等 `done` 后再等 `turn_finished` 落盘再断言；不要改生产侧的落盘顺序（`done` 先落是 `MarkTerminalEmitted` 兜底逻辑有意为之）。修复已提交推送（不发版），见下。
 - **修复（已提交推送，不发版）**：`internal/channel/supervisor/supervisor_test.go` 的 `TestSupervisorClosedLoop` 里，等 `done` 之后再 `waitForEvent(KindTurnFinished, 5s)` 再读事件。本地验证：`TestSupervisorClosedLoop -count=30` 全过，`go test ./...` 18 个包全过，gofmt 干净。
 
@@ -1738,7 +1738,7 @@ pre-commit install       # 在仓库根目录执行一次
 - **本批次已随 v0.2.2 提交推送并发布**（见下“v0.2.2 发布记录”）。
 
 - 内容：教程与 README 按 agent 界面用法重写（上一节的批次）。提交 `618d4d0`（351 个文件），tag v0.2.2 为注释 tag（对象 `8ad8f01`）。
-- Release 已发布：https://github.com/linrong1982/Sunshine/releases/tag/v0.2.2，6 个资产；发布与两路 CI 均 success——这次没有抖动。实测验证：真实一键命令装上 v0.2.2（`--version` 打印 0.2.2）；0.2.1 二进制 `upgrade --dry-run` 正确查到 0.2.2；darwin 包 checksum OK，解出 Mach-O x86_64 二进制。
+- Release 已发布：https://github.com/BondLam/Sunshine/releases/tag/v0.2.2，6 个资产；发布与两路 CI 均 success——这次没有抖动。实测验证：真实一键命令装上 v0.2.2（`--version` 打印 0.2.2）；0.2.1 二进制 `upgrade --dry-run` 正确查到 0.2.2；darwin 包 checksum OK，解出 Mach-O x86_64 二进制。
 - 上一轮复验那次未定位的 FAIL 仍未复现（本轮发布三路 CI 全过，本地又跑过数轮全量全过）；若 CI 再抖，先抓完整日志再定。
 
 ## init 项目类型检测 + 手动选择（2026-11-10，用户定）
@@ -1789,7 +1789,7 @@ pre-commit install       # 在仓库根目录执行一次
 ### v0.2.3 发布记录（2026-11-10）
 
 - 内容：init 项目类型检测 + 手动选择（上一节的批次，含“下一步”文案重写）。提交 `6a6243a`（354 个文件），tag v0.2.3 为注释 tag（对象 `2aedc44`）。
-- Release 已发布：https://github.com/linrong1982/Sunshine/releases/tag/v0.2.3，6 个资产；发布与两路 CI 均 success——这次也没有抖动。实测验证：真实一键命令装上 v0.2.3（`--version` 打印 0.2.3）；0.2.2 二进制 `upgrade --dry-run` 正确查到 0.2.3；darwin 包 checksum OK，解出 Mach-O x86_64 二进制；用发布的 0.2.3 二进制实跑：vite 项目 → `项目类型：前端（自动检测）`，只生成 system.md + frontend.md。
+- Release 已发布：https://github.com/BondLam/Sunshine/releases/tag/v0.2.3，6 个资产；发布与两路 CI 均 success——这次也没有抖动。实测验证：真实一键命令装上 v0.2.3（`--version` 打印 0.2.3）；0.2.2 二进制 `upgrade --dry-run` 正确查到 0.2.3；darwin 包 checksum OK，解出 Mach-O x86_64 二进制；用发布的 0.2.3 二进制实跑：vite 项目 → `项目类型：前端（自动检测）`，只生成 system.md + frontend.md。
 - 未复现的 FAIL 仍未复现（本轮发布三路 CI 全过，本地全量也全过）；若 CI 再抖，先抓完整日志再定。
 
 ## 滚动轨道：剩余 19 个平台（2026-11-10，用户定做）
@@ -1894,7 +1894,7 @@ pre-commit install       # 在仓库根目录执行一次
 ### v0.3.0 发布记录（2026-11-10）
 
 - 内容：滚动轨道剩余 19 个平台（上一节的批次），共支持 22 个 AI 编程平台。提交 `b2922ae`（441 个文件），tag v0.3.0 为注释 tag（对象 `16dceb2`）。
-- Release 已发布：https://github.com/linrong1982/Sunshine/releases/tag/v0.3.0，6 个资产；发布与两路 CI 均 success——这次也没有抖动。实测验证：真实一键命令装上 v0.3.0（`--version` 打印 0.3.0）；0.2.3 二进制 `upgrade --dry-run` 正确查到 0.3.0；darwin 包 checksum OK，解出 Mach-O x86_64 二进制；用发布的 0.3.0 二进制实跑：`init --gemini --kilo --copilot` 三家均装好，`platforms` 认出 3 家。
+- Release 已发布：https://github.com/BondLam/Sunshine/releases/tag/v0.3.0，6 个资产；发布与两路 CI 均 success——这次也没有抖动。实测验证：真实一键命令装上 v0.3.0（`--version` 打印 0.3.0）；0.2.3 二进制 `upgrade --dry-run` 正确查到 0.3.0；darwin 包 checksum OK，解出 Mach-O x86_64 二进制；用发布的 0.3.0 二进制实跑：`init --gemini --kilo --copilot` 三家均装好，`platforms` 认出 3 家。
 - 未复现的 FAIL 仍未复现（本轮发布三路 CI 全过，本地全量也全过）；若 CI 再抖，先抓完整日志再定。
 
 ### 教程第 13 节：五个场景（2026-11-10，用户定做）
@@ -1906,7 +1906,7 @@ pre-commit install       # 在仓库根目录执行一次
 ### v0.3.1 发布记录（2026-11-10）
 
 - 内容：教程第 13 节五个场景（中英文，均已实跑验证；上一节的批次），文档-only。提交 `6ba9d0e`（441 个文件），tag v0.3.1 为注释 tag（对象 `887ae1d`）。
-- Release 已发布：https://github.com/linrong1982/Sunshine/releases/tag/v0.3.1，6 个资产；发布与两路 CI 均 success——这次也没有抖动。实测验证：真实一键命令装上 v0.3.1（`--version` 打印 0.3.1）；0.3.0 二进制 `upgrade --dry-run` 正确查到 0.3.1；darwin 包 checksum OK，解出 Mach-O x86_64 二进制；主分支中英文教程均含第 13 节。
+- Release 已发布：https://github.com/BondLam/Sunshine/releases/tag/v0.3.1，6 个资产；发布与两路 CI 均 success——这次也没有抖动。实测验证：真实一键命令装上 v0.3.1（`--version` 打印 0.3.1）；0.3.0 二进制 `upgrade --dry-run` 正确查到 0.3.1；darwin 包 checksum OK，解出 Mach-O x86_64 二进制；主分支中英文教程均含第 13 节。
 - 未复现的 FAIL 仍未复现（本轮发布三路 CI 全过，本地全量也全过）；若 CI 再抖，先抓完整日志再定。
 
 ### install.sh 无参安装报 TAG: unbound variable（2026-11-10，用户截图报障）
@@ -1920,7 +1920,7 @@ pre-commit install       # 在仓库根目录执行一次
 ### v0.3.2 发布记录（2026-11-10）
 
 - 内容：修 install.sh 无参安装（上一节的批次）。提交 `2b47b03`（441 个文件），tag v0.3.2 为注释 tag（对象 `4322d04`）。
-- Release 已发布：https://github.com/linrong1982/Sunshine/releases/tag/v0.3.2，6 个资产；发布与两路 CI 均 success——这次也没有抖动。实测验证：用户原先那条不带参数的一键命令（从 main 拉新脚本）装上 v0.3.2；0.3.1 二进制 `upgrade --dry-run` 正确查到 0.3.2；darwin 包 checksum OK，解出 Mach-O x86_64 二进制；main 上的 install.sh 含跳转查询与 TAG 守卫。
+- Release 已发布：https://github.com/BondLam/Sunshine/releases/tag/v0.3.2，6 个资产；发布与两路 CI 均 success——这次也没有抖动。实测验证：用户原先那条不带参数的一键命令（从 main 拉新脚本）装上 v0.3.2；0.3.1 二进制 `upgrade --dry-run` 正确查到 0.3.2；darwin 包 checksum OK，解出 Mach-O x86_64 二进制；main 上的 install.sh 含跳转查询与 TAG 守卫。
 - 未复现的 FAIL 仍未复现（本轮发布三路 CI 全过，本地全量也全过）；若 CI 再抖，先抓完整日志再定。
 
 ### install.sh 在用户 Mac 上仍报 TAG: unbound variable（2026-11-10，v0.3.2 发布后用户再报）
@@ -1935,7 +1935,7 @@ pre-commit install       # 在仓库根目录执行一次
 ### v0.3.3 发布记录（2026-11-10）
 
 - 内容：修 install.sh 里 `$变量` 后紧跟全角字符被 macOS bash 3.2 吞进变量名的问题（上一节的批次）。提交 `ac2d1e5`（441 个文件），tag v0.3.3 为注释 tag（对象 `dd03611`）。
-- Release 已发布：https://github.com/linrong1982/Sunshine/releases/tag/v0.3.3，6 个资产；发布与两路 CI 均 success——这次也没有抖动。实测验证：用户原先那条不带参数的一键命令（从 main 拉新脚本）装上 v0.3.3；0.3.2 二进制 `upgrade --dry-run` 正确查到 0.3.3；darwin 包 checksum OK，解出 Mach-O x86_64 二进制；main 上的 install.sh 含 `${TAG}（${OS}` 花括号写法。
+- Release 已发布：https://github.com/BondLam/Sunshine/releases/tag/v0.3.3，6 个资产；发布与两路 CI 均 success——这次也没有抖动。实测验证：用户原先那条不带参数的一键命令（从 main 拉新脚本）装上 v0.3.3；0.3.2 二进制 `upgrade --dry-run` 正确查到 0.3.3；darwin 包 checksum OK，解出 Mach-O x86_64 二进制；main 上的 install.sh 含 `${TAG}（${OS}` 花括号写法。
 - 未复现的 FAIL 仍未复现（本轮发布三路 CI 全过，本地全量也全过）；若 CI 再抖，先抓完整日志再定。
 
 ## init 交互选模板（对齐 Trellis，2026-11-10，用户定做）
@@ -1989,9 +1989,9 @@ pre-commit install       # 在仓库根目录执行一次
 ### v0.3.4 发布记录（2026-11-10）
 
 - 内容：init 交互选模板（对齐 Trellis 的 "Select a spec template"，上一节的批次）+ 中英文教程与 README 同步维护。提交 `34aa005`（10 个文件），tag v0.3.4 为注释 tag（对象 `f493bd4`）。
-- Release 已发布：https://github.com/linrong1982/Sunshine/releases/tag/v0.3.4，6 个资产；发布与 CI 均 success，无抖动（发布 run 42780012997、CI run 42780012688，约 2.5 分钟跑完）。
+- Release 已发布：https://github.com/BondLam/Sunshine/releases/tag/v0.3.4，6 个资产；发布与 CI 均 success，无抖动（发布 run 42780012997、CI run 42780012688，约 2.5 分钟跑完）。
 - 实测验证：用户原先那条不带参数的一键命令装上 v0.3.4（`Sunshine 版本 0.3.4`）；0.3.3 二进制 `upgrade --dry-run` 正确查到 0.3.4；darwin_amd64 包 checksum OK，解出 Mach-O x86_64 二进制。
-- 插曲：本机 git 提交时报 Author identity unknown（沙箱环境无 user.name/user.email 配置），用 `-c user.name=linrong1982 -c user.email=linrong1982@users.noreply.github.com` 显式指定提交，与之前各版作者一致；以后提交都这么带。
+- 插曲：本机 git 提交时报 Author identity unknown（沙箱环境无 user.name/user.email 配置），用 `-c user.name=BondLam -c user.email=BondLam@users.noreply.github.com` 显式指定提交，与之前各版作者一致；以后提交都这么带。
 - 未复现的 FAIL 仍未复现（本轮两路 CI 全过，本地全量也全过）；若 CI 再抖，先抓完整日志再定。
 
 ## workflow inline 分支加平台守卫（2026-11-10，用户定做）
@@ -2015,7 +2015,7 @@ pre-commit install       # 在仓库根目录执行一次
 
 ### v0.3.5 发布记录（2026-11-10）
 - 内容：workflow inline 分支加平台守卫（native 与 tdd 模板 inline 块首行守卫 + 派发句 reinforcement；教程 §4 的 2.1 摘要行同步加“仅 Codex”限定）。提交 `b7896ac`（4 个文件），tag v0.3.5 为注释 tag（对象 `a18dbfb`）。
-- Release 已发布：https://github.com/linrong1982/Sunshine/releases/tag/v0.3.5，6 个资产；发布 run 42789481102、两路 CI（tag 42789166884、push 42789481568）均 success 无抖动。
+- Release 已发布：https://github.com/BondLam/Sunshine/releases/tag/v0.3.5，6 个资产；发布 run 42789481102、两路 CI（tag 42789166884、push 42789481568）均 success 无抖动。
 - 实测验证：不带参数的一键命令装上 v0.3.5（`Sunshine 版本 0.3.5`）；0.3.4 二进制 `upgrade --dry-run` 正确查到 0.3.5；darwin_amd64 包 checksum OK（Mach-O x86_64）。
 - 注意：沙箱里之前装的 v0.3.4 二进制（/usr/local/bin/sunshine）在虚拟机更换后已不在，一键安装重新装上 v0.3.5。
 
@@ -2049,7 +2049,7 @@ pre-commit install       # 在仓库根目录执行一次
 
 ### v0.3.6 发布记录（2026-11-11）
 - 内容：task start 成功后输出 in_progress 面包屑（正常与降级两路，复用 hook 取块逻辑；仅 Codex + dispatch_mode=inline 时取 inline 块；标题任务名与 hook 一致）；修面包屑扫描器 bug（`scanWorkflowStateBlocks`：独占一行的开标签才算块、无闭标签的提及跳过不中断、闭标签须行首；同族的 session-start 剥块函数一并修）。提交 `74ea104`（6 个文件），tag v0.3.6 为注释 tag（对象 `2567fdc`）。
-- Release 已发布：https://github.com/linrong1982/Sunshine/releases/tag/v0.3.6，6 个资产；发布 run 42955259493、两路 CI（tag 42955259500、push 42955247189）均 success 无抖动。
+- Release 已发布：https://github.com/BondLam/Sunshine/releases/tag/v0.3.6，6 个资产；发布 run 42955259493、两路 CI（tag 42955259500、push 42955247189）均 success 无抖动。
 - 实测验证：不带参数的一键命令装上 v0.3.6（`Sunshine 版本 0.3.6`）；0.3.5 二进制 `upgrade --dry-run` 正确查到 0.3.6；darwin_amd64 包 checksum OK（Mach-O x86_64）。
 
 ## 设计先行模式：双模式分流 + 显性任务拆解（2026-11-11，用户定做）
@@ -2114,7 +2114,7 @@ pre-commit install       # 在仓库根目录执行一次
 
 ### v0.3.7 发布记录（2026-11-11）
 - 内容：设计先行模式——三份 workflow 模板第 1 阶段新增 1.2 任务拆解（optional），研究/配置上下文/激活/完成标准后移至 1.3-1.6；1.1 加双模式分流（设计先行 vs 直接开发）与设计文档落盘 `doc/` 约定；1.4 配置上下文加设计文档类；1.5 激活任务加需求评审措辞与父任务不激活规则；continue.md 路由与 sunshine-meta 例子同步改号；brainstorm skill 加定模式、拆解触发、产品设计文档 vs 技术设计文档区分；教程新增 §12.6 设计先行 walkthrough（退款演示项目，实跑），中英文教程与 README 由五个场景改为六个场景。CLI 未动（用户定夺：不用新命令）。提交 `ceaf552`（11 个文件），tag v0.3.7 为注释 tag（对象 `279c616`）。
-- Release 已发布：https://github.com/linrong1982/Sunshine/releases/tag/v0.3.7，6 个资产；发布 run 42967234680、两路 CI（42967234661、42967209609）均 success 无抖动。
+- Release 已发布：https://github.com/BondLam/Sunshine/releases/tag/v0.3.7，6 个资产；发布 run 42967234680、两路 CI（42967234661、42967209609）均 success 无抖动。
 - 实测验证：不带参数的一键命令装上 v0.3.7（`Sunshine 版本 0.3.7`）；0.3.6 二进制 `upgrade --dry-run` 正确查到 0.3.7；darwin_amd64 包 checksum OK（Mach-O x86_64）。
 - 用户定：设计文档模板不做，需要的话让设计人员去模板市场下载。
 
@@ -2150,7 +2150,7 @@ pre-commit install       # 在仓库根目录执行一次
 
 ### v0.3.8 发布记录（2026-11-11）
 - 内容：init 产品设计类型——项目类型提问加第四个选项“产品设计”（默认仍全栈）；选它只生成通用规范 system.md（guides 照常），不写前后端规范，另写 doc/ 设计文档模板：doc/design/需求列表.md、doc/design/概要设计.md、doc/prototype/原型.html。新增 projecttype.Design（不参与检测，只能手动选；--type 也支持产品设计/design）。doc/ 模板不进哈希清单，update 不碰；只写不存在的文件，已填内容绝不覆盖，init -f 重建也不覆盖，只补写缺失的。中英文教程附录 init 参考同步。提交 `5b8970b`（13 个文件），tag v0.3.8 为注释 tag（对象 `c4eafb7`）。
-- Release 已发布：https://github.com/linrong1982/Sunshine/releases/tag/v0.3.8，6 个资产；发布 run 42970039441、两路 CI（42970039335、42969768358）均 success 无抖动。
+- Release 已发布：https://github.com/BondLam/Sunshine/releases/tag/v0.3.8，6 个资产；发布 run 42970039441、两路 CI（42970039335、42969768358）均 success 无抖动。
 - 实测验证：不带参数的一键命令装上 v0.3.8（`Sunshine 版本 0.3.8`）；0.3.7 二进制 `upgrade --dry-run` 正确查到 0.3.8；darwin_amd64 包 checksum OK（Mach-O x86_64）。注：验证时沙箱 /usr/local/bin 里的 0.3.7 二进制已被 VM 更换清掉（/usr/local/bin 不跨 VM 持久），upgrade 检查改用从 v0.3.7 Release 现下载的原版二进制跑的，结果一样。
 - 权限讨论（未定）：用户问“只让授权的人用 sunshine”能不能做。已答：能做，三条路（仓库改私有 / CLI 加授权校验 / 两者结合），并说明公开源码的前提下纯 CLI 校验防不住改源码重编；v0.3.7 及之前已公开发出去了，收不回来，权限只能管以后的版本。用户选继续发 v0.3.8；授权给哪些人（团队成员 / 指定 GitHub 账号 / 付费用户）还没定，等用户再说。
 
@@ -2166,7 +2166,7 @@ pre-commit install       # 在仓库根目录执行一次
 - **密钥对**：`sunshine license keygen` 只做一次，生成私钥（只放签发者机器上，最好再备份一份在密码管理器里，绝不进 git、绝不进仓库）与公钥（嵌进二进制，随发版走；内嵌位置待定，如 `internal/license/` 下的 Go 常量或 pem 文件）。私钥只能签名，公钥只能验签——公钥公开了也签不出有效的 license；签名能验过 ⟺ 持有私钥的人签发 ⟺ 只有签发者能发 license。`keygen` 做一次，`issue` 想发多少发多少（每份内容不同，签名也不同，都用同一个公钥验）。
 - **签发**：`sunshine license issue --name <名字> --email <邮箱> --expiry <天数/日期>`，读私钥文件签名，输出 license 文件；签发者把文件发给同事，同事跑 `sunshine license activate --file license.json` 装进 `~/.sunshine/license.json`。`license status` 显示持有人与有效期（不拦），`license` 相关命令与 `version` / `--help` 不验 license（否则连看都看不了）。
 - **验签（每次调用都验）**：CLI 统一入口拦一道（cobra 统一入口，所有子命令都过它，只放行 version/help/license），分两步——① 用内嵌公钥验签名，证明整份内容（包括有效期）没被改过，改一个字签名就失效；② 拿当前时间跟 `expires_at` 比，过了就拒绝并提示找签发者续签。Ed25519 验签一次几十微秒，无感。默认有效期 90 天，到期前 30 天起提醒。
-- **每日联网核查（吊销）**：每天第一次调用时联网查一次“这个人还在不在”，结果缓存 24 小时。两个来源二选一（待定，取决于团队有没有 GitHub org；仓库目前在个人账号 linrong1982 下，未见 org）：① GitHub 组织成员身份——离职就是移出组织，自动吊销，用 `gh` 已登录的 token 或一个只读 token；② 私有仓库里的 allowlist 文件——离职就是从文件里删掉那一行。断网时用缓存，最多宽限 7 天；超过 7 天没核查过就拒绝。时间来源也以核查那一步的服务器时间为准，本机时钟往回拨最多拖 7 天。
+- **每日联网核查（吊销）**：每天第一次调用时联网查一次“这个人还在不在”，结果缓存 24 小时。两个来源二选一（待定，取决于团队有没有 GitHub org；仓库目前在个人账号 BondLam 下，未见 org）：① GitHub 组织成员身份——离职就是移出组织，自动吊销，用 `gh` 已登录的 token 或一个只读 token；② 私有仓库里的 allowlist 文件——离职就是从文件里删掉那一行。断网时用缓存，最多宽限 7 天；超过 7 天没核查过就拒绝。时间来源也以核查那一步的服务器时间为准，本机时钟往回拨最多拖 7 天。
 - **最坏情况**：离职的人天天联网，第二天就用不了；故意一直断网，7 天后停；有效期 90 天只是兜底。
 - **密钥轮换**：私钥泄露/丢失 → 重新 keygen → 重新发版（新公钥）→ 给所有人重发 license；旧 license 随之作废（新公钥验不过旧签名）。
 - **与迁私有的关系**：license 机制先做（公开仓库也能跑）；迁私有那天，一键安装与 `sunshine upgrade` 要改成带 token 拉取（私有仓库的 raw 与 release 都要认证），顺手一起改。迁私有后，已装到别人机器上的旧二进制仍不受 license 约束之外的管控——管住以后版本靠 license，旧版本收不回来（v0.3.8 及之前已公开发出去了）。
@@ -2235,7 +2235,7 @@ pre-commit install       # 在仓库根目录执行一次
 ## v0.3.9 发布记录（2026-11-11）
 
 - 内容：init 产品设计改成全栈规范（spec 按全栈生成 + doc/ 三份模板）+ 需求变更处理进工作流与教程 §12.6（delta 回炉规则进三份 workflow 模板 1.5 与 brainstorm skill；§12.6 续一段变更示例，上限 5000→3000 真实跑通，提交 8d09672）+ 上轮 §12.6 开发一段补齐（前端/后端子任务完整流转，提交 729fa17、aef98d6）。主提交远端 `dc3863f`（12 个文件），tag 对象 `cb50671`。
-- Release：https://github.com/linrong1982/Sunshine/releases/tag/v0.3.9，6 个资产；发布 run 42979134926、两路 CI（42979134941、42979097187）均 success 无抖动。
+- Release：https://github.com/BondLam/Sunshine/releases/tag/v0.3.9，6 个资产；发布 run 42979134926、两路 CI（42979134941、42979097187）均 success 无抖动。
 - 实测：不带参数一键装上 v0.3.9（`sunshine version` = 0.3.9）；v0.3.8 原版二进制 upgrade --dry-run 查到 v0.3.9；darwin arm64 包 checksum OK（327da167…）、Mach-O arm64。
 
 ## §12.6 例子纠正：设计包做完才拆解，一次拆完（2026-11-11，已随 v0.3.10 发布）
@@ -2258,7 +2258,7 @@ pre-commit install       # 在仓库根目录执行一次
 ## v0.3.10 发布记录（2026-11-11）
 
 - 内容：§12.6 例子纠正——设计包做完才拆解，一次拆完（教程 §12.6 引言/设计包/拆解过渡三处同步；三份 workflow 模板 1.2 加“拆解只做一次”，brainstorm skill 第 8 步同步）+ 上轮 §12.6 顺序说明（拆解完不自动开发，评审通过、逐个激活才开始；前端归档后后端才启动）。主提交远端 `c772558`（7 个文件），tag 对象 `b4b90c5`。
-- Release：https://github.com/linrong1982/Sunshine/releases/tag/v0.3.10，6 个资产；发布 run 42982006525、两路 CI（42982006622、42981987667）均 success 无抖动。
+- Release：https://github.com/BondLam/Sunshine/releases/tag/v0.3.10，6 个资产；发布 run 42982006525、两路 CI（42982006622、42981987667）均 success 无抖动。
 - 实测：不带参数一键装上 v0.3.10（`sunshine version` = 0.3.10）；v0.3.9 原版二进制 upgrade --dry-run 查到 v0.3.10；darwin arm64 包 checksum OK（9207a76a…）、Mach-O arm64。
 
 ## §12.6 重写：全新项目请假申请小工具，对话驱动 + 进退场标记（2026-11-11，已只提交推送、不发版，远端提交 09503a8）
@@ -2335,7 +2335,7 @@ pre-commit install       # 在仓库根目录执行一次
 - reasonix 缺 research 是故意的（上游 Trellis 自身的 reasonix 模板目录就只有 check 与 implement 两份；`platforms_new_test.go:301` 有测试钉死），不用另立任务。
 
 ## v0.3.11 发布记录（2026-11-12）
-- 主提交远端 `92626af`（本地 `f4264db`，32 个文件：18 个新 agent 定义 + 14 个修改），tag 对象 `a2df33f`，Release：https://github.com/linrong1982/Sunshine/releases/tag/v0.3.11，6 个资产；发布 run 43134240817、两路 CI（43134240787、43134211026）均 success 无抖动。
+- 主提交远端 `92626af`（本地 `f4264db`，32 个文件：18 个新 agent 定义 + 14 个修改），tag 对象 `a2df33f`，Release：https://github.com/BondLam/Sunshine/releases/tag/v0.3.11，6 个资产；发布 run 43134240817、两路 CI（43134240787、43134211026）均 success 无抖动。
 - 实测：不带参数一键装上 v0.3.11（`sunshine version` = 0.3.11）；v0.3.10 原版二进制 upgrade --dry-run 查到 v0.3.11；darwin arm64 包 checksum OK（`0ac0f5fa…`，Mach-O arm64）。
 - 其后 PLAN.md 发布记录补提交一笔（远端 SHA 见 GOAL.md）。
 
@@ -2353,7 +2353,7 @@ pre-commit install       # 在仓库根目录执行一次
   - token 专项：**暂缓**（2026-11-12 用户说 token 验证暂时不做）；v1 不含 token 面板、不画 token 消耗墙（没有数据的面板宁可空着/注明，不用假数据填充）；质检台 PASS/DROP 等 v2 埋点（check 完成事件）才有结构化结果，v1 不做。
   - Native 活动流：v1 用 **mtime 比对**（每轮轮询比对 task.json、prd.md、implement/check.jsonl、doc/ 的 mtime，变化记一条活动）；hook 埋点是 v2 的事，**本批不改 hook**。
 - 代码落点（已核实 2026-11-12）：
-  - 工作树干净，HEAD = 远端 main = `cd2d965`；Go 1.27，module `github.com/linrong1982/Sunshine`。
+  - 工作树干净，HEAD = 远端 main = `cd2d965`；Go 1.27，module `github.com/BondLam/Sunshine`。
   - **Gin 不在 go.mod 里**（已核实：go.mod 只有 survey/go-git/cobra/yaml/sqlite 等，无 gin）。实施须 `go get github.com/gin-gonic/gin`，go.mod/go.sum 的变化记在本节；版本 pin 当时最新的稳定版。
   - 新建 `internal/serve/`（Gin 路由 + handlers + 数据组装）与 `internal/cli/serve.go`（cobra 命令，`init()` 里 `root.AddCommand`，与 ablate.go:43、channel.go:32 同一模式）；前端静态文件（index.html、app.js、hero.js、style.css、alpine.min.js vendored）放 `internal/serve/static/`，用 `//go:embed` 嵌进二进制（与 templates/templates.go 同一模式）。
   - 复用内部包拿结构化数据，不重新解析文件、不解析 CLI 纯文本输出：`internal/task`（list/current/context）、`internal/channel/store`（ChannelSummary、events.jsonl、`ReduceWorkerRegistry`）、`internal/mem`（MemSessionInfo/MemProjectSummary）、`internal/update`（`AnalyzeChanges`）、`internal/upgrade`（`ResolveTag`/`LatestVersionFunc`）、`internal/config`、`internal/platforms`。**两处禁区**：`task list-archive` 本身无 `--json`，serve 复用内部目录扫描，不要调它解析文本；`update --dry-run` 返回值计数字段基本是 0，健康数据必须直接复用 `AnalyzeChanges`。
@@ -2386,14 +2386,14 @@ pre-commit install       # 在仓库根目录执行一次
 - **发版**：已随 v0.4.0 发布（见下节发布记录）。
 
 ## v0.4.0 发布记录（2026-11-12）
-- 主提交远端 `f13a297`（本地 `9adf802`，18 个文件：只读观测后台 `sunshine serve` v1——Gin v1.12.0 + vendored Alpine.js v3.17.5，深色霓虹；18 个 GET 端点 + `/api/activity`；默认 127.0.0.1:17890；hero 区 Canvas 2D 虚拟智能体动画），tag 对象 `d0aa1ce`，Release：https://github.com/linrong1982/Sunshine/releases/tag/v0.4.0，6 个资产；发布 run 43142479526、两路 CI（43142479484、43142456389）均 success 无抖动。
+- 主提交远端 `f13a297`（本地 `9adf802`，18 个文件：只读观测后台 `sunshine serve` v1——Gin v1.12.0 + vendored Alpine.js v3.17.5，深色霓虹；18 个 GET 端点 + `/api/activity`；默认 127.0.0.1:17890；hero 区 Canvas 2D 虚拟智能体动画），tag 对象 `d0aa1ce`，Release：https://github.com/BondLam/Sunshine/releases/tag/v0.4.0，6 个资产；发布 run 43142479526、两路 CI（43142479484、43142456389）均 success 无抖动。
 - 实测：不带参数一键装上 v0.4.0（`sunshine version` = 0.4.0）；v0.3.11 原版二进制 upgrade --dry-run 查到 v0.4.0（下载地址指向 v0.4.0 linux amd64，试运行未做修改）；darwin arm64 包 checksum OK（`f016f017…`，Mach-O arm64）。
 - 其后 PLAN.md 发布记录补提交一笔（远端 SHA 见 GOAL.md）。
 
 ## v0.4.1 发布记录（2026-11-12）
 - 主提交远端 `6f37de0`（本地 `fc7b7b5`，5 个文件）：修 serve 前端无数据——Alpine 在自身脚本执行完后经 queueMicrotask 立即启动并派发 alpine:init，而 app.js/hero.js 排在 alpine.min.js 之后，serveApp 注册不上，控制台报 serveApp is not defined、页面全是 —；改法是把 app.js/hero.js 移到 alpine.min.js 前面执行（defer 顺序保证）。另：errors.status 加可见横条（此前失败时无任何显示）；hero 待机加亮（轨道/星点/核心辉光 + 待命节点描边）；hero-caption 移到页脚；journal 工具栏 x-for 在 journal 为 null 时报 TypeError（x-show 不阻止求值）改成守卫表达式，另修 journal 文件按钮显示 [object Object]（files 是 {name, path} 对象，改取 f.name，loadJournal 存名字符串）。
 - 验证：go build/vet/gofmt 全过；go test ./... 19 个包全过（新增 script 顺序回归断言 TestIndexAndStatic）；node --check 三个 JS 文件全过；**新增 jsdom 真实渲染验证**（`~/workspace/.jsdom-test/render-test.mjs`）：有数据项目与空项目两路，顶栏/时钟/心跳/任务全部填上，控制台零报错（jsdom 下 canvas getContext 不可用走 heroFallback 静态卡片，是设计的降级）；验证中发现 /tmp tmpfs 曾满（多个 49MB 的 go test 临时二进制 + 73MB 验证目录），已清理。教训：go test 临时二进制落 /tmp，大批量跑测试前后注意 /tmp 空间；`pkill -f` 的模式若出现在自己的命令行里会杀掉自己的 shell，停 serve 进程改按 PID kill。
-- tag 对象 `9402cd8`，Release：https://github.com/linrong1982/Sunshine/releases/tag/v0.4.1，6 个资产；发布 run 43146603139、两路 CI（43146603248、43146525334）均 success 无抖动。
+- tag 对象 `9402cd8`，Release：https://github.com/BondLam/Sunshine/releases/tag/v0.4.1，6 个资产；发布 run 43146603139、两路 CI（43146603248、43146525334）均 success 无抖动。
 - 实测：不带参数一键装上 v0.4.1（`sunshine version` = 0.4.1）；v0.4.0 原版二进制 upgrade --dry-run 查到 v0.4.1（下载地址指向 v0.4.1 linux amd64，试运行未做修改）；darwin arm64 包 checksum OK（`0467c52f…`，Mach-O arm64；Linux 下执行 darwin 二进制报 Exec format error 属正常）。
 - 其后 PLAN.md 发布记录补提交一笔（远端 SHA 见 GOAL.md）。
 
@@ -2416,7 +2416,7 @@ pre-commit install       # 在仓库根目录执行一次
 - 验证：go 全量 + node --check + jsdom 两路渲染（控制台零报错）；用户 Mac 实测后发版（发版另等用户指令）。
 
 ## v0.4.2 发布记录（2026-11-12）
-- 主提交远端 `963d0c8`（本地 `a59a9f3`，5 个文件：serve 改 Tailwind 卡片运维仪表盘——hero 画布整块去掉、页面不再加载 hero.js（文件留着以后精美版再用），Tailwind Play CDN + 深色实体卡片、无辉光无渐变；保留已验证的面板数据逻辑 LAST SIGNAL/智能体团/热力格/信号流/9 格指标；hero-caption 文案改成中性真实说明），tag 对象 `a7af48a`，Release：https://github.com/linrong1982/Sunshine/releases/tag/v0.4.2，6 个资产；发布 run 43150423965、两路 CI（43150424060、43150398406）均 success 无抖动。
+- 主提交远端 `963d0c8`（本地 `a59a9f3`，5 个文件：serve 改 Tailwind 卡片运维仪表盘——hero 画布整块去掉、页面不再加载 hero.js（文件留着以后精美版再用），Tailwind Play CDN + 深色实体卡片、无辉光无渐变；保留已验证的面板数据逻辑 LAST SIGNAL/智能体团/热力格/信号流/9 格指标；hero-caption 文案改成中性真实说明），tag 对象 `a7af48a`，Release：https://github.com/BondLam/Sunshine/releases/tag/v0.4.2，6 个资产；发布 run 43150423965、两路 CI（43150424060、43150398406）均 success 无抖动。
 - 验证：go build/vet/gofmt 全过；go test ./... 20 个包全过；node --check app.js 过；jsdom 真实渲染验证（有数据/空项目两路）控制台零报错（Tailwind CDN 在 jsdom 里正常加载到）；云端浏览器打不开沙箱 localhost 做真实截图（预期：serve 只绑 127.0.0.1、无隧道），最终观感待用户 Mac 实测。
 - 实测：不带参数一键装上 v0.4.2（`sunshine version` = 0.4.2）；v0.4.1 原版二进制 upgrade --dry-run 查到 v0.4.2（下载地址指向 v0.4.2 linux amd64，试运行未做修改）；darwin arm64 包 checksum OK（`77aa316f…`，Mach-O arm64）。
 - 其后 PLAN.md 发布记录补提交一笔（远端 SHA 见 GOAL.md）。
@@ -2428,7 +2428,7 @@ pre-commit install       # 在仓库根目录执行一次
 - 验证：go 全量 + node --check + jsdom 两路渲染（控制台零报错）；用户 Mac 实测后发版（发版另等用户指令）。
 
 ## v0.4.3 发布记录（2026-11-12）
-- 主提交远端 `d844c11`（本地 `ceb1d72`，5 个文件：serve 改万表归一纸色风格——token 全部取自基准文件 `~/workspace/your_files/wanbiao-guiyi-original-style.html` 的 :root 与 Tailwind config（纸色 #f7f4ee、墨色、衬线标题、品红 #be185d/金 #b8860b 交替彩色顶边、强调 #c2410c），深色 slate 类全局换成纸色 token（110 处），热力格/火花线改强调色；数据逻辑与布局结构不动），tag 对象 `8549923`，Release：https://github.com/linrong1982/Sunshine/releases/tag/v0.4.3，6 个资产；发布 run 43153159435、两路 CI（43153159341、43153143425）均 success 无抖动。
+- 主提交远端 `d844c11`（本地 `ceb1d72`，5 个文件：serve 改万表归一纸色风格——token 全部取自基准文件 `~/workspace/your_files/wanbiao-guiyi-original-style.html` 的 :root 与 Tailwind config（纸色 #f7f4ee、墨色、衬线标题、品红 #be185d/金 #b8860b 交替彩色顶边、强调 #c2410c），深色 slate 类全局换成纸色 token（110 处），热力格/火花线改强调色；数据逻辑与布局结构不动），tag 对象 `8549923`，Release：https://github.com/BondLam/Sunshine/releases/tag/v0.4.3，6 个资产；发布 run 43153159435、两路 CI（43153159341、43153143425）均 success 无抖动。
 - 验证：go build/vet/gofmt 全过；go test ./... 20 个包全过；node --check app.js 过；jsdom 真实渲染验证（有数据/空项目两路）控制台零报错；真实浏览器截图仍做不了（沙箱无 Chromium、云端浏览器够不到沙箱 localhost），纸色观感待用户 Mac 实测。
 - 实测：不带参数一键装上 v0.4.3（`sunshine version` = 0.4.3）；v0.4.2 原版二进制 upgrade --dry-run 查到 v0.4.3（下载地址指向 v0.4.3 linux amd64，试运行未做修改）；darwin arm64 包 checksum OK（`61989360…`，Mach-O arm64）。
 - 其后 PLAN.md 发布记录补提交一笔（远端 SHA 见 GOAL.md）。
@@ -2439,7 +2439,7 @@ pre-commit install       # 在仓库根目录执行一次
 - 验证：go 全量 + node --check + jsdom 两路渲染（控制台零报错）；用户 Mac 实测后发版（发版另等用户指令）。
 
 ## v0.4.4 发布记录（2026-11-12）
-- 主提交远端 `9ee9731`（本地 `260b9c5`，4 个文件：serve 卡片顶边改六色循环——9 张指标卡 + 13 个 section 按文档顺序轮换六色（紫/蓝/青/橙/品红/金，色值照基准 palette），style.css 新增 panel-purple/blue/teal/orange 与 metric-purple/blue/teal/orange 八个类，serve_test.go 断言补 4 个新 panel 类；数据逻辑与布局结构不动），tag 对象 `1874c81`，Release：https://github.com/linrong1982/Sunshine/releases/tag/v0.4.4，6 个资产；发布 run 43155496547、两路 CI（43155496508、43155451283）均 success 无抖动。
+- 主提交远端 `9ee9731`（本地 `260b9c5`，4 个文件：serve 卡片顶边改六色循环——9 张指标卡 + 13 个 section 按文档顺序轮换六色（紫/蓝/青/橙/品红/金，色值照基准 palette），style.css 新增 panel-purple/blue/teal/orange 与 metric-purple/blue/teal/orange 八个类，serve_test.go 断言补 4 个新 panel 类；数据逻辑与布局结构不动），tag 对象 `1874c81`，Release：https://github.com/BondLam/Sunshine/releases/tag/v0.4.4，6 个资产；发布 run 43155496547、两路 CI（43155496508、43155451283）均 success 无抖动。
 - 验证：go build/vet/gofmt 全过；go test ./... 20 个包全过；node --check app.js 过；jsdom 真实渲染验证（有数据/空项目两路）控制台零报错，六色计数齐（指标卡紫2蓝2青2橙1品红1金1，section 紫2蓝2青2橙3品红2金2）；真实浏览器截图仍做不了（沙箱无 Chromium、云端浏览器够不到沙箱 localhost），纸色观感待用户 Mac 实测。
 - 实测：不带参数一键装上 v0.4.4（`sunshine version` = 0.4.4）；v0.4.3 原版二进制 upgrade --dry-run 查到 v0.4.4（下载地址指向 v0.4.4 linux amd64，试运行未做修改）；darwin arm64 包 checksum OK（`59c0d903…`，Mach-O arm64）。
 - 其后 PLAN.md 发布记录补提交一笔（远端 SHA 见 GOAL.md）。
@@ -2466,13 +2466,13 @@ pre-commit install       # 在仓库根目录执行一次
 - 【遗留/未实测】真实 Claude Code/Codex/Cursor 上的启停事件端到端（沙箱无这些宿主，只做了 hook 命令级实测与单测）；旧版 Claude 无 agent_type 时的 transcript 退路；并行派发同一角色时的错配边界（退路按最近未结束 start 配对，顺序派发下成立，并行同角色可能错配）；CodeBuddy/Droid 的 SubagentStop 待核实接线。
 
 ## v0.5.0 发布记录（2026-11-12）
-- 主提交远端 `4864b10`（本地 `ec2c490`，21 个文件：Native hook 埋点——子代理启停事件写进 `.sunshine/.runtime/activity.jsonl`（上限 1000 行），新增 `sunshine hook subagent-stop` 与 `internal/hook/activity.go`、`subagent_stop.go`，`agentsAll` 加 prototype（只记事件不注入大上下文），Claude/Codex/Cursor 模板加 SubagentStop 接线，`internal/platforms/settings_merge.go`（settings.json 安全合并），serve `/api/activity` 合并 native 第三路 + 运行中推导（2 小时防 stale），`sunshine update` 冲突时合并补缺失 hook 组，`.gitignore` 补 `.runtime/`），tag 对象 `b5295af`，Release：https://github.com/linrong1982/Sunshine/releases/tag/v0.5.0，6 个资产；发布 run 43167789539、两路 CI（43167789538、43167768068）均 success 无抖动。
+- 主提交远端 `4864b10`（本地 `ec2c490`，21 个文件：Native hook 埋点——子代理启停事件写进 `.sunshine/.runtime/activity.jsonl`（上限 1000 行），新增 `sunshine hook subagent-stop` 与 `internal/hook/activity.go`、`subagent_stop.go`，`agentsAll` 加 prototype（只记事件不注入大上下文），Claude/Codex/Cursor 模板加 SubagentStop 接线，`internal/platforms/settings_merge.go`（settings.json 安全合并），serve `/api/activity` 合并 native 第三路 + 运行中推导（2 小时防 stale），`sunshine update` 冲突时合并补缺失 hook 组，`.gitignore` 补 `.runtime/`），tag 对象 `b5295af`，Release：https://github.com/BondLam/Sunshine/releases/tag/v0.5.0，6 个资产；发布 run 43167789539、两路 CI（43167789538、43167768068）均 success 无抖动。
 - 验证：go build/vet/gofmt 全过；go test ./... 20 个包全过；node --check app.js 过；jsdom 真实渲染验证（有数据/空项目/native 活动三路）控制台零报错（除已知 jsdom canvas getContext 未实现），native 夹具 implement 启动未结束 → 智能体团显示工作中、运行中 Worker=1、native_running=[implement]；真实 hook 命令端到端：subagent-context 派发与 subagent-stop 结束均写盘、退出码 0。
 - 实测：不带参数一键装上 v0.5.0（`sunshine version` = 0.5.0）；v0.4.4 原版二进制（从 Release 下载，沙箱 /usr/local/bin 在 VM 更换后已清空属预期）upgrade --dry-run 查到 v0.5.0（下载地址指向 v0.5.0 linux amd64，试运行未做修改）；darwin arm64 包 checksum OK（`12cc934e…`，Mach-O arm64）。
 - 其后 PLAN.md 发布记录补提交一笔（远端 SHA 见 GOAL.md）。
 
 ## v0.5.1 发布记录（2026-11-12）
-- 主提交远端 `18f8c12`（本地 `1f02eaa`，3 个文件：init 启动打印 Sunshine 大字——FIGlet "Rebel" 字体预渲染的 "Sunshine"（8 行、最宽 79 列，node figlet@1.9.4，与 Trellis init.ts 的 figlet "Rebel" 做法一致），青色大字 + 灰色标语“开箱即用的 AI 编程工程框架”，`internal/cli/banner.go` 内嵌常量存放、`internal/cli/init.go` 的 RunE 开头调用；着色只在 stdout 是终端且未设 NO_COLOR、TERM 不是 dumb 时生效），tag 对象 `7dccd43`，Release：https://github.com/linrong1982/Sunshine/releases/tag/v0.5.1，6 个资产；发布 run 43180143015、两路 CI（43180143121、43180003561）均 success 无抖动。本版同时含 README 按 Trellis 风格重写（远端 `08912ac`：中英同结构，加粗一句话 + 问题段落 + 徽章 + Why 表格 + Prerequisites + Quick Start + How to Use + How It Works + 六个场景 + 核心命令 + 配置要点 + 模板市场 + Resources + FAQ + 社区；旧 README 的 v0.3.11 顺手改成 v0.5.0）与 README 翻英文为主（远端 `ab3e441`：README.md 换成英文版，中文版改名 README.cn.md；英文教程只修两处漏翻，其余中文是 CLI 真实输出/引用文件/用户输入原文，按约定保留）。
+- 主提交远端 `18f8c12`（本地 `1f02eaa`，3 个文件：init 启动打印 Sunshine 大字——FIGlet "Rebel" 字体预渲染的 "Sunshine"（8 行、最宽 79 列，node figlet@1.9.4，与 Trellis init.ts 的 figlet "Rebel" 做法一致），青色大字 + 灰色标语“开箱即用的 AI 编程工程框架”，`internal/cli/banner.go` 内嵌常量存放、`internal/cli/init.go` 的 RunE 开头调用；着色只在 stdout 是终端且未设 NO_COLOR、TERM 不是 dumb 时生效），tag 对象 `7dccd43`，Release：https://github.com/BondLam/Sunshine/releases/tag/v0.5.1，6 个资产；发布 run 43180143015、两路 CI（43180143121、43180003561）均 success 无抖动。本版同时含 README 按 Trellis 风格重写（远端 `08912ac`：中英同结构，加粗一句话 + 问题段落 + 徽章 + Why 表格 + Prerequisites + Quick Start + How to Use + How It Works + 六个场景 + 核心命令 + 配置要点 + 模板市场 + Resources + FAQ + 社区；旧 README 的 v0.3.11 顺手改成 v0.5.0）与 README 翻英文为主（远端 `ab3e441`：README.md 换成英文版，中文版改名 README.cn.md；英文教程只修两处漏翻，其余中文是 CLI 真实输出/引用文件/用户输入原文，按约定保留）。
 - 验证：go build/vet/gofmt 全过；go test ./... 20 个包全过（含新单测 TestRenderInitBanner：着色/无色内容一致、行宽 ≤80 列、无行尾空格）；真实 init 跑出大字（管道无色）、伪终端出青色（`^[[36m`）、NO_COLOR=1 无转义码；两份 README 全部锚点核对通过、`**` 成对无吞字。
 - 实测：不带参数一键装上 v0.5.1（`sunshine version` = 0.5.1）；v0.5.0 原版二进制（从 Release 下载，沙箱 /usr/local/bin 在 VM 更换后已清空属预期）upgrade --dry-run 查到 v0.5.1（下载地址指向 v0.5.1 linux amd64，试运行未做修改）；darwin arm64 包 checksum OK（`c9f72742…`，Mach-O arm64）。
 - 其后 PLAN.md 发布记录补提交一笔（远端 SHA 见 GOAL.md）。

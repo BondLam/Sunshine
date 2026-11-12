@@ -12,7 +12,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/linrong1982/Sunshine/internal/channel"
+	"github.com/BondLam/Sunshine/internal/channel"
 	"github.com/spf13/cobra"
 )
 

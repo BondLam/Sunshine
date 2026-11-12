@@ -1,7 +1,7 @@
 package lifecycle
 
 import (
-	"github.com/linrong1982/Sunshine/internal/platforms"
+	"github.com/BondLam/Sunshine/internal/platforms"
 )
 
 // sunshine platforms：显示当前项目已配置的 AI 平台。

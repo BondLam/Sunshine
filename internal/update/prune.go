@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/linrong1982/Sunshine/internal/platforms"
+	"github.com/BondLam/Sunshine/internal/platforms"
 )
 
 // ConfiguredPlatforms 按哈希清单判断已配置的平台（上游

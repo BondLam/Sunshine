@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/linrong1982/Sunshine/internal/channel/store"
+	"github.com/BondLam/Sunshine/internal/channel/store"
 )
 
 // WriteSessionID 持久化 worker 会话 id（<worker>.session-id），

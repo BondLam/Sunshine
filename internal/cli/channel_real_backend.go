@@ -23,9 +23,9 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/linrong1982/Sunshine/internal/channel"
-	"github.com/linrong1982/Sunshine/internal/channel/store"
-	"github.com/linrong1982/Sunshine/internal/channel/supervisor"
+	"github.com/BondLam/Sunshine/internal/channel"
+	"github.com/BondLam/Sunshine/internal/channel/store"
+	"github.com/BondLam/Sunshine/internal/channel/supervisor"
 )
 
 // channelSupervisorBinary 是 spawn 派生 supervisor 子进程用的二进制路径；

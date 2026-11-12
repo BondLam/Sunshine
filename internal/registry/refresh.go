@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/linrong1982/Sunshine/internal/config"
+	"github.com/BondLam/Sunshine/internal/config"
 )
 
 // Refresher 实现 update 包的 RegistryRefresher 接口

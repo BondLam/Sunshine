@@ -8,8 +8,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/linrong1982/Sunshine/internal/channel/adapters"
-	"github.com/linrong1982/Sunshine/internal/channel/store"
+	"github.com/BondLam/Sunshine/internal/channel/adapters"
+	"github.com/BondLam/Sunshine/internal/channel/store"
 )
 
 // readSupervisorConfigFile 读回 WriteSupervisorConfig 写出的 JSON 配置。

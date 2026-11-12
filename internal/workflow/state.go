@@ -8,7 +8,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/linrong1982/Sunshine/internal/scaffold"
+	"github.com/BondLam/Sunshine/internal/scaffold"
 )
 
 // WorkflowRelPath 是 .sunshine/workflow.md 相对项目根的路径，

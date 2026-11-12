@@ -20,14 +20,14 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"github.com/linrong1982/Sunshine/internal/channel/store"
-	"github.com/linrong1982/Sunshine/internal/config"
-	"github.com/linrong1982/Sunshine/internal/hook"
-	"github.com/linrong1982/Sunshine/internal/lifecycle"
-	"github.com/linrong1982/Sunshine/internal/task"
-	"github.com/linrong1982/Sunshine/internal/update"
-	"github.com/linrong1982/Sunshine/internal/upgrade"
-	"github.com/linrong1982/Sunshine/internal/workflow"
+	"github.com/BondLam/Sunshine/internal/channel/store"
+	"github.com/BondLam/Sunshine/internal/config"
+	"github.com/BondLam/Sunshine/internal/hook"
+	"github.com/BondLam/Sunshine/internal/lifecycle"
+	"github.com/BondLam/Sunshine/internal/task"
+	"github.com/BondLam/Sunshine/internal/update"
+	"github.com/BondLam/Sunshine/internal/upgrade"
+	"github.com/BondLam/Sunshine/internal/workflow"
 )
 
 // templateCacheTTL 是模板集合与最新版检查的缓存有效期。

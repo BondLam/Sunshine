@@ -5,7 +5,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/linrong1982/Sunshine/internal/config"
+	"github.com/BondLam/Sunshine/internal/config"
 )
 
 // autoTrustEntries 是可自动信任的顶层 .sunshine/* 条目：

@@ -6,7 +6,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/linrong1982/Sunshine/internal/config"
+	"github.com/BondLam/Sunshine/internal/config"
 )
 
 // Target 是 --registry 解析后的安装目标：模式、模板条目与探测结果。

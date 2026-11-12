@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/linrong1982/Sunshine/internal/lifecycle"
+	"github.com/BondLam/Sunshine/internal/lifecycle"
 	"github.com/spf13/cobra"
 )
 

@@ -8,9 +8,9 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/linrong1982/Sunshine/internal/config"
-	"github.com/linrong1982/Sunshine/internal/platforms"
-	"github.com/linrong1982/Sunshine/templates"
+	"github.com/BondLam/Sunshine/internal/config"
+	"github.com/BondLam/Sunshine/internal/platforms"
+	"github.com/BondLam/Sunshine/templates"
 )
 
 // configYamlRel 是项目配置文件的相对路径。

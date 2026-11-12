@@ -5,8 +5,8 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/linrong1982/Sunshine/internal/serve"
-	"github.com/linrong1982/Sunshine/internal/task"
+	"github.com/BondLam/Sunshine/internal/serve"
+	"github.com/BondLam/Sunshine/internal/task"
 )
 
 // RegisterServeCommand 把 `sunshine serve` 接到根命令上。

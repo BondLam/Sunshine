@@ -8,8 +8,8 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/linrong1982/Sunshine/internal/channel/adapters"
-	"github.com/linrong1982/Sunshine/internal/channel/store"
+	"github.com/BondLam/Sunshine/internal/channel/adapters"
+	"github.com/BondLam/Sunshine/internal/channel/store"
 )
 
 // SpawnOptions 是 SpawnWorker 的选项（对应 `channel spawn` 的 flags）。

@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/linrong1982/Sunshine/internal/channel/store"
+	"github.com/BondLam/Sunshine/internal/channel/store"
 )
 
 // SendMessage 发一条消息。默认 appendOnly：只追加，永不报错，

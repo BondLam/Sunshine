@@ -4,7 +4,7 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/linrong1982/Sunshine/templates"
+	"github.com/BondLam/Sunshine/templates"
 )
 
 // 结构化配置文件的清理器（对照 utils/uninstall-scrubbers.ts）。

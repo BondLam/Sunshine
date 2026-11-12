@@ -25,7 +25,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/linrong1982/Sunshine/templates"
+	"github.com/BondLam/Sunshine/templates"
 )
 
 // Platform 描述一个受支持的 AI 编程平台。

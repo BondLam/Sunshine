@@ -4,7 +4,7 @@
 # 调用 goreleaser 发布 GitHub Release；首次安装用仓库根目录的 install.sh，
 # 已装好的用户用 sunshine upgrade 自更新。
 #
-# 仓库地址：github.com/linrong1982/Sunshine（2026-11-09 已定）。
+# 仓库地址：github.com/BondLam/Sunshine（2026-11-09 已定）。
 # 若仓库改名，同步改两处：internal/cli/root.go 里 repo 变量的默认值，
 # 以及本文件 builds 的 ldflags 与 release.github 的 owner/name。
 version: 2
@@ -29,7 +29,7 @@ builds:
       - goos: windows
         goarch: arm64
     ldflags:
-      - -s -w -X github.com/linrong1982/Sunshine/internal/cli.version={{.Version}} -X github.com/linrong1982/Sunshine/internal/cli.repo=github.com/linrong1982/Sunshine
+      - -s -w -X github.com/BondLam/Sunshine/internal/cli.version={{.Version}} -X github.com/BondLam/Sunshine/internal/cli.repo=github.com/BondLam/Sunshine
 
 archives:
   - id: sunshine
@@ -70,7 +70,7 @@ changelog:
 
 release:
   github:
-    owner: linrong1982
+    owner: BondLam
     name: Sunshine
   draft: false
   prerelease: auto

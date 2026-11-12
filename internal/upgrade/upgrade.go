@@ -33,12 +33,12 @@ import (
 	"strings"
 	"time"
 
-	"github.com/linrong1982/Sunshine/internal/update"
+	"github.com/BondLam/Sunshine/internal/update"
 )
 
 // PlaceholderRepo 是旧占位仓库地址的哨兵值：仓库变量仍为该值时视为
 // 未配置（upgrade 报错说明，update 的最新版检查只警告不中断）。
-// 真实仓库已定为 github.com/linrong1982/Sunshine（见 internal/cli/root.go）。
+// 真实仓库已定为 github.com/BondLam/Sunshine（见 internal/cli/root.go）。
 const PlaceholderRepo = "github.com/sunshine/sunshine"
 
 // DefaultAPIBase 是 GitHub Releases API 的默认地址。

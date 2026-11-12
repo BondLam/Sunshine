@@ -13,7 +13,7 @@ package workflow
 import (
 	"fmt"
 
-	"github.com/linrong1982/Sunshine/templates"
+	"github.com/BondLam/Sunshine/templates"
 )
 
 // NativeID 是内置原生工作流的 id。

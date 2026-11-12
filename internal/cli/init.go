@@ -8,10 +8,10 @@ import (
 	"strings"
 
 	"github.com/AlecAivazis/survey/v2"
-	"github.com/linrong1982/Sunshine/internal/platforms"
-	"github.com/linrong1982/Sunshine/internal/projecttype"
-	"github.com/linrong1982/Sunshine/internal/registry"
-	"github.com/linrong1982/Sunshine/internal/scaffold"
+	"github.com/BondLam/Sunshine/internal/platforms"
+	"github.com/BondLam/Sunshine/internal/projecttype"
+	"github.com/BondLam/Sunshine/internal/registry"
+	"github.com/BondLam/Sunshine/internal/scaffold"
 	"github.com/spf13/cobra"
 	"golang.org/x/term"
 )

@@ -10,13 +10,13 @@ import (
 )
 
 // version 是当前 CLI 版本；发布时由 goreleaser 经 ldflags 注入
-// （-X github.com/linrong1982/Sunshine/internal/cli.version=<tag>），
+// （-X github.com/BondLam/Sunshine/internal/cli.version=<tag>），
 // 默认值 0.1.0（开发构建行为不变）。
 var version = "0.1.0"
 
 // repo 是 Sunshine 仓库地址；发布时由 goreleaser 经 ldflags 注入
-// （-X github.com/linrong1982/Sunshine/internal/cli.repo=<owner>/<name>）。
-var repo = "github.com/linrong1982/Sunshine"
+// （-X github.com/BondLam/Sunshine/internal/cli.repo=<owner>/<name>）。
+var repo = "github.com/BondLam/Sunshine"
 
 // Version 返回当前 CLI 版本（供 upgrade 与 update 的最新版检查共用）。
 func Version() string {

@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/linrong1982/Sunshine/internal/platforms"
+	"github.com/BondLam/Sunshine/internal/platforms"
 )
 
 // 滚动轨道新增清理器与检测逻辑的测试。

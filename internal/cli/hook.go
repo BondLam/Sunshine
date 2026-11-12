@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/linrong1982/Sunshine/internal/hook"
+	"github.com/BondLam/Sunshine/internal/hook"
 	"github.com/spf13/cobra"
 )
 

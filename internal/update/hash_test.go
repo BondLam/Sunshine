@@ -6,8 +6,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/linrong1982/Sunshine/internal/platforms"
-	"github.com/linrong1982/Sunshine/internal/scaffold"
+	"github.com/BondLam/Sunshine/internal/platforms"
+	"github.com/BondLam/Sunshine/internal/scaffold"
 )
 
 // setupProject 用 scaffold + platforms 建一个已初始化的临时项目

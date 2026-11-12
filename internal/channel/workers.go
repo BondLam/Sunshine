@@ -5,7 +5,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/linrong1982/Sunshine/internal/channel/store"
+	"github.com/BondLam/Sunshine/internal/channel/store"
 )
 
 // ListWorkers 投影某 channel 的持久 worker 注册表。

@@ -5,7 +5,7 @@ import (
 	"io"
 	"sync"
 
-	"github.com/linrong1982/Sunshine/internal/channel/store"
+	"github.com/BondLam/Sunshine/internal/channel/store"
 )
 
 // ShutdownReason 是 worker 离开的原因（与上游 shutdown.ts 一致）。

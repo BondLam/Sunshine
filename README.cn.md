@@ -4,9 +4,9 @@
 
 AI 写代码很快，但每次会话都从零开始——不记得你的项目、你的约定、你团队的需求。Sunshine 把规范、任务和记忆持久化进仓库，让任何编程助手都按团队的工程标准工作。CLI 界面与生成的规范文件全部中文。
 
-[English](README.md) • [完整教程](docs/tutorial.md) • [Releases](https://github.com/linrong1982/Sunshine/releases)
+[English](README.md) • [完整教程](docs/tutorial.md) • [Releases](https://github.com/BondLam/Sunshine/releases)
 
-[![Release](https://img.shields.io/github/v/release/linrong1982/Sunshine)](https://github.com/linrong1982/Sunshine/releases) [![CI](https://github.com/linrong1982/Sunshine/actions/workflows/ci.yml/badge.svg)](https://github.com/linrong1982/Sunshine/actions/workflows/ci.yml) [![Go](https://img.shields.io/github/go-mod/go-version/linrong1982/Sunshine)](https://go.dev/) [![Stars](https://img.shields.io/github/stars/linrong1982/Sunshine)](https://github.com/linrong1982/Sunshine/stargazers)
+[![Release](https://img.shields.io/github/v/release/BondLam/Sunshine)](https://github.com/BondLam/Sunshine/releases) [![CI](https://github.com/BondLam/Sunshine/actions/workflows/ci.yml/badge.svg)](https://github.com/BondLam/Sunshine/actions/workflows/ci.yml) [![Go](https://img.shields.io/github/go-mod/go-version/BondLam/Sunshine)](https://go.dev/) [![Stars](https://img.shields.io/github/stars/BondLam/Sunshine)](https://github.com/BondLam/Sunshine/stargazers)
 
 **注意：**命令与示例输出均为中文原文，可直接复制使用。
 
@@ -23,14 +23,14 @@ AI 写代码很快，但每次会话都从零开始——不记得你的项目�
 
 ## 前置条件
 
-- macOS 或 Linux（Windows：到 [Releases](https://github.com/linrong1982/Sunshine/releases) 下载对应的 zip，解压后把 `sunshine.exe` 放进 PATH）。
+- macOS 或 Linux（Windows：到 [Releases](https://github.com/BondLam/Sunshine/releases) 下载对应的 zip，解压后把 `sunshine.exe` 放进 PATH）。
 - 不需要再装任何运行时。
 
 ## 快速上手
 
 ```sh
 # 1. 安装 Sunshine
-curl -fsSL https://raw.githubusercontent.com/linrong1982/Sunshine/main/install.sh | sh
+curl -fsSL https://raw.githubusercontent.com/BondLam/Sunshine/main/install.sh | sh
 
 # 2. 在你的仓库里初始化
 sunshine init -u 你的名字
@@ -42,13 +42,13 @@ sunshine init --codex -y -u 你的名字
 装指定版本（v0.5.0 是当前 Release）：
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/linrong1982/Sunshine/main/install.sh | sh -s -- v0.5.0
+curl -fsSL https://raw.githubusercontent.com/BondLam/Sunshine/main/install.sh | sh -s -- v0.5.0
 ```
 
 已有 Go 的机器也可以：
 
 ```sh
-go install github.com/linrong1982/Sunshine/cmd/sunshine@latest
+go install github.com/BondLam/Sunshine/cmd/sunshine@latest
 ```
 
 装好后升级只需：
@@ -133,7 +133,7 @@ agent 在底下调的命令你平时不用敲；下面是你手动干预时用�
 | 在仓库里安装 Sunshine | [快速上手](#快速上手) |
 | 看实际用法 | [完整教程](docs/tutorial.md)（六个场景） |
 | 从规范模板开始 | [模板市场](#模板市场) |
-| 跟踪发布 | [Releases](https://github.com/linrong1982/Sunshine/releases) |
+| 跟踪发布 | [Releases](https://github.com/BondLam/Sunshine/releases) |
 | 完整规划 | [PLAN.md](PLAN.md) |
 
 ## 常见问题
@@ -169,7 +169,7 @@ agent 在底下调的命令你平时不用敲；下面是你手动干预时用�
 ## 社区与资源
 
 - [完整教程](docs/tutorial.md)
-- [GitHub Issues](https://github.com/linrong1982/Sunshine/issues)
-- [Releases](https://github.com/linrong1982/Sunshine/releases)
+- [GitHub Issues](https://github.com/BondLam/Sunshine/issues)
+- [Releases](https://github.com/BondLam/Sunshine/releases)
 
 用 Go 构建。Trellis 的 Go 重构版——与 Mindfold 无关。

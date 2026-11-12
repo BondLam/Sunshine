@@ -13,7 +13,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/linrong1982/Sunshine/internal/hook"
+	"github.com/BondLam/Sunshine/internal/hook"
 )
 
 // ActiveTask 是解析出的当前任务（对应 active_task.ActiveTask）。
