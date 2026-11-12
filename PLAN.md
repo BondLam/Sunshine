@@ -2383,4 +2383,9 @@ pre-commit install       # 在仓库根目录执行一次
   - **实施中修掉的 1 个 bug**：`/api/tasks/:id` 与 `/api/tasks/:id/commits` 对已归档任务返回 404（`ResolveTaskDir` 只认活动任务），已加 `resolveTaskDirWithArchive` 回退（活动 → 归档 `FindArchivedTaskByDirName`），补测试 `TestArchivedTaskDetailAndCommits`。另核对中发现 workers 缺 impl-1 是我的手工事件夹具缺 `as` 字段（spawned 事件取 `as` 不取 `worker`），不是后端 bug，夹具修正后正常。
   - **契约外多给的字段**（只增不改）：mem 会话同时出小写与首字母大写两套键；`/api/health` 另给 drift 计数与顶层 added/updatable/modified/unchanged/deleted；`/api/design` 另给 docs 数组；事件另给 from/author/text/summary/target。新增 `/api/activity`（mtime 活动流与 channel 事件合并；设计方案 liveness 一节已定 mtime 流，前端需一个端点取它）。
 - **未验证项**：浏览器真实渲染效果（深色霓虹、Canvas 动画）待用户 Mac 自验；真实 channel 事件流（live worker、supervisor pid 探活非空）只在夹具事件上验证，未在真实跑起来的 channel 上验证；`/api/tasks/:id/commits` 的 git 定位只在单提交夹具上验证。
-- **发版**：本批只提交、不发版（无 tag、无 Release），等用户指令。
+- **发版**：已随 v0.4.0 发布（见下节发布记录）。
+
+## v0.4.0 发布记录（2026-11-12）
+- 主提交远端 `f13a297`（本地 `9adf802`，18 个文件：只读观测后台 `sunshine serve` v1——Gin v1.12.0 + vendored Alpine.js v3.17.5，深色霓虹；18 个 GET 端点 + `/api/activity`；默认 127.0.0.1:17890；hero 区 Canvas 2D 虚拟智能体动画），tag 对象 `d0aa1ce`，Release：https://github.com/linrong1982/Sunshine/releases/tag/v0.4.0，6 个资产；发布 run 43142479526、两路 CI（43142479484、43142456389）均 success 无抖动。
+- 实测：不带参数一键装上 v0.4.0（`sunshine version` = 0.4.0）；v0.3.11 原版二进制 upgrade --dry-run 查到 v0.4.0（下载地址指向 v0.4.0 linux amd64，试运行未做修改）；darwin arm64 包 checksum OK（`f016f017…`，Mach-O arm64）。
+- 其后 PLAN.md 发布记录补提交一笔（远端 SHA 见 GOAL.md）。
