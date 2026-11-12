@@ -2476,3 +2476,9 @@ pre-commit install       # 在仓库根目录执行一次
 - 验证：go build/vet/gofmt 全过；go test ./... 20 个包全过（含新单测 TestRenderInitBanner：着色/无色内容一致、行宽 ≤80 列、无行尾空格）；真实 init 跑出大字（管道无色）、伪终端出青色（`^[[36m`）、NO_COLOR=1 无转义码；两份 README 全部锚点核对通过、`**` 成对无吞字。
 - 实测：不带参数一键装上 v0.5.1（`sunshine version` = 0.5.1）；v0.5.0 原版二进制（从 Release 下载，沙箱 /usr/local/bin 在 VM 更换后已清空属预期）upgrade --dry-run 查到 v0.5.1（下载地址指向 v0.5.1 linux amd64，试运行未做修改）；darwin arm64 包 checksum OK（`c9f72742…`，Mach-O arm64）。
 - 其后 PLAN.md 发布记录补提交一笔（远端 SHA 见 GOAL.md）。
+
+## v0.5.2 发布记录（2026-11-12）
+- 主提交远端 `871e99a`（本地 `158233e`，3 个文件：init 提问支持干净退出——Ctrl+C（survey terminal.InterruptErr）或选“退出”时打印“初始化已取消。”、退出码 0，不留文件；项目类型与模板选单加“退出（取消初始化）”选项，平台多选提示语加“按 Ctrl+C 取消”；`internal/cli/init.go`（isInitCancelled/handleInitErr/parseProjectTypeChoice，提问出错或 EOF 仍静默默认全栈）+ `init_template.go`（两处选单加退出）+ 新测试 `init_cancel_test.go`（7 个测试）），tag 对象 `65611487`，Release：https://github.com/BondLam/Sunshine/releases/tag/v0.5.2，6 个资产；发布 run 43197861154、两路 CI（43197861186、43197804522）均 success 无抖动。本版同时含用户名改名（远端 `d13c50a`：全仓 141 个文件 linrong1982 → BondLam，go.mod、全部 import、.goreleaser.yaml、install.sh、README、教程、PLAN.md；install.sh 查最新版改走跟随全部跳转取最终地址）。
+- 验证：go build/vet/gofmt 全过；go test ./... 20 个包全过（含新单测：中断/退出判别、干净退出、选项映射、提问取消、模板选单退出）；伪终端真实验证 5 路全过（平台多选/模板选单/项目类型三处 Ctrl+C 均干净取消退出码 0、不留文件；项目类型选“退出”取消；正常选全栈完成 init）。
+- 实测：不带参数一键装上 v0.5.2（`sunshine version` = 0.5.2）；v0.5.1 原版二进制 upgrade --dry-run 查到 v0.5.2（下载地址指向 v0.5.2 linux amd64，试运行未做修改；第一次撞上 GitHub API 匿名限流 403，10 分钟后重试通过；v0.5.1 旧二进制报错里的下载链接仍是旧用户名，是旧二进制内嵌的，新版已是 BondLam）；darwin arm64 包 checksum OK（`b77826f0…`，Mach-O arm64）；`go install github.com/BondLam/Sunshine/cmd/sunshine@v0.5.2` 与 `@latest` 均通（@latest 初次因本地模块缓存的版本列表滞后指到 v0.5.1，清缓存后通）。
+- 其后 PLAN.md 发布记录补提交一笔（远端 SHA 见 GOAL.md）。
