@@ -2432,3 +2432,8 @@ pre-commit install       # 在仓库根目录执行一次
 - 验证：go build/vet/gofmt 全过；go test ./... 20 个包全过；node --check app.js 过；jsdom 真实渲染验证（有数据/空项目两路）控制台零报错；真实浏览器截图仍做不了（沙箱无 Chromium、云端浏览器够不到沙箱 localhost），纸色观感待用户 Mac 实测。
 - 实测：不带参数一键装上 v0.4.3（`sunshine version` = 0.4.3）；v0.4.2 原版二进制 upgrade --dry-run 查到 v0.4.3（下载地址指向 v0.4.3 linux amd64，试运行未做修改）；darwin arm64 包 checksum OK（`61989360…`，Mach-O arm64）。
 - 其后 PLAN.md 发布记录补提交一笔（远端 SHA 见 GOAL.md）。
+
+## v0.4.4：卡片顶边改六色循环（2026-11-12，用户问“卡片就只有两种颜色吗”）
+- 背景：v0.4.3 卡片顶边只在品红/金两色间交替，用户问是不是只有两种颜色。基准文件 `~/workspace/your_files/wanbiao-guiyi-original-style.html` 本身用六色循环（`const palette = ['#7c3aed','#1d4ed8','#0f766e','#c2410c','#be185d','#b8860b']`，各 stage 按文档顺序轮换），serve 只取了其中两色。
+- 做法：9 张指标卡 + 13 个 section 按文档顺序轮换六色（紫 #7c3aed、蓝 #1d4ed8、青 #0f766e、橙 #c2410c、品红 #be185d、金 #b8860b），新增 panel-purple/blue/teal/orange 与 metric-purple/blue/teal/orange 八个类（style.css，色值照基准 palette）；数据逻辑、布局、其它样式不动。
+- 验证：go 全量 + node --check + jsdom 两路渲染（控制台零报错）；用户 Mac 实测后发版（发版另等用户指令）。

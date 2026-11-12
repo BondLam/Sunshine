@@ -247,6 +247,10 @@ func TestOpsDashboardLayout(t *testing.T) {
 		`bg-paper`,
 		`panel-magenta`,
 		`panel-gold`,
+		`panel-purple`,
+		`panel-blue`,
+		`panel-teal`,
+		`panel-orange`,
 	} {
 		if !strings.Contains(body, marker) {
 			t.Fatalf("首页缺少大屏标记 %q", marker)

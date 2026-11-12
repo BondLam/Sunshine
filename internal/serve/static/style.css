@@ -37,6 +37,10 @@ code, .mono { font-family: "JetBrains Mono", ui-monospace, "SF Mono", SFMono-Reg
 }
 section.panel-magenta, div.metric-magenta { border-top: 5px solid #be185d; }
 section.panel-gold, div.metric-gold { border-top: 5px solid #b8860b; }
+section.panel-purple, div.metric-purple { border-top: 5px solid #7c3aed; }
+section.panel-blue, div.metric-blue { border-top: 5px solid #1d4ed8; }
+section.panel-teal, div.metric-teal { border-top: 5px solid #0f766e; }
+section.panel-orange, div.metric-orange { border-top: 5px solid #c2410c; }
 
 /* ---------- 心跳灯 ---------- */
 .heartbeat .dot {

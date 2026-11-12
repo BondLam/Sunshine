@@ -78,22 +78,22 @@
 
   <!-- 指标卡片行（原 stat-row 四卡片并入，不重复展示） -->
   <div class="metric-row grid grid-cols-2 md:grid-cols-3 xl:grid-cols-10 gap-3">
-    <div class="metric  metric-magenta wide xl:col-span-2 bg-surface border border-line rounded-[14px] px-4 py-3 min-w-0">
+    <div class="metric  metric-purple wide xl:col-span-2 bg-surface border border-line rounded-[14px] px-4 py-3 min-w-0">
       <div class="label text-xs text-ink-700">当前任务</div>
       <div class="value text font-sans text-base font-semibold text-ink-950 truncate" x-text="currentTaskTitle()"></div>
       <div class="sub text-xs text-ink-600" x-text="currentTaskLine()"></div>
     </div>
-    <div class="metric  metric-gold bg-surface border border-line rounded-[14px] px-4 py-3 min-w-0">
+    <div class="metric  metric-blue bg-surface border border-line rounded-[14px] px-4 py-3 min-w-0">
       <div class="label text-xs text-ink-700">活动任务</div>
       <div class="value font-mono text-2xl leading-tight text-ink-950" x-text="tasks.length ? tasks.length : '—'"></div>
       <div class="sub text-xs text-ink-600">子任务进度见任务总览</div>
     </div>
-    <div class="metric  metric-magenta bg-surface border border-line rounded-[14px] px-4 py-3 min-w-0">
+    <div class="metric  metric-teal bg-surface border border-line rounded-[14px] px-4 py-3 min-w-0">
       <div class="label text-xs text-ink-700">运行中 Worker</div>
       <div class="value font-mono text-2xl leading-tight text-ink-950" x-text="runningWorkers()"></div>
       <div class="sub text-xs text-ink-600" x-text="workers.length ? ('共 ' + workers.length + ' 个 worker') : '暂无 worker 数据'"></div>
     </div>
-    <div class="metric  metric-gold bg-surface border border-line rounded-[14px] px-4 py-3 min-w-0">
+    <div class="metric  metric-orange bg-surface border border-line rounded-[14px] px-4 py-3 min-w-0">
       <div class="label text-xs text-ink-700">Channel 事件总数</div>
       <div class="value font-mono text-2xl leading-tight text-ink-950" x-text="totalEvents()"></div>
       <div class="sub text-xs text-ink-600" x-text="channels.length ? ('共 ' + channels.length + ' 个 channel') : '暂无 channel'"></div>
@@ -108,17 +108,17 @@
       <div class="value font-mono text-2xl leading-tight text-ink-950" x-text="archivedCount === null ? '—' : archivedCount"></div>
       <div class="sub text-xs text-ink-600">按月归档汇总</div>
     </div>
-    <div class="metric  metric-magenta bg-surface border border-line rounded-[14px] px-4 py-3 min-w-0">
+    <div class="metric  metric-purple bg-surface border border-line rounded-[14px] px-4 py-3 min-w-0">
       <div class="label text-xs text-ink-700">健康漂移</div>
       <div class="value small font-mono text-lg leading-relaxed text-ink-950" x-text="healthDriftText()"></div>
       <div class="sub text-xs text-ink-600">新增 / 可更新 / 已修改</div>
     </div>
-    <div class="metric  metric-gold bg-surface border border-line rounded-[14px] px-4 py-3 min-w-0">
+    <div class="metric  metric-blue bg-surface border border-line rounded-[14px] px-4 py-3 min-w-0">
       <div class="label text-xs text-ink-700">版本</div>
       <div class="value font-mono text-2xl leading-tight text-ink-950" x-text="(status && status.cli_version) || versionInfo.cli_version || '—'"></div>
       <div class="sub text-xs text-ink-600" x-text="'项目 ' + ((status && status.project_version) || '—') + ' · 最新 ' + ((status && status.latest_version) || '—')"></div>
     </div>
-    <div class="metric  metric-magenta spark bg-surface border border-line rounded-[14px] px-4 py-3 min-w-0">
+    <div class="metric  metric-teal spark bg-surface border border-line rounded-[14px] px-4 py-3 min-w-0">
       <div class="label text-xs text-ink-700">信号速率 <span class="mono" x-text="signalRateText()"></span></div>
       <canvas id="spark-canvas" x-ref="sparkCanvas"></canvas>
       <div class="sub text-xs text-ink-600">最近 60 秒，每秒事件数</div>
@@ -127,7 +127,7 @@
 
   <!-- 智能体团 + 信号流 -->
   <div class="grid grid-cols-1 lg:grid-cols-12 gap-4">
-    <section class="panel  panel-magenta lg:col-span-4 bg-surface border border-line rounded-[14px] px-4 py-3.5 min-w-0" id="cluster">
+    <section class="panel  panel-orange lg:col-span-4 bg-surface border border-line rounded-[14px] px-4 py-3.5 min-w-0" id="cluster">
       <h2 class="font-serif text-[15px] font-bold text-ink-950 m-0 mb-1">智能体团</h2>
       <p class="source text-xs text-ink-600 m-0 mb-2.5">数据源：所选 channel 的 worker 状态 + 当前任务。无 worker 时显示待命，不假装在跑。</p>
       <ul class="cluster-list list-none m-0 p-0">
@@ -146,7 +146,7 @@
       <p class="note text-xs text-ink-700 mt-1.5" x-show="!selectedChannel">未选 channel：全部待命，先在下方 Channel 列表里选一个。</p>
     </section>
 
-    <section class="panel  panel-gold lg:col-span-8 bg-surface border border-line rounded-[14px] px-4 py-3.5 min-w-0" id="signal-feed">
+    <section class="panel  panel-magenta lg:col-span-8 bg-surface border border-line rounded-[14px] px-4 py-3.5 min-w-0" id="signal-feed">
       <h2 class="font-serif text-[15px] font-bold text-ink-950 m-0 mb-1">信号流</h2>
       <p class="source text-xs text-ink-600 m-0 mb-2.5">数据源：channel 事件与服务端文件变化（mtime）合并，按时间倒序，最近 30 条。mtime 条目只含本服务启动后检测到的变化。角色按 worker 名映射，文件变化记为“文件”。</p>
       <div class="error" x-show="errors.activity" x-text="errors.activity"></div>
@@ -164,7 +164,7 @@
   </div>
 
   <!-- 活动热力 -->
-  <section class="panel  panel-magenta bg-surface border border-line rounded-[14px] px-4 py-3.5 min-w-0" id="heatmap">
+  <section class="panel  panel-gold bg-surface border border-line rounded-[14px] px-4 py-3.5 min-w-0" id="heatmap">
     <h2 class="font-serif text-[15px] font-bold text-ink-950 m-0 mb-1">活动热力</h2>
     <p class="source text-xs text-ink-600 m-0 mb-2.5">数据源：所选 channel 的事件流 + 其它 channel 的最近活动。行 = 5 个角色，列 = 最近 30 秒、每 2.5 秒一格，格值 = 该角色该时间段的 channel 事件数；mtime 文件变化不计入。token 列不做（无 token 数据）。</p>
     <div class="heat-wrap flex gap-2 items-stretch">
@@ -184,7 +184,7 @@
   <div class="grid grid-cols-1 lg:grid-cols-12 gap-3.5">
 
     <!-- 任务总览 -->
-    <section class="panel  panel-gold col-span-12 lg:col-span-6 bg-surface border border-line rounded-[14px] px-4 py-3.5 min-w-0" id="tasks">
+    <section class="panel  panel-purple col-span-12 lg:col-span-6 bg-surface border border-line rounded-[14px] px-4 py-3.5 min-w-0" id="tasks">
       <h2 class="font-serif text-[15px] font-bold text-ink-950 m-0 mb-1">任务总览</h2>
       <p class="source text-xs text-ink-600 m-0 mb-2.5">数据源：活动任务列表。子任务进度按 ChildrenProgress 口径：归档子女算完成。</p>
       <div class="error" x-show="errors.tasks" x-text="errors.tasks"></div>
@@ -249,7 +249,7 @@
     </section>
 
     <!-- 任务详情 -->
-    <section class="panel  panel-magenta col-span-12 lg:col-span-6 bg-surface border border-line rounded-[14px] px-4 py-3.5 min-w-0" id="task-detail">
+    <section class="panel  panel-blue col-span-12 lg:col-span-6 bg-surface border border-line rounded-[14px] px-4 py-3.5 min-w-0" id="task-detail">
       <h2 class="font-serif text-[15px] font-bold text-ink-950 m-0 mb-1">任务详情</h2>
       <p class="source text-xs text-ink-600 m-0 mb-2.5">点左侧任务进入；24 个字段全文、prd.md、上下文清单、子任务、归档提交。</p>
       <div class="error" x-show="errors.taskDetail" x-text="errors.taskDetail"></div>
@@ -335,7 +335,7 @@
     </section>
 
     <!-- Channel 列表 -->
-    <section class="panel  panel-gold col-span-12 lg:col-span-6 bg-surface border border-line rounded-[14px] px-4 py-3.5 min-w-0" id="channels">
+    <section class="panel  panel-teal col-span-12 lg:col-span-6 bg-surface border border-line rounded-[14px] px-4 py-3.5 min-w-0" id="channels">
       <h2 class="font-serif text-[15px] font-bold text-ink-950 m-0 mb-1">Channel 列表</h2>
       <p class="source text-xs text-ink-600 m-0 mb-2.5">数据源：channel 列表。点一个 channel 查看事件流、worker 与 forum。</p>
       <div class="error" x-show="errors.channels" x-text="errors.channels"></div>
@@ -359,7 +359,7 @@
     </section>
 
     <!-- Channel 事件流 -->
-    <section class="panel  panel-magenta col-span-12 lg:col-span-6 bg-surface border border-line rounded-[14px] px-4 py-3.5 min-w-0" id="channel-events">
+    <section class="panel  panel-orange col-span-12 lg:col-span-6 bg-surface border border-line rounded-[14px] px-4 py-3.5 min-w-0" id="channel-events">
       <h2 class="font-serif text-[15px] font-bold text-ink-950 m-0 mb-1">Channel 事件流</h2>
       <p class="source text-xs text-ink-600 m-0 mb-2.5">数据源：事件流，按 seq 升序，轮询增量拉取。可按 kind / 作者过滤，可看原始 JSON。</p>
       <div class="toolbar" x-show="selectedChannel">
@@ -397,7 +397,7 @@
     </section>
 
     <!-- Worker 状态 + 日志尾部 -->
-    <section class="panel  panel-gold col-span-12 bg-surface border border-line rounded-[14px] px-4 py-3.5 min-w-0" id="workers">
+    <section class="panel  panel-magenta col-span-12 bg-surface border border-line rounded-[14px] px-4 py-3.5 min-w-0" id="workers">
       <h2 class="font-serif text-[15px] font-bold text-ink-950 m-0 mb-1">Worker 状态与日志尾部</h2>
       <p class="source text-xs text-ink-600 m-0 mb-2.5">数据源：worker 状态投影 + 本机 pid 探活；日志为 worker 的 stdout/stderr 原行尾部。日志尾部自动跟到底（仅当你没向上滚动时）。</p>
       <div class="error" x-show="errors.workers" x-text="errors.workers"></div>
@@ -441,7 +441,7 @@
     </section>
 
     <!-- Forum 看板 -->
-    <section class="panel  panel-magenta col-span-12 lg:col-span-6 bg-surface border border-line rounded-[14px] px-4 py-3.5 min-w-0" id="forum">
+    <section class="panel  panel-gold col-span-12 lg:col-span-6 bg-surface border border-line rounded-[14px] px-4 py-3.5 min-w-0" id="forum">
       <h2 class="font-serif text-[15px] font-bold text-ink-950 m-0 mb-1">Forum 看板</h2>
       <p class="source text-xs text-ink-600 m-0 mb-2.5">数据源：forum thread 列表（按更新倒序）与单个 thread 时间线。</p>
       <div class="error" x-show="errors.threads" x-text="errors.threads"></div>
@@ -477,7 +477,7 @@
     </section>
 
     <!-- 会话 / 记忆 -->
-    <section class="panel  panel-gold col-span-12 lg:col-span-6 bg-surface border border-line rounded-[14px] px-4 py-3.5 min-w-0" id="memory">
+    <section class="panel  panel-purple col-span-12 lg:col-span-6 bg-surface border border-line rounded-[14px] px-4 py-3.5 min-w-0" id="memory">
       <h2 class="font-serif text-[15px] font-bold text-ink-950 m-0 mb-1">会话 / 记忆</h2>
       <p class="source text-xs text-ink-600 m-0 mb-2.5">数据源：各平台会话文件经 mem 适配器读出。MemSessionInfo 只有 8 个字段，没有模型名、没有消息数、没有 token。</p>
       <div class="toolbar">
@@ -525,7 +525,7 @@
     </section>
 
     <!-- 项目健康 -->
-    <section class="panel  panel-magenta col-span-12 lg:col-span-6 bg-surface border border-line rounded-[14px] px-4 py-3.5 min-w-0" id="health">
+    <section class="panel  panel-blue col-span-12 lg:col-span-6 bg-surface border border-line rounded-[14px] px-4 py-3.5 min-w-0" id="health">
       <h2 class="font-serif text-[15px] font-bold text-ink-950 m-0 mb-1">项目健康</h2>
       <p class="source text-xs text-ink-600 m-0 mb-2.5">数据源：模板漂移分析（AnalyzeChanges）+ 版本三方比对 + 孤儿清单键数 + 遗漏迁移提示。只读，不写盘。</p>
       <div class="error" x-show="errors.health" x-text="errors.health"></div>
@@ -559,7 +559,7 @@
     </section>
 
     <!-- 设计文档 -->
-    <section class="panel  panel-gold col-span-12 lg:col-span-6 bg-surface border border-line rounded-[14px] px-4 py-3.5 min-w-0" id="design">
+    <section class="panel  panel-teal col-span-12 lg:col-span-6 bg-surface border border-line rounded-[14px] px-4 py-3.5 min-w-0" id="design">
       <h2 class="font-serif text-[15px] font-bold text-ink-950 m-0 mb-1">设计文档</h2>
       <p class="source text-xs text-ink-600 m-0 mb-2.5">数据源：项目 doc/ 下三份设计文档是否存在 + 启发式计数。启发式计数，仅供参考。</p>
       <div class="error" x-show="errors.design" x-text="errors.design"></div>
@@ -584,7 +584,7 @@
     </section>
 
     <!-- Journal -->
-    <section class="panel  panel-magenta col-span-12 bg-surface border border-line rounded-[14px] px-4 py-3.5 min-w-0" id="journal">
+    <section class="panel  panel-orange col-span-12 bg-surface border border-line rounded-[14px] px-4 py-3.5 min-w-0" id="journal">
       <h2 class="font-serif text-[15px] font-bold text-ink-950 m-0 mb-1">Journal</h2>
       <p class="source text-xs text-ink-600 m-0 mb-2.5">数据源：开发者 journal 文件列表与文本。条目无统一结构化时间戳，不做时间线解析。</p>
       <div class="error" x-show="errors.journal" x-text="errors.journal"></div>
