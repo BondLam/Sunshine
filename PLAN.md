@@ -2389,3 +2389,10 @@ pre-commit install       # 在仓库根目录执行一次
 - 主提交远端 `f13a297`（本地 `9adf802`，18 个文件：只读观测后台 `sunshine serve` v1——Gin v1.12.0 + vendored Alpine.js v3.17.5，深色霓虹；18 个 GET 端点 + `/api/activity`；默认 127.0.0.1:17890；hero 区 Canvas 2D 虚拟智能体动画），tag 对象 `d0aa1ce`，Release：https://github.com/linrong1982/Sunshine/releases/tag/v0.4.0，6 个资产；发布 run 43142479526、两路 CI（43142479484、43142456389）均 success 无抖动。
 - 实测：不带参数一键装上 v0.4.0（`sunshine version` = 0.4.0）；v0.3.11 原版二进制 upgrade --dry-run 查到 v0.4.0（下载地址指向 v0.4.0 linux amd64，试运行未做修改）；darwin arm64 包 checksum OK（`f016f017…`，Mach-O arm64）。
 - 其后 PLAN.md 发布记录补提交一笔（远端 SHA 见 GOAL.md）。
+
+## v0.4.1 发布记录（2026-11-12）
+- 主提交远端 `6f37de0`（本地 `fc7b7b5`，5 个文件）：修 serve 前端无数据——Alpine 在自身脚本执行完后经 queueMicrotask 立即启动并派发 alpine:init，而 app.js/hero.js 排在 alpine.min.js 之后，serveApp 注册不上，控制台报 serveApp is not defined、页面全是 —；改法是把 app.js/hero.js 移到 alpine.min.js 前面执行（defer 顺序保证）。另：errors.status 加可见横条（此前失败时无任何显示）；hero 待机加亮（轨道/星点/核心辉光 + 待命节点描边）；hero-caption 移到页脚；journal 工具栏 x-for 在 journal 为 null 时报 TypeError（x-show 不阻止求值）改成守卫表达式，另修 journal 文件按钮显示 [object Object]（files 是 {name, path} 对象，改取 f.name，loadJournal 存名字符串）。
+- 验证：go build/vet/gofmt 全过；go test ./... 19 个包全过（新增 script 顺序回归断言 TestIndexAndStatic）；node --check 三个 JS 文件全过；**新增 jsdom 真实渲染验证**（`~/workspace/.jsdom-test/render-test.mjs`）：有数据项目与空项目两路，顶栏/时钟/心跳/任务全部填上，控制台零报错（jsdom 下 canvas getContext 不可用走 heroFallback 静态卡片，是设计的降级）；验证中发现 /tmp tmpfs 曾满（多个 49MB 的 go test 临时二进制 + 73MB 验证目录），已清理。教训：go test 临时二进制落 /tmp，大批量跑测试前后注意 /tmp 空间；`pkill -f` 的模式若出现在自己的命令行里会杀掉自己的 shell，停 serve 进程改按 PID kill。
+- tag 对象 `9402cd8`，Release：https://github.com/linrong1982/Sunshine/releases/tag/v0.4.1，6 个资产；发布 run 43146603139、两路 CI（43146603248、43146525334）均 success 无抖动。
+- 实测：不带参数一键装上 v0.4.1（`sunshine version` = 0.4.1）；v0.4.0 原版二进制 upgrade --dry-run 查到 v0.4.1（下载地址指向 v0.4.1 linux amd64，试运行未做修改）；darwin arm64 包 checksum OK（`0467c52f…`，Mach-O arm64；Linux 下执行 darwin 二进制报 Exec format error 属正常）。
+- 其后 PLAN.md 发布记录补提交一笔（远端 SHA 见 GOAL.md）。
