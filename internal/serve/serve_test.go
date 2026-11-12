@@ -244,7 +244,9 @@ func TestOpsDashboardLayout(t *testing.T) {
 		`归档任务`,
 		`健康漂移`,
 		`cdn.tailwindcss.com`,
-		`bg-slate-900`,
+		`bg-paper`,
+		`panel-magenta`,
+		`panel-gold`,
 	} {
 		if !strings.Contains(body, marker) {
 			t.Fatalf("首页缺少大屏标记 %q", marker)

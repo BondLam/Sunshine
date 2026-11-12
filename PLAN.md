@@ -2420,3 +2420,9 @@ pre-commit install       # 在仓库根目录执行一次
 - 验证：go build/vet/gofmt 全过；go test ./... 20 个包全过；node --check app.js 过；jsdom 真实渲染验证（有数据/空项目两路）控制台零报错（Tailwind CDN 在 jsdom 里正常加载到）；云端浏览器打不开沙箱 localhost 做真实截图（预期：serve 只绑 127.0.0.1、无隧道），最终观感待用户 Mac 实测。
 - 实测：不带参数一键装上 v0.4.2（`sunshine version` = 0.4.2）；v0.4.1 原版二进制 upgrade --dry-run 查到 v0.4.2（下载地址指向 v0.4.2 linux amd64，试运行未做修改）；darwin arm64 包 checksum OK（`77aa316f…`，Mach-O arm64）。
 - 其后 PLAN.md 发布记录补提交一笔（远端 SHA 见 GOAL.md）。
+
+## v0.4.3：serve 改万表归一纸色风格（2026-11-12，用户定）
+- 背景：v0.4.2 刚发深色卡片版，用户看后定不要暗黑风格，改用原来 Tailwind 方案里的风格（即《万表归一原站风格版》：基准文件 `~/workspace/your_files/wanbiao-guiyi-original-style.html`，Tailwind Play + 原站内联设计系统 token，纸色 #f7f4ee、墨色、衬线标题），卡片也用这种风格。深色霓虹仅限后台大屏的例外就此取消。
+- 做法（只换视觉，数据逻辑不动）：① 页面底色改纸色，卡片改白底/米白底 + 彩色顶边（品红/金色，照基准文件的卡片样式），标题改衬线体，正文墨色/灰色——具体 token 以基准文件为准，不要凭印象编色值；② 状态灯、徽标、热力格、火花线配色改成与纸色协调的版本（热力格/火花线原来是 slate/blue，要换成纸色底上看得清的配色）；③ Tailwind Play CDN 保留；④ 详情面板、错误横条、页脚文案、全部 Alpine 绑定与数据逻辑原样不动。
+- 不做：中央星环/轨道升级、token 面板、巡检蛛、任何模拟数据；不改布局结构（只换配色与字体）。
+- 验证：go 全量 + node --check + jsdom 两路渲染（控制台零报错）；用户 Mac 实测后发版（发版另等用户指令）。
