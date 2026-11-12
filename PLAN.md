@@ -2396,3 +2396,21 @@ pre-commit install       # 在仓库根目录执行一次
 - tag 对象 `9402cd8`，Release：https://github.com/linrong1982/Sunshine/releases/tag/v0.4.1，6 个资产；发布 run 43146603139、两路 CI（43146603248、43146525334）均 success 无抖动。
 - 实测：不带参数一键装上 v0.4.1（`sunshine version` = 0.4.1）；v0.4.0 原版二进制 upgrade --dry-run 查到 v0.4.1（下载地址指向 v0.4.1 linux amd64，试运行未做修改）；darwin arm64 包 checksum OK（`0467c52f…`，Mach-O arm64；Linux 下执行 darwin 二进制报 Exec format error 属正常）。
 - 其后 PLAN.md 发布记录补提交一笔（远端 SHA 见 GOAL.md）。
+
+## v0.4.2：agent-display 风格大屏（实施说明，2026-11-12，用户已批“中央轨道升级暂缓、先做其它显示”）
+- 目标：按 agent-display THEME 03（NEURAL RING，源码在 `~/workspace/research/agent-display`，只借鉴思路、不复制代码）的布局与 HUD 语言重做 serve 大屏，数据全部真实，绝不填模拟数据。
+- 布局（上 → 下）：顶栏（现有字段 + 新增 LAST SIGNAL：最近一次真实事件的文本与时间，取 /api/activity 首条）→ 三列：左智能体团列表 / 中现有 hero（本版不动）/ 右热力格 + 信号流 → 底部大指标行 → 下方保留现有全部详情面板（任务总览/详情、Channel 列表/事件流、mem、健康、设计、journal），不删功能、不重数据。
+- 左智能体团：5 个角色（implement/check/research/prototype/主会话），每行状态灯（worker 真实状态）+ 当前任务行（/api/channels/:name/workers + /api/tasks/current；无 worker 时显示待命，不假装在跑）。
+- 右热力格：Canvas 2D，行 = 5 个角色，列 = 最近 30 秒、每 2.5 秒一格（12 列），格值 = 该角色该时间段的 channel 事件数（/api/activity + channel events；事件到角色的映射复用 hero.js 的 roleOfWorkerName）；token 列不做（无数据）。
+- 右信号流：即现有最近活动（/api/activity），移入右列，样式按 SIGNAL FEED（时间 + 角色 + 文本），不另建数据源。
+- 底部大指标行：大号等宽数字 + 标签 + 信号速率火花线（Canvas 2D，取最近活动时间戳算每秒事件数，60 点）：活动任务数、运行中 worker、channel 事件总数、今日活动、归档任务数、健康漂移（added/updatable/modified）、版本三方（项目版/CLI 版/最新版）。token/成本两格不做（无数据）。原 stat-row 四卡片并入底部指标行，不重复展示。
+- 中央暂缓（本版不做，记在这里）：轨道智能体系统升级——能量环（72 格）+ 文字带 + 更丰富的事件脉冲，复用 hero.js 结构，难度中等（约 1–2 天），等其它显示落地、用户看过效果后再定。hero.js 本版不动（v0.4.1 的待机加亮保留）。
+- 不做：token 相关面板、CRAWLER 巡检蛛、任何模拟数据填充；three.js 不引入（Canvas 2D 已够，调研结论见 MEMORY.md）。
+- 验证：go build/vet/gofmt + go test ./... 全过；jsdom 真实渲染验证（有数据/空项目两路，顶栏/左列/热力格/信号流/底部指标全部填上，控制台零报错；布局变了要同步改 render-test.mjs 的选择器）；用户 Mac 实测后发版（发版另等用户指令）。
+- 顺序原则（用户 2026-11-12）：不照搬 agent-display，按由易到难做——先信号流/LAST SIGNAL/左列/底部指标/热力格这些容易的，布局不必死抠三列对齐，简单好用优先。
+
+## v0.4.2（改向）：Tailwind 卡片运维仪表盘（2026-11-12，用户叫停 agent-display 方向后定）
+- 背景：agent-display 风格大屏的协调人实现已完成、我独立验证通过（go 全量 19 包、node --check、jsdom 有数据/空项目两路控制台零报错），但用户说太久、暂时不做；且用户 Mac 实测 v0.4.1 截图显示当前版 hero 画布很丑（中央大青色光斑盖住一半画面、轨道节点标签糊成白块）。决定：精美版以后再做，本版改成普通 Tailwind + 卡片的运维仪表盘。
+- 做法（在已验证的 v0.4.2 面板逻辑上改样式，不推倒重做）：① hero 画布整块去掉（hero.js 不再加载，serve_test.go 的 script 顺序断言同步改）；② 页面改 Tailwind Play CDN + 卡片布局：深色底、实体卡片、无辉光无渐变，顶部状态栏 + 指标卡片行 + 左智能体团/右信号流 + 热力格 + 下方原有详情面板（任务总览/详情、Channel、mem、健康、设计、journal 全部保留）；③ 保留已验证的面板数据逻辑（LAST SIGNAL、智能体团 5 行、热力格 5×12、信号流、底部 9 格指标、归档数与 API 对照）；④ Tailwind Play CDN 需联网（浏览器端加载），离线可用以后再处理。
+- 不做：中央星环/轨道升级、token 面板、巡检蛛、任何模拟数据。
+- 验证：go 全量 + node --check + jsdom 两路渲染（控制台零报错）；用户 Mac 实测后发版（发版另等用户指令）。

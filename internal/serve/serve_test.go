@@ -197,22 +197,77 @@ func TestIndexAndStatic(t *testing.T) {
 	}
 	// 回归 v0.4.0：script 顺序决定 serveApp 能否注册。
 	// Alpine 在自身脚本执行完后经 queueMicrotask 立即启动并派发 alpine:init；
-	// app.js/hero.js 必须排在 alpine.min.js 前面执行，否则组件注册不上、
+	// app.js 必须排在 alpine.min.js 前面执行，否则组件注册不上、
 	// 浏览器控制台报 serveApp is not defined、页面全是 —。
-	posHero := strings.Index(indexBody, "/static/hero.js")
+	// v0.4.2 改向：hero 画布已去掉，hero.js 不再加载。
 	posApp := strings.Index(indexBody, "/static/app.js")
 	posAlpine := strings.Index(indexBody, "/static/alpine.min.js")
-	if posHero < 0 || posApp < 0 || posAlpine < 0 {
-		t.Fatalf("首页缺 script：hero=%d app=%d alpine=%d", posHero, posApp, posAlpine)
+	if posApp < 0 || posAlpine < 0 {
+		t.Fatalf("首页缺 script：app=%d alpine=%d", posApp, posAlpine)
 	}
-	if !(posHero < posAlpine && posApp < posAlpine) {
-		t.Fatalf("script 顺序错：hero.js 与 app.js 必须在 alpine.min.js 之前（hero=%d app=%d alpine=%d）", posHero, posApp, posAlpine)
+	if !(posApp < posAlpine) {
+		t.Fatalf("script 顺序错：app.js 必须在 alpine.min.js 之前（app=%d alpine=%d）", posApp, posAlpine)
 	}
-	for _, path := range []string{"/static/app.js", "/static/hero.js", "/static/style.css", "/static/alpine.min.js"} {
+	if strings.Contains(indexBody, "/static/hero.js") || strings.Contains(indexBody, "hero-canvas") {
+		t.Fatalf("首页仍引用已去掉的 hero 画布")
+	}
+	if !strings.Contains(indexBody, "cdn.tailwindcss.com") {
+		t.Fatalf("首页缺少 Tailwind Play CDN")
+	}
+	for _, path := range []string{"/static/app.js", "/static/style.css", "/static/alpine.min.js"} {
 		w := p.get(t, path)
 		if w.Code != http.StatusOK {
 			t.Fatalf("GET %s 状态码 = %d", path, w.Code)
 		}
+	}
+}
+
+// v0.4.2 大屏布局（改向后 Tailwind 卡片版）：顶栏 LAST SIGNAL、智能体团、
+// 热力格、信号流、底部大指标行；旧 stat-row 已并入底部指标行，不再出现；
+// hero 画布已去掉，样式走 Tailwind Play CDN。
+func TestOpsDashboardLayout(t *testing.T) {
+	p := newTestProject(t)
+	w := p.get(t, "/")
+	if w.Code != http.StatusOK {
+		t.Fatalf("GET / 状态码 = %d", w.Code)
+	}
+	body := w.Body.String()
+	for _, marker := range []string{
+		`last-signal`,
+		`id="cluster"`,
+		`id="heatmap"`,
+		`id="heat-canvas"`,
+		`id="signal-feed"`,
+		`信号流`,
+		`metric-row`,
+		`id="spark-canvas"`,
+		`归档任务`,
+		`健康漂移`,
+		`cdn.tailwindcss.com`,
+		`bg-slate-900`,
+	} {
+		if !strings.Contains(body, marker) {
+			t.Fatalf("首页缺少大屏标记 %q", marker)
+		}
+	}
+	if strings.Contains(body, `class="stat-row"`) || strings.Contains(body, "stat-card") {
+		t.Fatalf("首页仍含已废弃的 stat-row/stat-card（应并入底部大指标行）")
+	}
+	if strings.Contains(body, "/static/hero.js") || strings.Contains(body, "hero-canvas") || strings.Contains(body, `class="ops-row"`) {
+		t.Fatalf("首页仍含已去掉的 hero 画布或旧 ops-row 布局")
+	}
+	// 热力格与状态灯的补充样式必须存在，否则面板是裸 HTML
+	css := p.get(t, "/static/style.css")
+	if css.Code != http.StatusOK {
+		t.Fatalf("GET /static/style.css 状态码 = %d", css.Code)
+	}
+	for _, marker := range []string{".heat-labels", ".lamp", "#heat-canvas", ".mono"} {
+		if !strings.Contains(css.Body.String(), marker) {
+			t.Fatalf("style.css 缺少大屏样式 %q", marker)
+		}
+	}
+	if strings.Contains(css.Body.String(), "text-shadow") || strings.Contains(css.Body.String(), "0 0 8px") || strings.Contains(css.Body.String(), "0 0 12px") {
+		t.Fatalf("style.css 仍含霓虹辉光样式")
 	}
 }
 

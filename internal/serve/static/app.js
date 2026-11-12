@@ -46,6 +46,7 @@
         taskDetail: null,
         taskCommits: null,
         archiveMonths: [],
+        archivedCount: null,
         archiveMonth: '',
         archive: null,
 
@@ -91,7 +92,6 @@
         prevTaskStatus: {},
         prevChannelEvents: {},
 
-        heroFallback: false,
         pollTimer: null,
         clockTimer: null,
 
@@ -106,13 +106,16 @@
           document.addEventListener('fullscreenchange', function () {
             self.isFullscreen = !!document.fullscreenElement;
           });
+          // 窗口尺寸变了重画两块画布（热力格、火花线）
+          window.addEventListener('resize', function () {
+            self.drawHeatmap();
+            self.drawSparkline();
+          });
           // 先拉一次 status 拿到轮询间隔，再启动轮询
           this.fetchStatus().then(function () {
             self.pollAll();
             self.startPolling();
           });
-          // hero 画布初始化（hero.js 提供 window.SunshineHero）
-          this.initHero();
         },
 
         startPolling: function () {
@@ -171,6 +174,7 @@
           this.loadHealth();
           this.loadDesign();
           this.loadJournal();
+          this.loadArchiveSummary();
           if (this.selectedChannel) {
             this.loadEvents(false);
             this.loadWorkers();
@@ -182,7 +186,6 @@
           this.lastPollAt = Date.now();
           this.pollStale = false;
           setTimeout(function () { self.pollStale = (Date.now() - self.lastPollAt) > (self.pollIntervalSec * 1000 + 5000); }, (self.pollIntervalSec * 1000 + 5000));
-          this.pushHeroState();
         },
 
         /* ============ 相对时间 ============ */
@@ -316,6 +319,20 @@
           }).catch(function () { self.archive = []; });
         },
 
+        // 归档任务总数（底部大指标用）：无 month 参数返回各月汇总，顺带补齐月份下拉框
+        loadArchiveSummary: function () {
+          var self = this;
+          this.fetchJson('/api/tasks/archive').then(function (data) {
+            if (!data || !Array.isArray(data.months)) return;
+            var n = 0;
+            data.months.forEach(function (m) {
+              if (typeof m.count === 'number') n += m.count;
+            });
+            self.archivedCount = n;
+            self.archiveMonths = data.months.map(function (m) { return m.month || m; });
+          }).catch(function () { /* 归档接口失败时指标保持 —，不报错 */ });
+        },
+
         /* ============ channel / 事件 ============ */
         loadChannels: function () {
           var self = this;
@@ -380,6 +397,7 @@
             }
             list.forEach(function (e) { self.flash('ev:' + e.seq); });
             self.errors.events = '';
+            self.drawHeatmap();
           }).catch(function (e) { self.errors.events = '事件流失败：' + e.message; });
         },
 
@@ -452,6 +470,58 @@
           if (lc === 'running' || lc === 'active' || act === 'running' || act === 'in_turn' || act === 'working') return 'green';
           if (lc === 'idle' || lc === 'waiting' || act === 'idle') return 'amber';
           return 'gray';
+        },
+
+        // 智能体团：worker 名 → 角色映射
+        roleOfName: function (name) {
+          var lower = String(name || '').toLowerCase();
+          if (lower.indexOf('implement') !== -1) return 'implement';
+          if (lower.indexOf('check') !== -1) return 'check';
+          if (lower.indexOf('research') !== -1) return 'research';
+          if (lower.indexOf('prototype') !== -1) return 'prototype';
+          if (lower.indexOf('main') !== -1) return 'main';
+          return null;
+        },
+        clusterRoles: function () {
+          var self = this;
+          var roles = [
+            { key: 'implement', label: 'implement' },
+            { key: 'check', label: 'check' },
+            { key: 'research', label: 'research' },
+            { key: 'prototype', label: 'prototype' },
+            { key: 'main', label: '主会话' }
+          ];
+          return roles.map(function (r) {
+            var w = null;
+            self.workers.forEach(function (x) {
+              if (self.roleOfName(self.workerName(x)) === r.key) w = x;
+            });
+            if (!w) {
+              return { key: r.key, label: r.label, lamp: 'gray', stateText: '待命', workerName: '—', taskLine: self.clusterTaskLine(r.key) };
+            }
+            return {
+              key: r.key,
+              label: r.label,
+              lamp: self.workerLampClass(w),
+              stateText: self.workerLifecycleText(w),
+              workerName: self.workerName(w),
+              taskLine: self.clusterTaskLine(r.key)
+            };
+          });
+        },
+        // 智能体团当前任务行：优先当前任务标题，其次所选 channel 的 task
+        clusterTaskLine: function (roleKey) {
+          var title = this.currentTaskTitle();
+          if (title && title !== '暂无当前任务') return title;
+          if (this.selectedChannel) {
+            var found = null;
+            var sel = this.selectedChannel;
+            this.channels.forEach(function (c) {
+              if (c.name === sel) found = c;
+            });
+            if (found && found.task) return found.task;
+          }
+          return '—';
         },
 
         selectWorker: function (w) {
@@ -644,12 +714,13 @@
             if (self.lastSeenActivityTs !== null && fresh.length) {
               fresh.forEach(function (e) {
                 self.flash('act:' + e.ts + '|' + e.text);
-                self.pulseHero(e);
               });
             }
             self.lastSeenActivityTs = maxTs;
             self.lastSeenActivityCount = entries.length;
             self.activity.entries = entries;
+            self.drawHeatmap();
+            self.drawSparkline();
           }).catch(function (e) { self.errors.activity = '活动流失败：' + e.message; });
         },
 
@@ -663,25 +734,28 @@
           });
           return n;
         },
-        lastActivityAgo: function () {
-          if (!this.activity.entries.length) return '—';
-          return this.relTime(this.activity.entries[0].ts);
+
+        // 顶栏 LAST SIGNAL：最近一次真实事件的文本与时间
+        lastSignalEntry: function () {
+          return this.activity.entries.length ? this.activity.entries[0] : null;
+        },
+        lastSignalText: function () {
+          var e = this.lastSignalEntry();
+          return e ? (e.text || e.kind || '—') : '—';
+        },
+        lastSignalAgo: function () {
+          var e = this.lastSignalEntry();
+          return e ? this.relTime(e.ts) : '';
         },
 
-        /* ============ hero 联动 ============ */
-        initHero: function () {
-          var self = this;
-          if (!window.SunshineHero) { this.heroFallback = true; return; }
-          var canvas = document.getElementById('hero-canvas');
-          if (!canvas) { this.heroFallback = true; return; }
-          var ok = window.SunshineHero.init(canvas, function () { self.heroFallback = true; });
-          if (!ok) this.heroFallback = true;
+        // 信号流角色：mtime 文件变化记为“文件”，其余按 worker 名映射
+        feedRole: function (e) {
+          if (e && e.source === 'mtime') return '文件';
+          var r = this.workerForEntry(e);
+          return r === 'main' ? '主会话' : r;
         },
-        pulseHero: function (entry) {
-          if (window.SunshineHero && window.SunshineHero.pulse) {
-            window.SunshineHero.pulse(this.workerForEntry(entry));
-          }
-        },
+
+        /* ============ 事件 → 角色映射（信号流与热力格共用） ============ */
         workerForEntry: function (entry) {
           var text = ((entry && entry.text) || '') + ' ' + ((entry && entry.kind) || '');
           var lower = text.toLowerCase();
@@ -691,37 +765,143 @@
           if (lower.indexOf('prototype') !== -1) return 'prototype';
           return 'main';
         },
-        pushHeroState: function () {
-          if (!window.SunshineHero || !window.SunshineHero.setState) return;
-          var now = Date.now();
-          var recent = 0;
+        /* ============ 大屏（v0.4.2）：底部指标 + 热力格 + 火花线 ============ */
+        // 健康漂移：新增 / 可自动更新 / 你已修改（取 healthBuckets 的三格）
+        healthDriftText: function () {
+          if (!this.health) return '—';
+          var buckets = this.healthBuckets();
+          function v(label) {
+            var found = null;
+            buckets.forEach(function (x) { if (x.label === label) found = x.value; });
+            return (typeof found === 'number') ? found : '—';
+          }
+          return v('新增') + ' / ' + v('可自动更新') + ' / ' + v('你已修改');
+        },
+
+        // 信号速率：最近 10 秒事件数 ÷ 10
+        signalRateText: function () {
+          var now = Date.now(), n = 0;
           this.activity.entries.forEach(function (e) {
             var t = toMs(e.ts);
-            if (t !== null && now - t <= 30000) recent++;
+            if (t !== null && now - t <= 10000) n++;
           });
-          window.SunshineHero.setState({
-            workers: this.workers,
-            channelMode: !!(this.selectedChannel && this.events.length),
-            activityRate30s: recent,
-            currentTaskStatus: this.currentTaskStatus(),
-            currentTaskTitle: this.currentTaskTitle(),
-            runningWorkers: (typeof this.runningWorkers() === 'number') ? this.runningWorkers() : 0,
-            todayEvents: this.todayActivityCount(),
-            lastActivityTs: this.activity.entries.length ? this.activity.entries[0].ts : null,
-            nowMs: now
+          return (n / 10).toFixed(1) + ' /秒';
+        },
+
+        // 热力格数据源：所选 channel 的事件流 + 其它 channel 的最近活动（去重）；
+        // mtime 文件变化不计入（不是 channel 事件）
+        heatEvents: function () {
+          var self = this;
+          var out = [];
+          this.events.forEach(function (e) {
+            var t = toMs(e.ts || e.time || e.createdAt);
+            if (t === null) return;
+            out.push({ ts: t, role: self.roleOfName(e.author || e.from || e.by || e.actor) || 'main' });
+          });
+          this.activity.entries.forEach(function (e) {
+            if (e.source !== 'channel') return;
+            var parts = String(e.text || '').split(' ');
+            if (parts.length < 3) return;
+            if (parts[0] === self.selectedChannel) return; // 已在事件流里计过，不重复
+            var t = toMs(e.ts);
+            if (t === null) return;
+            out.push({ ts: t, role: self.roleOfName(parts.slice(2).join(' ')) || 'main' });
+          });
+          return out;
+        },
+
+        // 热力格：5 行角色 × 12 列（最近 30 秒、每 2.5 秒一格），Canvas 2D；
+        // jsdom 下 getContext 不可用时静默返回，不报错
+        drawHeatmap: function () {
+          var canvas = this.$refs.heatCanvas;
+          if (!canvas) return;
+          var ctx = null;
+          try { ctx = canvas.getContext('2d'); } catch (e) { ctx = null; }
+          if (!ctx) return;
+          var dpr = Math.min(window.devicePixelRatio || 1, 2);
+          var w = canvas.clientWidth || 600;
+          var h = 110;
+          canvas.width = Math.round(w * dpr);
+          canvas.height = Math.round(h * dpr);
+          ctx.scale(dpr, dpr);
+          ctx.clearRect(0, 0, w, h);
+          var rows = ['implement', 'check', 'research', 'prototype', 'main'];
+          var cols = 12, bucketMs = 2500, rowH = h / rows.length, colW = w / cols;
+          var now = Date.now();
+          var counts = {};
+          rows.forEach(function (r) {
+            counts[r] = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
+          });
+          this.heatEvents().forEach(function (ev) {
+            var age = now - ev.ts;
+            if (age < 0 || age >= 30000) return;
+            var col = 11 - Math.floor(age / bucketMs);
+            if (col < 0 || col > 11) return;
+            counts[ev.role][col]++;
+          });
+          rows.forEach(function (role, ri) {
+            for (var ci = 0; ci < cols; ci++) {
+              var n = counts[role][ci];
+              var x = ci * colW + 1, y = ri * rowH + 1, cw = colW - 2, ch = rowH - 2;
+              if (n === 0) {
+                ctx.fillStyle = '#1e293b';
+              } else {
+                ctx.fillStyle = 'rgba(59,130,246,' + Math.min(1, 0.3 + n * 0.25).toFixed(2) + ')';
+              }
+              ctx.beginPath();
+              if (ctx.roundRect) ctx.roundRect(x, y, cw, ch, 2); else ctx.rect(x, y, cw, ch);
+              ctx.fill();
+            }
           });
         },
-        currentTaskStatus: function () {
-          if (this.currentTaskInfo && this.currentTaskInfo.current_task && typeof this.currentTaskInfo.current_task === 'object') {
-            return this.currentTaskInfo.current_task.status || '';
-          }
-          var title = this.currentTaskTitle();
-          var found = null;
-          this.tasks.forEach(function (t) {
-            if ((t.title || t.id || t.dir) === title) found = t;
+
+        // 信号速率火花线：最近 60 秒、每秒一格共 60 点，Canvas 2D
+        drawSparkline: function () {
+          var canvas = this.$refs.sparkCanvas;
+          if (!canvas) return;
+          var ctx = null;
+          try { ctx = canvas.getContext('2d'); } catch (e) { ctx = null; }
+          if (!ctx) return;
+          var dpr = Math.min(window.devicePixelRatio || 1, 2);
+          var w = canvas.clientWidth || 300;
+          var h = 44;
+          canvas.width = Math.round(w * dpr);
+          canvas.height = Math.round(h * dpr);
+          ctx.scale(dpr, dpr);
+          var now = Date.now();
+          var buckets = [];
+          for (var i = 0; i < 60; i++) buckets.push(0);
+          this.activity.entries.forEach(function (e) {
+            var t = toMs(e.ts);
+            if (t === null) return;
+            var age = now - t;
+            if (age < 0 || age >= 60000) return;
+            buckets[59 - Math.floor(age / 1000)]++;
           });
-          return found ? (found.status || '') : '';
-        }
+          var max = 1;
+          buckets.forEach(function (b) { if (b > max) max = b; });
+          ctx.clearRect(0, 0, w, h);
+          ctx.strokeStyle = 'rgba(59,130,246,0.25)';
+          ctx.lineWidth = 1;
+          ctx.beginPath();
+          ctx.moveTo(0, h - 0.5);
+          ctx.lineTo(w, h - 0.5);
+          ctx.stroke();
+          var stepX = w / 59;
+          ctx.beginPath();
+          buckets.forEach(function (b, i) {
+            var x = i * stepX, y = h - 3 - (b / max) * (h - 6);
+            if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+          });
+          ctx.strokeStyle = '#60a5fa';
+          ctx.lineWidth = 1.5;
+          ctx.stroke();
+          ctx.lineTo(w, h);
+          ctx.lineTo(0, h);
+          ctx.closePath();
+          ctx.fillStyle = 'rgba(59,130,246,0.15)';
+          ctx.fill();
+        },
       };
     });
   });

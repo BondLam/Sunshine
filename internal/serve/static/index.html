@@ -4,108 +4,159 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Sunshine 观测后台</title>
+<script src="https://cdn.tailwindcss.com"></script>
 <link rel="stylesheet" href="/static/style.css">
 <!-- 顺序有讲究：Alpine 在自身脚本执行完后经 queueMicrotask 立即启动并派发
-     alpine:init；app.js/hero.js 必须排在它前面执行并挂好监听，否则
-     serveApp 注册不上、页面全是 —（v0.4.0 的 bug）。 -->
-<script defer src="/static/hero.js"></script>
+     alpine:init；app.js 必须排在它前面执行并挂好监听，否则
+     serveApp 注册不上、页面全是 —（v0.4.0 的 bug）。
+     v0.4.2 改向：hero 画布已去掉，hero.js 不再加载。 -->
 <script defer src="/static/app.js"></script>
 <script defer src="/static/alpine.min.js"></script>
 </head>
-<body x-data="serveApp" x-init="init()" x-cloak>
+<body x-data="serveApp" x-init="init()" x-cloak class="bg-slate-950 text-slate-200">
 
 <!-- 顶栏 -->
-<header class="topbar">
-  <div class="brand">SUNSHINE · 观测后台</div>
-  <div class="meta">
-    <span class="item">项目 <b x-text="status ? status.project_path : '—'"></b></span>
-    <span class="item">项目版 <span class="mono" x-text="status ? (status.project_version || '—') : '—'"></span></span>
-    <span class="item">CLI 版 <span class="mono" x-text="status ? (status.cli_version || '—') : '—'"></span></span>
-    <span class="item">最新版 <span class="mono" x-text="status ? (status.latest_version || '—') : '—'"></span></span>
-    <span class="item">开发者 <b x-text="status ? (status.developer || '—') : '—'"></b></span>
-    <span class="item">已装平台 <b class="mono" x-text="status && status.platforms ? status.platforms.length : '—'"></b></span>
-    <span class="item">工作流模板 <b x-text="status ? (status.workflow_template || '不展示') : '—'"></b></span>
+<header class="topbar sticky top-0 z-20 bg-slate-900 border-b border-slate-800 px-4 py-2.5 flex flex-wrap items-center gap-x-5 gap-y-2">
+  <div class="brand text-base font-bold tracking-widest text-slate-100 whitespace-nowrap">SUNSHINE · 观测后台</div>
+  <div class="meta flex flex-wrap items-center gap-x-4 gap-y-1">
+    <span class="item whitespace-nowrap text-slate-400 text-[13px]">项目 <b class="text-slate-100 font-semibold" x-text="status ? status.project_path : '—'"></b></span>
+    <span class="item whitespace-nowrap text-slate-400 text-[13px]">项目版 <span class="mono text-slate-100" x-text="status ? (status.project_version || '—') : '—'"></span></span>
+    <span class="item whitespace-nowrap text-slate-400 text-[13px]">CLI 版 <span class="mono text-slate-100" x-text="status ? (status.cli_version || '—') : '—'"></span></span>
+    <span class="item whitespace-nowrap text-slate-400 text-[13px]">最新版 <span class="mono text-slate-100" x-text="status ? (status.latest_version || '—') : '—'"></span></span>
+    <span class="item whitespace-nowrap text-slate-400 text-[13px]">开发者 <b class="text-slate-100 font-semibold" x-text="status ? (status.developer || '—') : '—'"></b></span>
+    <span class="item whitespace-nowrap text-slate-400 text-[13px]">已装平台 <b class="mono text-slate-100" x-text="status && status.platforms ? status.platforms.length : '—'"></b></span>
+    <span class="item whitespace-nowrap text-slate-400 text-[13px]">工作流模板 <b class="text-slate-100 font-semibold" x-text="status ? (status.workflow_template || '不展示') : '—'"></b></span>
   </div>
-  <div class="spacer"></div>
-  <div class="heartbeat" :title="'轮询间隔 ' + pollIntervalSec + ' 秒'">
+  <div class="spacer flex-1"></div>
+  <div class="last-signal flex items-center gap-2 text-xs text-slate-400 whitespace-nowrap min-w-0" x-show="lastSignalEntry()" :title="lastSignalText()">
+    <span class="ls-label font-mono tracking-wider text-slate-300">LAST SIGNAL</span>
+    <span class="ls-text text-slate-100 max-w-[360px] overflow-hidden text-ellipsis whitespace-nowrap" x-text="lastSignalText()"></span>
+    <span class="ls-time font-mono text-slate-500" x-text="lastSignalAgo()"></span>
+  </div>
+  <div class="heartbeat flex items-center gap-1.5 text-xs text-slate-400 whitespace-nowrap" :title="'轮询间隔 ' + pollIntervalSec + ' 秒'">
     <span class="dot" :class="pollStale ? 'stale' : ''"></span>
     <span x-text="'每 ' + pollIntervalSec + ' 秒刷新'"></span>
     <span>·</span>
     <span x-text="lastPollAt ? ('上次更新 ' + relTime(lastPollAt)) : '尚未更新'"></span>
   </div>
-  <div class="clock" x-text="clockText"></div>
+  <div class="clock font-mono text-[15px] text-slate-100 whitespace-nowrap" x-text="clockText"></div>
   <button type="button" @click="toggleFullscreen()" x-text="isFullscreen ? '退出全屏' : '全屏'"></button>
 </header>
 
-<div class="page">
+<div class="page max-w-[1440px] mx-auto p-4 space-y-4">
   <div class="error-banner" x-show="errors.status" x-text="errors.status"></div>
-  <!-- 当前任务一行 -->
-  <div class="stat-row">
-    <div class="stat-card">
-      <div class="label">当前任务</div>
-      <div class="value" style="font-size:18px" x-text="currentTaskTitle()"></div>
-      <div class="sub" x-text="currentTaskLine()"></div>
+
+  <!-- 指标卡片行（原 stat-row 四卡片并入，不重复展示） -->
+  <div class="metric-row grid grid-cols-2 md:grid-cols-3 xl:grid-cols-10 gap-3">
+    <div class="metric wide xl:col-span-2 bg-slate-900 border border-slate-800 rounded-lg px-4 py-3 min-w-0">
+      <div class="label text-xs text-slate-400">当前任务</div>
+      <div class="value text font-sans text-base font-semibold text-slate-100 truncate" x-text="currentTaskTitle()"></div>
+      <div class="sub text-xs text-slate-500" x-text="currentTaskLine()"></div>
     </div>
-    <div class="stat-card">
-      <div class="label">活动任务</div>
-      <div class="value" x-text="tasks.length ? tasks.length : '—'"></div>
-      <div class="sub">任务总览面板见下方</div>
+    <div class="metric bg-slate-900 border border-slate-800 rounded-lg px-4 py-3 min-w-0">
+      <div class="label text-xs text-slate-400">活动任务</div>
+      <div class="value font-mono text-2xl leading-tight text-slate-100" x-text="tasks.length ? tasks.length : '—'"></div>
+      <div class="sub text-xs text-slate-500">子任务进度见任务总览</div>
     </div>
-    <div class="stat-card">
-      <div class="label">运行中 Worker</div>
-      <div class="value" x-text="runningWorkers()"></div>
-      <div class="sub" x-text="workers.length ? ('共 ' + workers.length + ' 个 worker') : '暂无 worker 数据'"></div>
+    <div class="metric bg-slate-900 border border-slate-800 rounded-lg px-4 py-3 min-w-0">
+      <div class="label text-xs text-slate-400">运行中 Worker</div>
+      <div class="value font-mono text-2xl leading-tight text-slate-100" x-text="runningWorkers()"></div>
+      <div class="sub text-xs text-slate-500" x-text="workers.length ? ('共 ' + workers.length + ' 个 worker') : '暂无 worker 数据'"></div>
     </div>
-    <div class="stat-card">
-      <div class="label">Channel 事件总数</div>
-      <div class="value" x-text="totalEvents()"></div>
-      <div class="sub" x-text="channels.length ? ('共 ' + channels.length + ' 个 channel') : '暂无 channel'"></div>
+    <div class="metric bg-slate-900 border border-slate-800 rounded-lg px-4 py-3 min-w-0">
+      <div class="label text-xs text-slate-400">Channel 事件总数</div>
+      <div class="value font-mono text-2xl leading-tight text-slate-100" x-text="totalEvents()"></div>
+      <div class="sub text-xs text-slate-500" x-text="channels.length ? ('共 ' + channels.length + ' 个 channel') : '暂无 channel'"></div>
+    </div>
+    <div class="metric bg-slate-900 border border-slate-800 rounded-lg px-4 py-3 min-w-0">
+      <div class="label text-xs text-slate-400">今日活动</div>
+      <div class="value font-mono text-2xl leading-tight text-slate-100" x-text="todayActivityCount()"></div>
+      <div class="sub text-xs text-slate-500">最近活动时间戳统计</div>
+    </div>
+    <div class="metric bg-slate-900 border border-slate-800 rounded-lg px-4 py-3 min-w-0">
+      <div class="label text-xs text-slate-400">归档任务</div>
+      <div class="value font-mono text-2xl leading-tight text-slate-100" x-text="archivedCount === null ? '—' : archivedCount"></div>
+      <div class="sub text-xs text-slate-500">按月归档汇总</div>
+    </div>
+    <div class="metric bg-slate-900 border border-slate-800 rounded-lg px-4 py-3 min-w-0">
+      <div class="label text-xs text-slate-400">健康漂移</div>
+      <div class="value small font-mono text-lg leading-relaxed text-slate-100" x-text="healthDriftText()"></div>
+      <div class="sub text-xs text-slate-500">新增 / 可更新 / 已修改</div>
+    </div>
+    <div class="metric bg-slate-900 border border-slate-800 rounded-lg px-4 py-3 min-w-0">
+      <div class="label text-xs text-slate-400">版本</div>
+      <div class="value font-mono text-2xl leading-tight text-slate-100" x-text="(status && status.cli_version) || versionInfo.cli_version || '—'"></div>
+      <div class="sub text-xs text-slate-500" x-text="'项目 ' + ((status && status.project_version) || '—') + ' · 最新 ' + ((status && status.latest_version) || '—')"></div>
+    </div>
+    <div class="metric spark bg-slate-900 border border-slate-800 rounded-lg px-4 py-3 min-w-0">
+      <div class="label text-xs text-slate-400">信号速率 <span class="mono" x-text="signalRateText()"></span></div>
+      <canvas id="spark-canvas" x-ref="sparkCanvas"></canvas>
+      <div class="sub text-xs text-slate-500">最近 60 秒，每秒事件数</div>
     </div>
   </div>
 
-  <!-- hero：虚拟智能体 -->
-  <section class="hero" aria-label="虚拟智能体">
-    <canvas id="hero-canvas" x-show="!heroFallback" height="340"></canvas>
-    <div class="hero-fallback" x-show="heroFallback">
-      <h3>虚拟智能体（画布不可用，已退化为静态卡片）</h3>
-      <div class="row">
-        <span>当前任务 <b x-text="currentTaskTitle()"></b></span>
-        <span>运行中 worker <b class="mono" x-text="runningWorkers()"></b></span>
-        <span>今日活动 <b class="mono" x-text="todayActivityCount()"></b></span>
-        <span>最后活动 <b x-text="lastActivityAgo()"></b></span>
-      </div>
-      <div class="row" style="margin-top:6px">
-        <template x-for="w in workers" :key="w.name || w.Name">
-          <span><span class="lamp" :class="workerLampClass(w)"></span> <span x-text="workerName(w)"></span> <span x-text="workerLifecycleText(w)"></span></span>
+  <!-- 智能体团 + 信号流 -->
+  <div class="grid grid-cols-1 lg:grid-cols-12 gap-4">
+    <section class="panel lg:col-span-4 bg-slate-900 border border-slate-800 rounded-lg px-4 py-3.5 min-w-0" id="cluster">
+      <h2 class="text-[15px] font-bold text-slate-100 m-0 mb-1">智能体团</h2>
+      <p class="source text-xs text-slate-500 m-0 mb-2.5">数据源：所选 channel 的 worker 状态 + 当前任务。无 worker 时显示待命，不假装在跑。</p>
+      <ul class="cluster-list list-none m-0 p-0">
+        <template x-for="r in clusterRoles()" :key="r.key">
+          <li class="py-2.5 px-1 border-b border-slate-800 last:border-b-0">
+            <div class="cluster-head flex items-center gap-2">
+              <span class="lamp" :class="r.lamp"></span>
+              <span class="cluster-role font-mono font-bold text-slate-100" x-text="r.label"></span>
+              <span class="cluster-state text-xs text-slate-300" x-text="r.stateText"></span>
+              <span class="cluster-worker ml-auto text-xs text-slate-400 font-mono" x-text="r.workerName"></span>
+            </div>
+            <div class="cluster-task text-xs text-slate-500 mt-1 pl-[17px] truncate" x-text="'当前任务：' + r.taskLine"></div>
+          </li>
         </template>
-        <span x-show="!workers.length">暂无 worker 数据</span>
+      </ul>
+      <p class="note text-xs text-slate-400 mt-1.5" x-show="!selectedChannel">未选 channel：全部待命，先在下方 Channel 列表里选一个。</p>
+    </section>
+
+    <section class="panel lg:col-span-8 bg-slate-900 border border-slate-800 rounded-lg px-4 py-3.5 min-w-0" id="signal-feed">
+      <h2 class="text-[15px] font-bold text-slate-100 m-0 mb-1">信号流</h2>
+      <p class="source text-xs text-slate-500 m-0 mb-2.5">数据源：channel 事件与服务端文件变化（mtime）合并，按时间倒序，最近 30 条。mtime 条目只含本服务启动后检测到的变化。角色按 worker 名映射，文件变化记为“文件”。</p>
+      <div class="error" x-show="errors.activity" x-text="errors.activity"></div>
+      <ul class="activity-list">
+        <template x-for="e in activity.entries" :key="e.ts + '|' + e.text">
+          <li :class="flashKey('act:' + e.ts + '|' + e.text) ? 'flash' : ''">
+            <span class="ts" x-text="relTime(e.ts)"></span>
+            <span class="kind" x-text="feedRole(e)"></span>
+            <span class="text" x-text="e.text"></span>
+          </li>
+        </template>
+      </ul>
+      <div class="empty" x-show="!activity.entries || !activity.entries.length">暂无活动数据</div>
+    </section>
+  </div>
+
+  <!-- 活动热力 -->
+  <section class="panel bg-slate-900 border border-slate-800 rounded-lg px-4 py-3.5 min-w-0" id="heatmap">
+    <h2 class="text-[15px] font-bold text-slate-100 m-0 mb-1">活动热力</h2>
+    <p class="source text-xs text-slate-500 m-0 mb-2.5">数据源：所选 channel 的事件流 + 其它 channel 的最近活动。行 = 5 个角色，列 = 最近 30 秒、每 2.5 秒一格，格值 = 该角色该时间段的 channel 事件数；mtime 文件变化不计入。token 列不做（无 token 数据）。</p>
+    <div class="heat-wrap flex gap-2 items-stretch">
+      <div class="heat-labels flex-none w-[84px]">
+        <div>implement</div>
+        <div>check</div>
+        <div>research</div>
+        <div>prototype</div>
+        <div>主会话</div>
       </div>
+      <canvas id="heat-canvas" x-ref="heatCanvas" class="flex-1 min-w-0 block"></canvas>
     </div>
+    <div class="heat-axis flex justify-between ml-[92px] text-[11px] font-mono text-slate-500"><span>−30s</span><span>NOW</span></div>
+    <div class="empty" x-show="!events.length && !activity.entries.length">暂无 channel 事件</div>
   </section>
 
-  <!-- 最近活动 -->
-  <section class="panel" style="margin-top:14px">
-    <h2>最近活动</h2>
-    <p class="source">数据源：channel 事件与服务端文件变化（mtime）合并，按时间倒序，最近 30 条。mtime 条目只含本服务启动后检测到的变化。</p>
-    <div class="error" x-show="errors.activity" x-text="errors.activity"></div>
-    <ul class="activity-list">
-      <template x-for="e in activity.entries" :key="e.ts + '|' + e.text">
-        <li :class="flashKey('act:' + e.ts + '|' + e.text) ? 'flash' : ''">
-          <span class="ts" x-text="relTime(e.ts)"></span>
-          <span class="kind" x-text="e.kind || ''"></span>
-          <span class="text" x-text="e.text"></span>
-        </li>
-      </template>
-    </ul>
-    <div class="empty" x-show="!activity.entries || !activity.entries.length">暂无活动数据</div>
-  </section>
-
-  <div class="grid" style="margin-top:14px">
+  <div class="grid grid-cols-1 lg:grid-cols-12 gap-3.5">
 
     <!-- 任务总览 -->
-    <section class="panel col-6" id="tasks">
-      <h2>任务总览</h2>
-      <p class="source">数据源：活动任务列表。子任务进度按 ChildrenProgress 口径：归档子女算完成。</p>
+    <section class="panel col-span-12 lg:col-span-6 bg-slate-900 border border-slate-800 rounded-lg px-4 py-3.5 min-w-0" id="tasks">
+      <h2 class="text-[15px] font-bold text-slate-100 m-0 mb-1">任务总览</h2>
+      <p class="source text-xs text-slate-500 m-0 mb-2.5">数据源：活动任务列表。子任务进度按 ChildrenProgress 口径：归档子女算完成。</p>
       <div class="error" x-show="errors.tasks" x-text="errors.tasks"></div>
       <ul class="task-tree">
         <template x-for="t in topTasks()" :key="t.dir || t.id">
@@ -164,13 +215,13 @@
           </tbody>
         </table>
       </template>
-      <p class="note" x-show="archiveMonth && archive && !archive.length">该月暂无归档任务</p>
+      <p class="note text-xs text-slate-400 mt-1.5" x-show="archiveMonth && archive && !archive.length">该月暂无归档任务</p>
     </section>
 
     <!-- 任务详情 -->
-    <section class="panel col-6" id="task-detail">
-      <h2>任务详情</h2>
-      <p class="source">点左侧任务进入；24 个字段全文、prd.md、上下文清单、子任务、归档提交。</p>
+    <section class="panel col-span-12 lg:col-span-6 bg-slate-900 border border-slate-800 rounded-lg px-4 py-3.5 min-w-0" id="task-detail">
+      <h2 class="text-[15px] font-bold text-slate-100 m-0 mb-1">任务详情</h2>
+      <p class="source text-xs text-slate-500 m-0 mb-2.5">点左侧任务进入；24 个字段全文、prd.md、上下文清单、子任务、归档提交。</p>
       <div class="error" x-show="errors.taskDetail" x-text="errors.taskDetail"></div>
       <template x-if="taskDetail">
         <div>
@@ -247,16 +298,16 @@
               </table>
             </div>
           </template>
-          <p class="note" x-show="taskCommits && !taskCommits.length">未找到归档提交（只展示归档提交，不谎称完整提交历史）</p>
+          <p class="note text-xs text-slate-400 mt-1.5" x-show="taskCommits && !taskCommits.length">未找到归档提交（只展示归档提交，不谎称完整提交历史）</p>
         </div>
       </template>
       <div class="empty" x-show="!taskDetail">未选择任务，点左侧任务查看详情</div>
     </section>
 
     <!-- Channel 列表 -->
-    <section class="panel col-6" id="channels">
-      <h2>Channel 列表</h2>
-      <p class="source">数据源：channel 列表。点一个 channel 查看事件流、worker 与 forum。</p>
+    <section class="panel col-span-12 lg:col-span-6 bg-slate-900 border border-slate-800 rounded-lg px-4 py-3.5 min-w-0" id="channels">
+      <h2 class="text-[15px] font-bold text-slate-100 m-0 mb-1">Channel 列表</h2>
+      <p class="source text-xs text-slate-500 m-0 mb-2.5">数据源：channel 列表。点一个 channel 查看事件流、worker 与 forum。</p>
       <div class="error" x-show="errors.channels" x-text="errors.channels"></div>
       <table>
         <thead><tr><th>名称</th><th>类型</th><th>任务</th><th>Worker</th><th>事件数</th><th>最近事件</th><th>最近活动</th></tr></thead>
@@ -278,9 +329,9 @@
     </section>
 
     <!-- Channel 事件流 -->
-    <section class="panel col-6" id="channel-events">
-      <h2>Channel 事件流</h2>
-      <p class="source">数据源：事件流，按 seq 升序，轮询增量拉取。可按 kind / 作者过滤，可看原始 JSON。</p>
+    <section class="panel col-span-12 lg:col-span-6 bg-slate-900 border border-slate-800 rounded-lg px-4 py-3.5 min-w-0" id="channel-events">
+      <h2 class="text-[15px] font-bold text-slate-100 m-0 mb-1">Channel 事件流</h2>
+      <p class="source text-xs text-slate-500 m-0 mb-2.5">数据源：事件流，按 seq 升序，轮询增量拉取。可按 kind / 作者过滤，可看原始 JSON。</p>
       <div class="toolbar" x-show="selectedChannel">
         <span>当前 channel：<b x-text="selectedChannel"></b></span>
         <label>kind
@@ -304,7 +355,7 @@
             <span class="kind" x-text="e.kind || ''"></span>
             <span class="text">
               <span x-text="eventSummary(e)"></span>
-              <span class="mono" style="color:var(--text-faint);font-size:12px" x-text="' · ' + relTime(e.ts || e.time || e.createdAt)"></span>
+              <span class="mono text-slate-500 text-xs" x-text="' · ' + relTime(e.ts || e.time || e.createdAt)"></span>
               <button type="button" style="margin-left:6px" @click="toggleRaw(e.seq)" x-text="rawOpen[e.seq] ? '收起 JSON' : '原始 JSON'"></button>
               <pre class="code" x-show="rawOpen[e.seq]" x-text="JSON.stringify(e, null, 2)"></pre>
             </span>
@@ -316,9 +367,9 @@
     </section>
 
     <!-- Worker 状态 + 日志尾部 -->
-    <section class="panel col-12" id="workers">
-      <h2>Worker 状态与日志尾部</h2>
-      <p class="source">数据源：worker 状态投影 + 本机 pid 探活；日志为 worker 的 stdout/stderr 原行尾部。日志尾部自动跟到底（仅当你没向上滚动时）。</p>
+    <section class="panel col-span-12 bg-slate-900 border border-slate-800 rounded-lg px-4 py-3.5 min-w-0" id="workers">
+      <h2 class="text-[15px] font-bold text-slate-100 m-0 mb-1">Worker 状态与日志尾部</h2>
+      <p class="source text-xs text-slate-500 m-0 mb-2.5">数据源：worker 状态投影 + 本机 pid 探活；日志为 worker 的 stdout/stderr 原行尾部。日志尾部自动跟到底（仅当你没向上滚动时）。</p>
       <div class="error" x-show="errors.workers" x-text="errors.workers"></div>
       <div class="worker-grid">
         <template x-for="w in workers" :key="workerName(w)">
@@ -360,9 +411,9 @@
     </section>
 
     <!-- Forum 看板 -->
-    <section class="panel col-6" id="forum">
-      <h2>Forum 看板</h2>
-      <p class="source">数据源：forum thread 列表（按更新倒序）与单个 thread 时间线。</p>
+    <section class="panel col-span-12 lg:col-span-6 bg-slate-900 border border-slate-800 rounded-lg px-4 py-3.5 min-w-0" id="forum">
+      <h2 class="text-[15px] font-bold text-slate-100 m-0 mb-1">Forum 看板</h2>
+      <p class="source text-xs text-slate-500 m-0 mb-2.5">数据源：forum thread 列表（按更新倒序）与单个 thread 时间线。</p>
       <div class="error" x-show="errors.threads" x-text="errors.threads"></div>
       <table>
         <thead><tr><th>Thread</th><th>状态</th><th>更新</th></tr></thead>
@@ -396,9 +447,9 @@
     </section>
 
     <!-- 会话 / 记忆 -->
-    <section class="panel col-6" id="memory">
-      <h2>会话 / 记忆</h2>
-      <p class="source">数据源：各平台会话文件经 mem 适配器读出。MemSessionInfo 只有 8 个字段，没有模型名、没有消息数、没有 token。</p>
+    <section class="panel col-span-12 lg:col-span-6 bg-slate-900 border border-slate-800 rounded-lg px-4 py-3.5 min-w-0" id="memory">
+      <h2 class="text-[15px] font-bold text-slate-100 m-0 mb-1">会话 / 记忆</h2>
+      <p class="source text-xs text-slate-500 m-0 mb-2.5">数据源：各平台会话文件经 mem 适配器读出。MemSessionInfo 只有 8 个字段，没有模型名、没有消息数、没有 token。</p>
       <div class="toolbar">
         <label>平台
           <select x-model="memPlatform" @change="loadMemSessions()">
@@ -444,9 +495,9 @@
     </section>
 
     <!-- 项目健康 -->
-    <section class="panel col-6" id="health">
-      <h2>项目健康</h2>
-      <p class="source">数据源：模板漂移分析（AnalyzeChanges）+ 版本三方比对 + 孤儿清单键数 + 遗漏迁移提示。只读，不写盘。</p>
+    <section class="panel col-span-12 lg:col-span-6 bg-slate-900 border border-slate-800 rounded-lg px-4 py-3.5 min-w-0" id="health">
+      <h2 class="text-[15px] font-bold text-slate-100 m-0 mb-1">项目健康</h2>
+      <p class="source text-xs text-slate-500 m-0 mb-2.5">数据源：模板漂移分析（AnalyzeChanges）+ 版本三方比对 + 孤儿清单键数 + 遗漏迁移提示。只读，不写盘。</p>
       <div class="error" x-show="errors.health" x-text="errors.health"></div>
       <template x-if="health">
         <div>
@@ -478,9 +529,9 @@
     </section>
 
     <!-- 设计文档 -->
-    <section class="panel col-6" id="design">
-      <h2>设计文档</h2>
-      <p class="source">数据源：项目 doc/ 下三份设计文档是否存在 + 启发式计数。启发式计数，仅供参考。</p>
+    <section class="panel col-span-12 lg:col-span-6 bg-slate-900 border border-slate-800 rounded-lg px-4 py-3.5 min-w-0" id="design">
+      <h2 class="text-[15px] font-bold text-slate-100 m-0 mb-1">设计文档</h2>
+      <p class="source text-xs text-slate-500 m-0 mb-2.5">数据源：项目 doc/ 下三份设计文档是否存在 + 启发式计数。启发式计数，仅供参考。</p>
       <div class="error" x-show="errors.design" x-text="errors.design"></div>
       <template x-if="design">
         <div>
@@ -496,16 +547,16 @@
               </template>
             </tbody>
           </table>
-          <p class="note">启发式计数，仅供参考：按 Markdown 表格行启发式解析，模板本身无机器可读 schema。</p>
+          <p class="note text-xs text-slate-400 mt-1.5">启发式计数，仅供参考：按 Markdown 表格行启发式解析，模板本身无机器可读 schema。</p>
         </div>
       </template>
       <div class="empty" x-show="!design">暂无设计文档数据</div>
     </section>
 
     <!-- Journal -->
-    <section class="panel col-12" id="journal">
-      <h2>Journal</h2>
-      <p class="source">数据源：开发者 journal 文件列表与文本。条目无统一结构化时间戳，不做时间线解析。</p>
+    <section class="panel col-span-12 bg-slate-900 border border-slate-800 rounded-lg px-4 py-3.5 min-w-0" id="journal">
+      <h2 class="text-[15px] font-bold text-slate-100 m-0 mb-1">Journal</h2>
+      <p class="source text-xs text-slate-500 m-0 mb-2.5">数据源：开发者 journal 文件列表与文本。条目无统一结构化时间戳，不做时间线解析。</p>
       <div class="error" x-show="errors.journal" x-text="errors.journal"></div>
       <div class="toolbar" x-show="journal && journal.files && journal.files.length">
         <template x-for="f in (journal && journal.files ? journal.files : [])" :key="f.name || f">
@@ -518,9 +569,9 @@
 
   </div>
 
-  <p class="hero-caption">环境层（呼吸、慢轨道）只表示系统活着在监听；事件层（脉冲、闪烁、点亮）只由真实事件与状态变化触发。没有 worker 在跑、没有新事件时，画面就是缓慢呼吸与暗节点。</p>
+  <p class="hero-caption text-xs text-slate-500">轮询每 3 秒刷新一次；状态变化时相关行会短暂高亮。所有面板只显示真实数据，无数据时显示空状态，不编造数字。</p>
 
-  <p class="footer">只读观测后台 · 不提供任何写操作 · 数据全部来自本机真实文件与事件流，无数据时显示空状态，不编造数字</p>
+  <p class="footer text-slate-500 text-xs text-center py-4">只读观测后台 · 不提供任何写操作 · 数据全部来自本机真实文件与事件流，无数据时显示空状态，不编造数字</p>
 </div>
 </body>
 </html>
