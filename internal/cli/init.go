@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -8,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/AlecAivazis/survey/v2"
+	"github.com/AlecAivazis/survey/v2/terminal"
 	"github.com/BondLam/Sunshine/internal/platforms"
 	"github.com/BondLam/Sunshine/internal/projecttype"
 	"github.com/BondLam/Sunshine/internal/registry"
@@ -134,7 +136,7 @@ GitHub Copilot、Factory Droid）。
 
 		selected, withStatusline, err := resolvePlatformSelection(cmd)
 		if err != nil {
-			return err
+			return handleInitErr(err)
 		}
 		if !initialized && len(selected) == 0 {
 			fmt.Println("未选择任何平台，初始化已取消。")
@@ -151,7 +153,7 @@ GitHub Copilot、Factory Droid）。
 			var picked string
 			initRegistry, picked, target, err = resolveInteractiveTemplate(initRegistry)
 			if err != nil {
-				return err
+				return handleInitErr(err)
 			}
 			initTemplate = picked
 		}
@@ -189,7 +191,7 @@ GitHub Copilot、Factory Droid）。
 			user := resolveUser(initUser)
 			specType, typeSource, err := resolveInitProjectType(cwd, skipSpec)
 			if err != nil {
-				return err
+				return handleInitErr(err)
 			}
 			if err := scaffold.InitWithOptions(cwd, user, scaffold.InitOptions{SkipSpec: skipSpec, SpecType: specType, Version: version}); err != nil {
 				return err
@@ -218,7 +220,7 @@ GitHub Copilot、Factory Droid）。
 			user := resolveUser(initUser)
 			specType, typeSource, err := resolveInitProjectType(cwd, skipSpec)
 			if err != nil {
-				return err
+				return handleInitErr(err)
 			}
 			if err := scaffold.InitWithOptions(cwd, user, scaffold.InitOptions{Force: true, SkipSpec: skipSpec, SpecType: specType, Version: version}); err != nil {
 				return err
@@ -322,6 +324,29 @@ type platformSelectionInput struct {
 	isTTY               bool
 }
 
+// errInitCancelled 表示用户在 init 提问中选了“退出”
+// （Ctrl+C 的中断由 survey 以 terminal.InterruptErr 返回，
+// handleInitErr 与 resolveProjectType 对两者一视同仁）。
+var errInitCancelled = errors.New("初始化已取消")
+
+// quitOptionLabel 是 Select 类选单里的退出选项。
+const quitOptionLabel = "退出（取消初始化）"
+
+// isInitCancelled 判断错误是否为 init 取消（Ctrl+C 中断或选“退出”）。
+// survey 的错误可能包在 fmt.Errorf 的 %w 链里，errors.Is 能透传。
+func isInitCancelled(err error) bool {
+	return errors.Is(err, errInitCancelled) || errors.Is(err, terminal.InterruptErr)
+}
+
+// handleInitErr 把取消转成干净退出（打印提示、返回 nil），其余错误原样返回。
+func handleInitErr(err error) error {
+	if isInitCancelled(err) {
+		fmt.Println("初始化已取消。")
+		return nil
+	}
+	return err
+}
+
 // promptPlatforms 弹出平台多选（默认实现用 survey；测试可替换）。
 var promptPlatforms = func(defaultIDs []string) ([]string, error) {
 	var options []string
@@ -334,7 +359,7 @@ var promptPlatforms = func(defaultIDs []string) ([]string, error) {
 	}
 	var chosen []string
 	err := survey.AskOne(&survey.MultiSelect{
-		Message: "请选择要配置的 AI 编程平台：",
+		Message: "请选择要配置的 AI 编程平台（按 Ctrl+C 取消）：",
 		Options: options,
 		Default: defaults,
 	}, &chosen)
@@ -363,17 +388,22 @@ var promptStatusline = func() (bool, error) {
 }
 
 // promptProjectType 在检测不到项目类型时交互提问（默认实现用 survey；
-// 测试可替换）。选项与 projecttype.Parse 的合法值一一对应。
+// 测试可替换）。选项与 projecttype.Parse 的合法值一一对应，另有“退出”。
 var promptProjectType = func() (projecttype.Type, error) {
 	var chosen string
 	err := survey.AskOne(&survey.Select{
 		Message: "检测不到项目类型，请选择：",
-		Options: []string{"前端项目", "后端项目", "前后端全栈", "产品设计"},
+		Options: []string{"前端项目", "后端项目", "前后端全栈", "产品设计", quitOptionLabel},
 		Default: "前后端全栈",
 	}, &chosen)
 	if err != nil {
 		return projecttype.Fullstack, err
 	}
+	return parseProjectTypeChoice(chosen)
+}
+
+// parseProjectTypeChoice 把选单选择转成项目类型；选“退出”返回取消哨兵。
+func parseProjectTypeChoice(chosen string) (projecttype.Type, error) {
 	switch chosen {
 	case "前端项目":
 		return projecttype.Frontend, nil
@@ -381,6 +411,8 @@ var promptProjectType = func() (projecttype.Type, error) {
 		return projecttype.Backend, nil
 	case "产品设计":
 		return projecttype.Design, nil
+	case quitOptionLabel:
+		return projecttype.Unknown, errInitCancelled
 	default:
 		return projecttype.Fullstack, nil
 	}
@@ -398,7 +430,8 @@ type projectTypeInput struct {
 // resolveProjectType 按“--type > 自动检测 > 交互提问 > 默认全栈”的优先级
 // 确定本次 init 的项目类型，并返回类型来源
 // （"--type 指定" / "自动检测" / "手动选择" / "默认"）。
-// --type 非法时直接返回错误；提问出错或 EOF 时静默默认全栈。
+// --type 非法时直接返回错误；提问出错或 EOF 时静默默认全栈；
+// Ctrl+C 或选“退出”时返回取消（由 RunE 转成干净退出，不默认全栈）。
 func resolveProjectType(in projectTypeInput) (projecttype.Type, string, error) {
 	if strings.TrimSpace(in.flag) != "" {
 		t, err := projecttype.Parse(strings.TrimSpace(in.flag))
@@ -418,6 +451,9 @@ func resolveProjectType(in projectTypeInput) (projecttype.Type, string, error) {
 	}
 	t, err := promptProjectType()
 	if err != nil {
+		if isInitCancelled(err) {
+			return projecttype.Unknown, "", err
+		}
 		return projecttype.Fullstack, "默认", nil
 	}
 	return t, "手动选择", nil

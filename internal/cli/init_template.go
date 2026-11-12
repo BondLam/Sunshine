@@ -99,9 +99,12 @@ func resolveInteractiveTemplate(registrySource string) (source, templateID strin
 	source = registrySource
 	for {
 		if source == "" {
-			chosen, aerr := promptSpecTemplate([]string{blankTemplateLabel, customTemplateLabel}, blankTemplateLabel)
+			chosen, aerr := promptSpecTemplate([]string{blankTemplateLabel, customTemplateLabel, quitOptionLabel}, blankTemplateLabel)
 			if aerr != nil {
 				return "", "", nil, fmt.Errorf("选择规范模板失败：%w", aerr)
+			}
+			if chosen == quitOptionLabel {
+				return "", "", nil, errInitCancelled
 			}
 			if chosen == blankTemplateLabel {
 				return "", "", nil, nil
@@ -149,11 +152,15 @@ func resolveInteractiveTemplate(registrySource string) (source, templateID strin
 			fmt.Println("该模板市场里没有规范模板，改用内置空白规范模板。")
 			return "", "", nil, nil
 		}
-		labels := templateChoiceLabels(choices)
+		labels := append(templateChoiceLabels(choices), quitOptionLabel)
 		chosen, aerr := promptSpecTemplate(labels, labels[0])
 		if aerr != nil {
 			probe.Close()
 			return "", "", nil, fmt.Errorf("选择规范模板失败：%w", aerr)
+		}
+		if chosen == quitOptionLabel {
+			probe.Close()
+			return "", "", nil, errInitCancelled
 		}
 		id := templateChoiceID(choices, chosen)
 		t, terr := registry.ResolveTargetWithProbe(src, probe, id)
