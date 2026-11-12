@@ -1429,6 +1429,24 @@ Then comes the requirements review — this time only the changed part is review
 >
 > **You:** OK.
 
+**What to say at review: how the blast radius and the task list are decided**
+
+The example above is a change after the project was finished and archived, so the review covers only the three changed places. A mid-development change works the same way, but the review covers one more thing — how the task list is adjusted. Say this at review:
+
+Example prompt (an example, not a real conversation record):
+
+> Review this change: first list the blast radius — which sub-tasks it touches, and whether each is archived, in progress, or not started; then list how the task list changes — which get a new rework sub-task, which get their scope and context edited in place, which get detached, which stay untouched; finally list the split plan. Only start after I confirm all three.
+
+The blast radius is decided against two things — the parent task's `children` list in `task.json` (the sub-task map) and the design package in `doc/` (the requirements list, the outline design, the prototype pages). A sub-task is affected when the change touches its PRD, design, interface, or prototype page. Then handle each by category:
+
+- **Archived**: never reopen. Create a new rework sub-task under the parent, run the full flow, and note the original task and the reason for the change in its description.
+- **In progress**: pause the work, rework, then resume; the status stays as is.
+- **Not started (`planning`)**: edit it in place — scope with `task set-scope`, context with `task add-context`.
+- **Unaffected**: keep going, don't stop.
+- **Obsolete**: detach it from the parent's `children` with `task remove-subtask`.
+
+The split still follows requirements: one rework sub-task per requirement, splitting frontend and backend only when both are large. For example: requirement one is archived and requirement two is not started, and the change touches both — requirement one gets a new rework sub-task, requirement two gets its content edited in place; if requirement two is no longer needed, detach it. The adjusted list is confirmed with you at review before development resumes.
+
 **The handoff: what the developer receives**
 
 The review passes, and the designer exits. What developers receive on entry is not one line — it is three things:
