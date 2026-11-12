@@ -14,7 +14,7 @@
 
 ## 1. 终端只跑一次：init
 
-先装好 CLI（安装方法也在 [README.md](../README.md)）：
+先装好 CLI（安装方法也在 [README.cn.md](../README.cn.md)）：
 
 ```sh
 curl -fsSL https://raw.githubusercontent.com/linrong1982/Sunshine/main/install.sh | sh
@@ -1384,7 +1384,7 @@ init 生成了 115 个文件（不含 `.git`），其中给 agent 读的是这�
 - `.sunshine/workflow.md`：完整版开发工作流（714 行），agent 按它推进任务。
 - `.sunshine/AGENTS.md`：开头即“本文件面向在本仓库工作的 AI 编程助手”。
 - `.sunshine/spec/`：三份规范模板（`system.md` 总原则、`backend.md` 后端、`frontend.md` 前端）。
-- `.sunshine/config.yaml`：项目配置，带中文注释（关键字段见 [README.md](../README.md#配置要点)）。
+- `.sunshine/config.yaml`：项目配置，带中文注释（关键字段见 [README.cn.md](../README.cn.md#配置要点)）。
 - `.claude/` 与 `.cursor/`：两个平台的 skill、命令、子代理与 hooks 配置（Codex 同理是 `.codex/`）。
 
 `sunshine platforms` 可查看当前项目已配置的平台：

@@ -16,7 +16,7 @@ Conventions:
 
 ## 1. Run once in the terminal: init
 
-Install Sunshine first (see [README.en.md](../README.en.md#installation)), then confirm it:
+Install Sunshine first (see [README.md](../README.md#installation)), then confirm it:
 
 ```sh
 sunshine version
@@ -135,7 +135,7 @@ There are two modes, decided at the start of planning: design-first, where the p
 **Phase 2 — execution.** The agent dispatches sub-agents: `sunshine-implement` writes the code, then `sunshine-check` verifies it. The platform hooks inject the context automatically — the `implement.jsonl` / `check.jsonl` entries, plus `prd.md`, `design.md`, and `implement.md` if they exist — so each sub-agent starts with the right specs in its prompt. The dispatch prompt always opens with `Active task: <task path>`. The fixed order in `workflow.md` is:
 
 ```text
-sunshine-implement -> sunshine-check -> sunshine-update-spec -> 提交（第 3.4 步）-> /sunshine:finish-work
+sunshine-implement -> sunshine-check -> sunshine-update-spec -> commit (step 3.4) -> /sunshine:finish-work
 ```
 
 (`sunshine-implement` → `sunshine-check` → `sunshine-update-spec` → commit (step 3.4) → `/sunshine:finish-work`.)
@@ -1488,7 +1488,7 @@ Project-type detection reads `package.json` dependencies and common frontend/bac
 | `-u, --user <name>` | Developer name, written to `.sunshine/.developer`; priority: `-u` > git user.name > `developer`; new tasks default their creator and assignee to it |
 | `-y, --yes` | Skip all prompts: default platforms Claude Code + Cursor, default fullstack, default blank specs, no statusline |
 | `-f, --force` | Rebuild the skeleton and platform files even when already initialized (see "Three modes" below) |
-| `--type <前端/后端/全栈/产品设计>` | Specify the project type explicitly, skipping detection and the question |
+| `--type <前端/后端/全栈/产品设计>` | Specify the project type explicitly (前端=frontend, 后端=backend, 全栈=fullstack, 产品设计=product design), skipping detection and the question |
 | `--registry <source>` | Template marketplace source: `gh:owner/repo`, a full git URL, an HTTP(S) URL, a `git@` address, or a local git repository path |
 | `--template <id>` | Marketplace entry id, must be used with `--registry`; when omitted, a marketplace source errors out under `-y` and shows the picker interactively |
 | `--overwrite` / `--append` | Overwrite the target if it exists / only fill in missing files; only with `--template` |

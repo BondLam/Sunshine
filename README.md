@@ -1,103 +1,102 @@
 # Sunshine
 
-把 Trellis 的全部功能用 Go 重新实现，CLI 界面与生成的规范文件全部中文。
+A Go reimplementation of all Trellis features. The CLI interface and the generated spec files are all in Chinese.
 
-> 英文版：[README.en.md](README.en.md) · 完整教程：[docs/tutorial.md](docs/tutorial.md)（[English](docs/tutorial.en.md)）
+> 中文版：[README.cn.md](README.cn.md) · Full tutorial: [docs/tutorial.en.md](docs/tutorial.en.md)（[中文](docs/tutorial.md)）
 
-主线一句话：**终端只跑一次 `sunshine init`，然后进 agent 界面（Claude Code 为主，Codex/Cursor 同理）用自然语言提需求，agent 按 `.sunshine/workflow.md` 干活，人检查 diff、验收、提交。**
+**Note:** Sunshine's CLI itself is Chinese-only — commands, help text, prompts, and output are all in Chinese. This document translates the explanations into English, but commands and sample output are kept in the original Chinese so you can copy them verbatim.
 
-## 安装
+## Installation
 
-macOS / Linux 一行装好（自动识别系统与架构，校验 sha256）：
+macOS / Linux, one line (auto-detects OS and architecture, verifies sha256):
 
 ```sh
 curl -fsSL https://raw.githubusercontent.com/linrong1982/Sunshine/main/install.sh | sh
 ```
 
-装指定版本：
+Install a specific version (v0.3.11 is the current Release):
 
 ```sh
 curl -fsSL https://raw.githubusercontent.com/linrong1982/Sunshine/main/install.sh | sh -s -- v0.3.11
 ```
 
-Windows 请到 [Releases](https://github.com/linrong1982/Sunshine/releases) 页下载对应 zip，解压后把 `sunshine.exe` 放进 PATH。
+Windows: download the matching zip from [Releases](https://github.com/linrong1982/Sunshine/releases), unzip it, and put `sunshine.exe` on your PATH.
 
-已有 Go 的机器也可以：
+If you already have Go:
 
 ```sh
 go install github.com/linrong1982/Sunshine/cmd/sunshine@latest
 ```
 
-装好后升级只需：
+To upgrade later:
 
 ```sh
 sunshine upgrade
 ```
 
-## 快速上手
+## Quick start
 
 ```sh
-cd 你的项目
-sunshine init -u 你的名字 -y   # 生成中文 .sunshine/ 骨架（规范、任务、工作流）与平台配置
+cd your-project
+sunshine init -u YourName -y   # Generate the Chinese .sunshine/ skeleton (specs, tasks, workflow)
 ```
 
-然后在 Claude Code 里打开这个项目，直接用自然语言提需求，例如“给退款流程加一个必填的原因字段”——agent 会按 `.sunshine/workflow.md` 建任务、写 prd、派 implement/check 子代理、核查、把学到的写回 spec，最后用 `/sunshine:finish-work` 收尾；你检查 diff、验收、提交。
+That is the only terminal command you need. Then open the project in Claude Code (Codex / Cursor work the same way) and ask for what you want in plain language — the agent drives the work following `.sunshine/workflow.md` and calls `sunshine` commands under the hood. See the [tutorial](docs/tutorial.en.md) for the full storyline.
 
-`init` 默认安装 Claude Code 与 Cursor；只想装 Codex 时用 `sunshine init --codex -y`。init 的全部操作（平台、模板选单、三种模式）见[教程附录：命令速查](docs/tutorial.md#附录命令速查)。
+`init` installs Claude Code and Cursor by default; to install only Codex, use `sunshine init --codex -y`. All init operations (platforms, template picker, three modes) are in the [tutorial appendix](docs/tutorial.en.md#appendix-command-reference).
 
-## 从 0 到 1：六个场景
+## How it works: six scenarios
 
-日常开发只有四步：init 一次 → 在 agent 界面用自然语言提需求 → agent 按 workflow.md 建任务、写 PRD、派子代理、核查、把教训写回 spec → 你检查 diff、验收、提交。先做产品设计时，设计文档先落进 `doc/`，再拆成子任务进开发（见场景 6）。终端命令是 agent 的工具，不是你的日常界面——开场提示词写明四件事：点名工作流、先提问、确认后建任务写 PRD、再动手。
+**Run `sunshine init` once in the terminal → ask in plain language inside the agent UI → the agent works through `workflow.md` (creates the task, writes prd/design, dispatches implement/check sub-agents, verifies, writes lessons back into the spec, finishes with `/sunshine:finish-work`) → you review the diff, accept, and commit.** For design-first work, the design documents land in `doc/` first, then split into sub-tasks (scenario 6). The terminal commands are the agent's tools, not your daily interface — an opening prompt names four things: the workflow, ask first, confirm then create the task and write the PRD, then implement.
 
-教程第 12 节按六个真实场景走了一遍，每个场景都是完整的端到端实录：
+Section 12 of the tutorial walks through six real scenarios, each one a complete end-to-end run:
 
-| 场景 | 适用时机 |
+| Scenario | When it applies |
 | --- | --- |
-| [从零开始新项目](docs/tutorial.md#121-从零开始新项目值班表小工具) | 新建产品、服务、包或内部工具 |
-| [接入存量项目](docs/tutorial.md#122-接入存量项目先把约定落进-spec) | 仓库已存在，规范主要靠人记忆 |
-| [交付产品功能](docs/tutorial.md#123-交付产品功能一个任务横跨产品api数据和-ui) | 一个任务横跨产品、API、数据和 UI |
-| [重构老模块](docs/tutorial.md#124-重构老模块先钉住行为再动代码) | 代码能跑，但已经难以安全修改 |
-| [修复反复出现的 bug](docs/tutorial.md#125-修复反复出现的-bug先找上次的会话) | 同类问题多次出现 |
-| [产品设计先行](docs/tutorial.md#126-产品设计先行需求--设计文档--拆解--开发) | 先做产品设计，再进开发 |
+| [Starting a new project from zero](docs/tutorial.en.md#121-starting-a-new-project-from-zero-a-duty-roster-tool) | A new product, service, package, or internal tool |
+| [Adopting an existing project](docs/tutorial.en.md#122-adopting-an-existing-project-land-the-conventions-in-spec-first) | The repo exists, but the conventions live mostly in people's heads |
+| [Delivering a product feature](docs/tutorial.en.md#123-delivering-a-product-feature-one-task-across-product-api-data-and-ui) | One task spans product, API, data, and UI |
+| [Refactoring a legacy module](docs/tutorial.en.md#124-refactoring-a-legacy-module-pin-the-behavior-first-then-change-the-code) | The code runs, but it is no longer safe to change |
+| [Fixing a bug that keeps coming back](docs/tutorial.en.md#125-fixing-a-bug-that-keeps-coming-back-find-the-last-session-first) | The same class of problem appears again and again |
+| [Design-first product work](docs/tutorial.en.md#126-design-first-product-work-requirements--design-documents--split--code) | Design comes before development |
 
-## 核心命令一览
+## Core commands
 
-agent 在底下调的命令你平时不用敲；下面是你手动干预时用的最常用命令，完整参考见[教程附录：命令速查](docs/tutorial.md#附录命令速查)。
+The commands the agent calls under the hood are not yours to type; below are the ones you use when you step in manually. For the full reference, see the [tutorial appendix](docs/tutorial.en.md#appendix-command-reference).
 
-| 命令 | 一句话 | 最常用示例 |
+| Command | In one line | Most common example |
 | --- | --- | --- |
-| `init` | 初始化项目，生成中文 `.sunshine/` 骨架与平台配置；`--registry` 可从模板市场装规范 | `sunshine init -u 你的名字 -y` |
-| `task` | 任务管理：创建、启动、完成、归档（agent 在底下调；人查状态用 `task current` / `task list`） | `sunshine task create "给退款原因加必填校验" --description "退款时原因字段必填"` |
-| `workflow` | 查看或切换 `.sunshine/workflow.md` 的工作流模板 | `sunshine workflow --list` |
-| `update` | 把项目内模板文件同步到当前 CLI 版本 | `sunshine update --dry-run` |
-| `mem` | 跨平台检索本机 AI 会话历史（只读） | `sunshine mem search "退款"` |
-| `channel` | 多 Agent 协同：通过共享事件日志派生、协调 worker | `sunshine channel create review --type chat` |
-| `upgrade` | 升级 Sunshine CLI 自身（查 GitHub Releases） | `sunshine upgrade --dry-run` |
+| `init` | Initialize a project: generate the Chinese `.sunshine/` skeleton and platform configs; `--registry` installs specs from a template marketplace | `sunshine init -u YourName -y` |
+| `task` | Task management: create, start, finish, archive (the agent calls it under the hood; you check status with `task current` / `task list`) | `sunshine task create "给退款原因加必填校验" --description "退款时原因字段必填"` |
+| `workflow` | View or switch the workflow template used by `.sunshine/workflow.md` | `sunshine workflow --list` |
+| `update` | Sync the Sunshine template files in the project to the current CLI version | `sunshine update --dry-run` |
+| `mem` | Search local AI session history across platforms (read-only) | `sunshine mem search "退款"` |
+| `channel` | Multi-agent collaboration: spawn and coordinate workers through a shared event log | `sunshine channel create review --type chat` |
+| `upgrade` | Upgrade the Sunshine CLI itself (via GitHub Releases) | `sunshine upgrade --dry-run` |
 
-`update` 与 `upgrade` 的区别：`update` 更新项目里的模板文件，`upgrade` 换掉 `sunshine` 这个二进制。agent 在底下调的命令见[教程第 4 节](docs/tutorial.md#4-底下发生了什么)。
+`update` vs `upgrade`: `update` refreshes the template files inside your project, while `upgrade` replaces the `sunshine` binary itself. The commands the agent runs under the hood are in [section 4 of the tutorial](docs/tutorial.en.md#4-what-happened-under-the-hood).
 
-## 配置要点
+## Configuration
 
-`init` 生成的 `.sunshine/config.yaml` 带中文注释，关键字段：
+The `.sunshine/config.yaml` generated by `init` comes with Chinese comments. Most options are commented-out defaults — uncomment and change only what you need; the rest can stay as they are:
 
-- `session_auto_commit`（默认 `true`）：`task add-session` / `task archive` 后自动提交日志与任务改动。
-- `max_journal_lines`（默认 `2000`）：单个日志文件轮换前的最大行数。
-- `hooks.after_create / after_start / after_finish / after_archive`：任务生命周期事件后运行的 shell 命令。
-- `channel.worker_guard.idle_timeout`（默认 `5m`）与 `max_live_workers`（默认 `6`）：`channel spawn` 的 worker 防护。
-- `codex.dispatch_mode`（默认 `auto`）：Codex 子代理分发行为。
-- `context_injection` 上限：`max_file_bytes`（32768）/ `max_artifact_bytes`（65536）/ `max_total_bytes`（131072）。
-- `prompt_injection.skip_keyword`（默认 `"no-sunshine"`）：每轮提示词注入的逃生口。
-- `registry.spec`：`--registry` 装模板后自动写入，`sunshine update` 按它持续刷新市场模板。
-- `tasks_dir` / `spec_dir`：任务与规范目录（默认 `.sunshine/tasks` / `.sunshine/spec`）。
+- `session_commit_message` (default `"chore: record journal"`): commit message used when journal / index changes are auto-committed.
+- `session_auto_commit` (default `true`): auto-commit journal and task changes after `task add-session` / `task archive`.
+- `max_journal_lines` (default `2000`): maximum lines in a single journal file before rotation.
+- `hooks.after_create / after_start / after_finish / after_archive`: shell commands run after task lifecycle events (each receives `TASK_JSON_PATH`).
+- `channel.worker_guard.idle_timeout` (default `5m`) and `max_live_workers` (default `6`): worker guards for `channel spawn`.
+- `codex.dispatch_mode` (default `auto`): Codex sub-agent dispatch behavior (`auto` / `inline`).
+- `context_injection` limits: `max_file_bytes` (32768) / `max_artifact_bytes` (65536) / `max_total_bytes` (131072).
+- `prompt_injection.skip_keyword` (default `"no-sunshine"`): escape hatch for per-turn prompt injection.
+- `registry.spec`: written automatically when a template is installed with `--registry`; `sunshine update` keeps refreshing the marketplace template from it.
+- `tasks_dir` / `spec_dir`: task and spec directories (defaults `.sunshine/tasks` / `.sunshine/spec`).
 
-只改需要改的部分即可，其余保持默认。
+## Template marketplace
 
-## 模板市场
+`sunshine init --registry <source> --template <template id>` installs spec templates from a template marketplace. Sources can be `gh:owner/repo`, a full git URL, an HTTP(S) URL, a `git@` address, or a local git repository path. After installation the source is recorded in `registry.spec` in `config.yaml`, and `sunshine update` keeps refreshing it. A marketplace repository uses the standard layout `marketplace/index.json` + `marketplace/specs/`. In interactive mode, omitting `--template` lists that marketplace's spec templates for you to pick, so you don't need to know the template id in advance. See [section 8 of the tutorial](docs/tutorial.en.md#8-update-and-the-template-marketplace).
 
-`sunshine init --registry <来源> --template <模板 id>` 可从模板市场安装规范模板，来源支持 `gh:owner/repo`、完整 git URL、HTTP(S) URL、`git@` 形式或本地 git 仓库路径；装完后来源记进 `config.yaml` 的 `registry.spec`，`sunshine update` 会持续刷新。模板市场仓库的标准结构是 `marketplace/index.json` + `marketplace/specs/`。交互模式不传 `--template` 时会列出该市场的 spec 模板让你现选，不用事先知道模板 id。详见[教程第 8 节：update 与模板市场](docs/tutorial.md#8-update-与模板市场)。
+## More
 
-## 更多
-
-- 完整教程（一条主线走到底）：[docs/tutorial.md](docs/tutorial.md)（[English](docs/tutorial.en.md)）
-- 完整规划与各阶段实施记录：[PLAN.md](PLAN.md)
-- 发布与下载：[Releases](https://github.com/linrong1982/Sunshine/releases)
+- Full tutorial (one real storyline end to end): [docs/tutorial.en.md](docs/tutorial.en.md)（[中文](docs/tutorial.md)）
+- Full plan and per-stage implementation notes: [PLAN.md](PLAN.md)
+- Releases and downloads: [Releases](https://github.com/linrong1982/Sunshine/releases)
