@@ -5,9 +5,12 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Sunshine 观测后台</title>
 <link rel="stylesheet" href="/static/style.css">
-<script defer src="/static/alpine.min.js"></script>
+<!-- 顺序有讲究：Alpine 在自身脚本执行完后经 queueMicrotask 立即启动并派发
+     alpine:init；app.js/hero.js 必须排在它前面执行并挂好监听，否则
+     serveApp 注册不上、页面全是 —（v0.4.0 的 bug）。 -->
 <script defer src="/static/hero.js"></script>
 <script defer src="/static/app.js"></script>
+<script defer src="/static/alpine.min.js"></script>
 </head>
 <body x-data="serveApp" x-init="init()" x-cloak>
 
@@ -35,6 +38,7 @@
 </header>
 
 <div class="page">
+  <div class="error-banner" x-show="errors.status" x-text="errors.status"></div>
   <!-- 当前任务一行 -->
   <div class="stat-row">
     <div class="stat-card">
@@ -78,7 +82,6 @@
       </div>
     </div>
   </section>
-  <p class="hero-caption">环境层（呼吸、慢轨道）只表示系统活着在监听；事件层（脉冲、闪烁、点亮）只由真实事件与状态变化触发。没有 worker 在跑、没有新事件时，画面就是缓慢呼吸与暗节点。</p>
 
   <!-- 最近活动 -->
   <section class="panel" style="margin-top:14px">
@@ -505,8 +508,8 @@
       <p class="source">数据源：开发者 journal 文件列表与文本。条目无统一结构化时间戳，不做时间线解析。</p>
       <div class="error" x-show="errors.journal" x-text="errors.journal"></div>
       <div class="toolbar" x-show="journal && journal.files && journal.files.length">
-        <template x-for="f in journal.files" :key="f">
-          <button type="button" :class="selectedJournal === f ? 'primary' : ''" @click="selectJournal(f)" x-text="f"></button>
+        <template x-for="f in (journal && journal.files ? journal.files : [])" :key="f.name || f">
+          <button type="button" :class="selectedJournal === (f.name || f) ? 'primary' : ''" @click="selectJournal(f.name || f)" x-text="f.name || f"></button>
         </template>
       </div>
       <pre class="code" x-show="journalContent()" x-text="journalContent()"></pre>
@@ -514,6 +517,8 @@
     </section>
 
   </div>
+
+  <p class="hero-caption">环境层（呼吸、慢轨道）只表示系统活着在监听；事件层（脉冲、闪烁、点亮）只由真实事件与状态变化触发。没有 worker 在跑、没有新事件时，画面就是缓慢呼吸与暗节点。</p>
 
   <p class="footer">只读观测后台 · 不提供任何写操作 · 数据全部来自本机真实文件与事件流，无数据时显示空状态，不编造数字</p>
 </div>

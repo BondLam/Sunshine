@@ -191,8 +191,22 @@ func TestIndexAndStatic(t *testing.T) {
 	if w.Code != http.StatusOK {
 		t.Fatalf("GET / 状态码 = %d", w.Code)
 	}
-	if !strings.Contains(w.Body.String(), "<html") {
-		t.Fatalf("首页不是 HTML：%q", w.Body.String()[:200])
+	indexBody := w.Body.String()
+	if !strings.Contains(indexBody, "<html") {
+		t.Fatalf("首页不是 HTML：%q", indexBody[:200])
+	}
+	// 回归 v0.4.0：script 顺序决定 serveApp 能否注册。
+	// Alpine 在自身脚本执行完后经 queueMicrotask 立即启动并派发 alpine:init；
+	// app.js/hero.js 必须排在 alpine.min.js 前面执行，否则组件注册不上、
+	// 浏览器控制台报 serveApp is not defined、页面全是 —。
+	posHero := strings.Index(indexBody, "/static/hero.js")
+	posApp := strings.Index(indexBody, "/static/app.js")
+	posAlpine := strings.Index(indexBody, "/static/alpine.min.js")
+	if posHero < 0 || posApp < 0 || posAlpine < 0 {
+		t.Fatalf("首页缺 script：hero=%d app=%d alpine=%d", posHero, posApp, posAlpine)
+	}
+	if !(posHero < posAlpine && posApp < posAlpine) {
+		t.Fatalf("script 顺序错：hero.js 与 app.js 必须在 alpine.min.js 之前（hero=%d app=%d alpine=%d）", posHero, posApp, posAlpine)
 	}
 	for _, path := range []string{"/static/app.js", "/static/hero.js", "/static/style.css", "/static/alpine.min.js"} {
 		w := p.get(t, path)

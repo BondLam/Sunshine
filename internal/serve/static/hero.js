@@ -148,7 +148,7 @@
       ctx.scale(dpr, dpr);
 
       // 背景星点（静态装饰，不代表数据）
-      ctx.fillStyle = 'rgba(143,163,191,0.25)';
+      ctx.fillStyle = 'rgba(143,163,191,0.35)';
       for (var s = 0; s < 40; s++) {
         var sx = (s * 137.5) % width;
         var sy = (s * 89.3) % (height * 0.7);
@@ -156,17 +156,17 @@
       }
 
       // 轨道
-      ctx.strokeStyle = 'rgba(59,130,246,0.25)';
+      ctx.strokeStyle = 'rgba(59,130,246,0.42)';
       ctx.lineWidth = 1;
       ctx.beginPath();
       ctx.ellipse(core.x, core.y, Math.min(width * 0.36, 420), height * 0.26, 0, 0, Math.PI * 2);
       ctx.stroke();
 
       // 核心：同心圆环 + 脉冲波纹
-      var glow = 18 + intensity * 30 + breathe * 6;
+      var glow = 24 + intensity * 30 + breathe * 6;
       ctx.shadowColor = '#22d3ee';
       ctx.shadowBlur = glow;
-      ctx.strokeStyle = 'rgba(34,211,238,' + (0.55 + intensity * 0.4) + ')';
+      ctx.strokeStyle = 'rgba(34,211,238,' + (0.7 + intensity * 0.3) + ')';
       ctx.lineWidth = 2;
       ctx.beginPath();
       ctx.arc(core.x, core.y, 34 + breathe * 4, 0, Math.PI * 2);
@@ -207,7 +207,7 @@
         else if (st === 'idle') { color = '#f59e0b'; }
         else if (st === 'error') { color = '#ef4444'; bright = true; }
         else if (st === 'done') { color = '#3b82f6'; }
-        else if (st === 'standby') { color = '#5b6d88'; }
+        else if (st === 'standby') { color = '#8fa3bf'; }
         if (flashing) { color = '#22d3ee'; bright = true; }
         if (st === 'absent') { color = '#2a3d5f'; }
 
@@ -225,6 +225,14 @@
         ctx.arc(p.x, p.y, flashing ? 8 : 6, 0, Math.PI * 2);
         ctx.fill();
         ctx.shadowBlur = 0;
+        // 待命节点加一圈描边：待机时也看得见它在场，而不是缺了一块
+        if (st === 'standby') {
+          ctx.strokeStyle = 'rgba(143,163,191,0.55)';
+          ctx.lineWidth = 1;
+          ctx.beginPath();
+          ctx.arc(p.x, p.y, 10, 0, Math.PI * 2);
+          ctx.stroke();
+        }
 
         ctx.fillStyle = st === 'absent' ? '#5b6d88' : '#d7e3f4';
         ctx.font = '11px ui-monospace, Menlo, monospace';

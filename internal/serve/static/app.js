@@ -607,8 +607,10 @@
             self.journal = data || {};
             self.errors.journal = '';
             if (data && Array.isArray(data.files) && data.files.length && !self.selectedJournal) {
-              self.selectedJournal = data.files[0];
-              if (data.content) self.journalByFile[data.files[0]] = data.content;
+              // files 是 {name, path} 对象：存名字符串，按钮与缓存键保持一致
+              var firstName = data.files[0].name || data.files[0];
+              self.selectedJournal = firstName;
+              if (data.content) self.journalByFile[firstName] = data.content;
             }
           }).catch(function (e) { self.errors.journal = 'Journal 失败：' + e.message; });
         },
