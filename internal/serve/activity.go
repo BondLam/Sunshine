@@ -8,6 +8,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/linrong1982/Sunshine/internal/hook"
 	"github.com/linrong1982/Sunshine/internal/task"
 )
 
@@ -149,12 +150,13 @@ func (t *activityTracker) scan() []activityEntry {
 	return out
 }
 
-// mergeActivityEntries 把 mtime 条目与 channel 事件条目合并，按 ts
-// 倒序取最近 30 条。
-func mergeActivityEntries(mtimeEntries []activityEntry, channelEntries []activityEntry) []activityEntry {
-	all := make([]activityEntry, 0, len(mtimeEntries)+len(channelEntries))
+// mergeActivityEntries 把 mtime 条目、channel 事件条目与 native hook
+// 事件条目合并，按 ts 倒序取最近 30 条。
+func mergeActivityEntries(mtimeEntries []activityEntry, channelEntries []activityEntry, nativeEntries []activityEntry) []activityEntry {
+	all := make([]activityEntry, 0, len(mtimeEntries)+len(channelEntries)+len(nativeEntries))
 	all = append(all, mtimeEntries...)
 	all = append(all, channelEntries...)
+	all = append(all, nativeEntries...)
 	sort.SliceStable(all, func(i, j int) bool {
 		return all[i].sortTime.After(all[j].sortTime)
 	})
@@ -162,6 +164,74 @@ func mergeActivityEntries(mtimeEntries []activityEntry, channelEntries []activit
 		all = all[:30]
 	}
 	return all
+}
+
+// ---------------------------------------------------------------------------
+// Native hook 活动（v0.5.0）
+// ---------------------------------------------------------------------------
+
+// NativeRunningStaleAfter 是运行中推导的防 stale 阈值：start 超过
+// 这么久仍无对应 stop，视为未知（stop hook 未触发，如会话被杀、
+// 旧版二进制），回落待命，不无上限显示运行中。
+// 取值说明：实测 demo 里 implement 一轮约 2 分钟；research 也可能跑
+// 几十分钟；2 小时是留足余量的初值，待真实使用后按实测再调。
+const NativeRunningStaleAfter = 2 * time.Hour
+
+// NativeActivityMaxRead 是 serve 一次读 activity.jsonl 的最多行数
+// （hook 写盘侧上限 1000 行，读 500 行足够覆盖推导与 feed）。
+const NativeActivityMaxRead = 500
+
+// nativeAgentRoles 是活动事件里的角色顺序（与前端 clusterRoles 一致）。
+// 主会话不在事件里，本批不推导主会话。
+var nativeAgentRoles = []string{"implement", "check", "research", "prototype"}
+
+// loadNativeEvents 读 .sunshine/.runtime/activity.jsonl；
+// 文件不存在或读失败返回空（不是错误：旧项目与未派发时本就没有）。
+func loadNativeEvents(root string) []hook.ActivityEvent {
+	events, err := hook.ReadActivityEvents(root, NativeActivityMaxRead)
+	if err != nil {
+		return nil
+	}
+	return events
+}
+
+// nativeEntries 把 native 事件转成活动流条目（source="native"），
+// 文本写明角色与启停，如 `implement 已启动`。
+func nativeEntries(events []hook.ActivityEvent) []activityEntry {
+	out := make([]activityEntry, 0, len(events))
+	for _, ev := range events {
+		text := ev.Agent + " 已启动"
+		if ev.Kind == hook.ActivityKindStopped {
+			text = ev.Agent + " 已结束"
+		}
+		out = append(out, activityEntry{
+			TS:       ev.TS,
+			Kind:     ev.Kind,
+			Text:     text,
+			Source:   "native",
+			sortTime: parseEventTime(ev.TS),
+		})
+	}
+	return out
+}
+
+// deriveNativeRunning 从 native 事件推导当前运行中的角色：
+// 最近一个 start 未被 stop 配对、且 start 未超过 stale 阈值。
+// 无 start 事件绝不显示运行中；stale start 回落待命。
+func deriveNativeRunning(events []hook.ActivityEvent, now time.Time) []string {
+	running := []string{}
+	for _, role := range nativeAgentRoles {
+		st := hook.UnendedStart(events, role, "")
+		if st == nil {
+			continue
+		}
+		ts := parseEventTime(st.TS)
+		if ts.IsZero() || now.Sub(ts) > NativeRunningStaleAfter {
+			continue
+		}
+		running = append(running, role)
+	}
+	return running
 }
 
 // parseEventTime 解析事件 ts（RFC3339）；解析失败返回零值（排最后）。

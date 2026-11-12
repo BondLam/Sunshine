@@ -25,6 +25,18 @@
         "matcher": "Agent"
       }
     ],
+    "SubagentStop": [
+      {
+        "hooks": [
+          {
+            "command": "SUNSHINE_HOOK_PLATFORM=claude sunshine hook subagent-stop",
+            "timeout": 30,
+            "type": "command"
+          }
+        ],
+        "matcher": "sunshine-implement|sunshine-check|sunshine-research|sunshine-prototype"
+      }
+    ],
     "SessionStart": [
       {
         "hooks": [

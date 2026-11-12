@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 
 	"github.com/linrong1982/Sunshine/internal/migrate"
+	"github.com/linrong1982/Sunshine/internal/platforms"
 )
 
 // LatestVersionFunc 是“最新版”检查（上游 getLatestNpmVersion 的对应实现：
@@ -386,7 +387,19 @@ func Run(cwd string, opts Options) (Summary, error) {
 			}
 			switch action {
 			case ActionOverwrite:
-				if err := writeFile(file, mergedContent(file)); err != nil {
+				content := mergedContent(file)
+				if file.RelativePath == ClaudeSettingsPath {
+					// settings.json 冲突覆盖时做 hook 合并：只补模板里有、
+					// 用户文件里缺失的 hook 组（如新增的 SubagentStop），
+					// 用户已有配置（自加 hook、env、statusLine 等）一行
+					// 不动；合并失败时回落到模板全文（旧行为）。
+					if existing, err := os.ReadFile(file.Path); err == nil {
+						if merged, err := platforms.MergeMissingSettingsHooks(existing, []byte(content)); err == nil {
+							content = string(merged)
+						}
+					}
+				}
+				if err := writeFile(file, content); err != nil {
 					return summary, err
 				}
 				fmt.Fprintf(w, "  ✓ 已覆盖：%s\n", file.RelativePath)

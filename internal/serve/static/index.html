@@ -91,7 +91,7 @@
     <div class="metric  metric-teal bg-surface border border-line rounded-[14px] px-4 py-3 min-w-0">
       <div class="label text-xs text-ink-700">运行中 Worker</div>
       <div class="value font-mono text-2xl leading-tight text-ink-950" x-text="runningWorkers()"></div>
-      <div class="sub text-xs text-ink-600" x-text="workers.length ? ('共 ' + workers.length + ' 个 worker') : '暂无 worker 数据'"></div>
+      <div class="sub text-xs text-ink-600" x-text="runningWorkersSub()"></div>
     </div>
     <div class="metric  metric-orange bg-surface border border-line rounded-[14px] px-4 py-3 min-w-0">
       <div class="label text-xs text-ink-700">Channel 事件总数</div>
@@ -129,7 +129,7 @@
   <div class="grid grid-cols-1 lg:grid-cols-12 gap-4">
     <section class="panel  panel-orange lg:col-span-4 bg-surface border border-line rounded-[14px] px-4 py-3.5 min-w-0" id="cluster">
       <h2 class="font-serif text-[15px] font-bold text-ink-950 m-0 mb-1">智能体团</h2>
-      <p class="source text-xs text-ink-600 m-0 mb-2.5">数据源：所选 channel 的 worker 状态 + 当前任务。无 worker 时显示待命，不假装在跑。</p>
+      <p class="source text-xs text-ink-600 m-0 mb-2.5">数据源：所选 channel 的 worker 状态 + native hook 事件（.sunshine/.runtime/activity.jsonl）+ 当前任务。无 worker、无 hook 事件时显示待命，不假装在跑；hook 开始事件超过 2 小时未结束视为未知，回落待命。</p>
       <ul class="cluster-list list-none m-0 p-0">
         <template x-for="r in clusterRoles()" :key="r.key">
           <li class="py-2.5 px-1 border-b border-line last:border-b-0">
@@ -143,7 +143,7 @@
           </li>
         </template>
       </ul>
-      <p class="note text-xs text-ink-700 mt-1.5" x-show="!selectedChannel">未选 channel：全部待命，先在下方 Channel 列表里选一个。</p>
+      <p class="note text-xs text-ink-700 mt-1.5" x-show="!selectedChannel && !nativeRunning().length">未选 channel 且无 native hook 事件：全部待命，先在下方 Channel 列表里选一个。</p>
     </section>
 
     <section class="panel  panel-magenta lg:col-span-8 bg-surface border border-line rounded-[14px] px-4 py-3.5 min-w-0" id="signal-feed">
@@ -166,7 +166,7 @@
   <!-- 活动热力 -->
   <section class="panel  panel-gold bg-surface border border-line rounded-[14px] px-4 py-3.5 min-w-0" id="heatmap">
     <h2 class="font-serif text-[15px] font-bold text-ink-950 m-0 mb-1">活动热力</h2>
-    <p class="source text-xs text-ink-600 m-0 mb-2.5">数据源：所选 channel 的事件流 + 其它 channel 的最近活动。行 = 5 个角色，列 = 最近 30 秒、每 2.5 秒一格，格值 = 该角色该时间段的 channel 事件数；mtime 文件变化不计入。token 列不做（无 token 数据）。</p>
+    <p class="source text-xs text-ink-600 m-0 mb-2.5">数据源：所选 channel 的事件流 + 其它 channel 的最近活动 + native hook 事件。行 = 5 个角色，列 = 最近 30 秒、每 2.5 秒一格，格值 = 该角色该时间段的 channel 事件 + native hook 事件数；mtime 文件变化仍不计入。token 列不做（无 token 数据）。</p>
     <div class="heat-wrap flex gap-2 items-stretch">
       <div class="heat-labels flex-none w-[84px]">
         <div>implement</div>

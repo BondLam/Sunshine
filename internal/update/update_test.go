@@ -2,6 +2,7 @@ package update
 
 import (
 	"bytes"
+	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -234,6 +235,58 @@ func TestRunPreservesStatusLine(t *testing.T) {
 	}
 	if !strings.Contains(after, "SUNSHINE_HOOK_PLATFORM=claude sunshine hook workflow-state\"") {
 		t.Errorf("覆盖后应恢复模板 hooks：\n%s", after)
+	}
+}
+
+func TestRunMergesMissingHooksOnConflict(t *testing.T) {
+	dir := setupProject(t)
+	// 模拟旧版 init 的 settings.json：新模板去掉 SubagentStop 段。
+	fresh := readFile(t, dir, ".claude/settings.json")
+	var parsed map[string]any
+	if err := json.Unmarshal([]byte(fresh), &parsed); err != nil {
+		t.Fatal(err)
+	}
+	delete(parsed["hooks"].(map[string]any), "SubagentStop")
+	old, err := json.MarshalIndent(parsed, "", "  ")
+	if err != nil {
+		t.Fatal(err)
+	}
+	oldStr := string(old) + "\n"
+	// 清单哈希记为旧版内容（模拟旧版 init 后的状态）。
+	if err := UpdateHashes(dir, map[string]string{ClaudeSettingsPath: oldStr}); err != nil {
+		t.Fatal(err)
+	}
+	// 用户随后自加一个 Stop hook → 磁盘与清单不一致，触发冲突。
+	var userParsed map[string]any
+	if err := json.Unmarshal([]byte(oldStr), &userParsed); err != nil {
+		t.Fatal(err)
+	}
+	userParsed["hooks"].(map[string]any)["Stop"] = []any{
+		map[string]any{"hooks": []any{map[string]any{"command": "my-notify", "timeout": 5, "type": "command"}}},
+	}
+	user, err := json.MarshalIndent(userParsed, "", "  ")
+	if err != nil {
+		t.Fatal(err)
+	}
+	writeFile(t, dir, ".claude/settings.json", string(user)+"\n")
+	// 冲突覆盖：应补上 SubagentStop，同时保留用户自加 hook。
+	var out bytes.Buffer
+	summary, err := Run(dir, Options{CLIVersion: "0.2.0", Force: true, Prompter: fakePrompter{proceed: true}, Out: &out})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if summary.Updated == 0 {
+		t.Errorf("settings.json 应被覆盖处理，实际 %+v", summary)
+	}
+	after := readFile(t, dir, ".claude/settings.json")
+	if !strings.Contains(after, "SUNSHINE_HOOK_PLATFORM=claude sunshine hook subagent-stop") {
+		t.Errorf("覆盖后应补上 SubagentStop：\n%s", after)
+	}
+	if !strings.Contains(after, `"my-notify"`) {
+		t.Errorf("覆盖后用户自加 hook 应保留：\n%s", after)
+	}
+	if !strings.Contains(after, "SUNSHINE_HOOK_PLATFORM=claude sunshine hook session-start") {
+		t.Errorf("覆盖后模板 hook 应在：\n%s", after)
 	}
 }
 

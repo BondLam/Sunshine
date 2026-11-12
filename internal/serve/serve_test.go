@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/linrong1982/Sunshine/internal/channel/store"
+	"github.com/linrong1982/Sunshine/internal/hook"
 	"github.com/linrong1982/Sunshine/internal/task"
 	"github.com/linrong1982/Sunshine/internal/workflow"
 )
@@ -774,6 +775,141 @@ func TestJournal(t *testing.T) {
 	decodeJSON(t, w, &data)
 	if !strings.Contains(data["content"].(string), "做了测试任务") {
 		t.Errorf("按文件取 journal 失败：%v", data["content"])
+	}
+}
+
+func writeNativeActivity(t *testing.T, root string, lines ...string) {
+	t.Helper()
+	writeFile(t, filepath.Join(root, ".sunshine", ".runtime", "activity.jsonl"),
+		strings.Join(lines, "\n")+"\n")
+}
+
+func nativeLine(ts, kind, agent, task string) string {
+	return fmt.Sprintf(`{"ts":%q,"kind":%q,"agent":%q,"task":%q,"source":"hook"}`, ts, kind, agent, task)
+}
+
+func activityData(t *testing.T, p *testProject) map[string]any {
+	t.Helper()
+	w := p.get(t, "/api/activity")
+	var data map[string]any
+	decodeJSON(t, w, &data)
+	return data
+}
+
+func nativeRunningOf(t *testing.T, data map[string]any) []string {
+	t.Helper()
+	raw, ok := data["native_running"].([]any)
+	if !ok {
+		t.Fatalf("native_running 应为数组，实际 %v", data["native_running"])
+	}
+	out := []string{}
+	for _, v := range raw {
+		s, _ := v.(string)
+		out = append(out, s)
+	}
+	return out
+}
+
+func TestActivityNative(t *testing.T) {
+	p := newTestProject(t)
+	now := time.Now().Format(time.RFC3339)
+	// implement 已启动未结束；check 启动后已结束；research 只有坏行。
+	writeNativeActivity(t, p.root,
+		nativeLine(now, "subagent_started", "implement", "11-12-child"),
+		nativeLine(now, "subagent_started", "check", "11-12-child"),
+		nativeLine(now, "subagent_stopped", "check", "11-12-child"),
+		"{ bad json",
+	)
+	data := activityData(t, p)
+	entries := data["entries"].([]any)
+	var texts []string
+	for _, e := range entries {
+		m := e.(map[string]any)
+		if m["source"] == "native" {
+			texts = append(texts, m["text"].(string))
+		}
+	}
+	for _, want := range []string{"implement 已启动", "check 已启动", "check 已结束"} {
+		found := false
+		for _, s := range texts {
+			if s == want {
+				found = true
+			}
+		}
+		if !found {
+			t.Errorf("活动流缺 native 条目 %q，实际 %v", want, texts)
+		}
+	}
+	running := nativeRunningOf(t, data)
+	if len(running) != 1 || running[0] != "implement" {
+		t.Errorf("native_running 应只有 implement，实际 %v", running)
+	}
+}
+
+func TestActivityNativeStale(t *testing.T) {
+	p := newTestProject(t)
+	old := time.Now().Add(-3 * time.Hour).Format(time.RFC3339)
+	writeNativeActivity(t, p.root,
+		nativeLine(old, "subagent_started", "implement", "11-12-child"),
+	)
+	data := activityData(t, p)
+	if running := nativeRunningOf(t, data); len(running) != 0 {
+		t.Errorf("3 小时前的 start 无 stop，应视为未知、不显示运行中，实际 %v", running)
+	}
+	// 条目本身仍在 feed 里（只推导回落，不删事件）。
+	entries := data["entries"].([]any)
+	found := false
+	for _, e := range entries {
+		m := e.(map[string]any)
+		if m["source"] == "native" && m["text"] == "implement 已启动" {
+			found = true
+		}
+	}
+	if !found {
+		t.Errorf("stale start 的条目仍应在 feed 里，实际 %v", entries)
+	}
+}
+
+func TestDeriveNativeRunning(t *testing.T) {
+	now := time.Now()
+	events := []hook.ActivityEvent{
+		{TS: now.Add(-time.Minute).Format(time.RFC3339), Kind: "subagent_started", Agent: "implement", Task: "t1"},
+		{TS: now.Add(-time.Minute).Format(time.RFC3339), Kind: "subagent_started", Agent: "check", Task: "t1"},
+		{TS: now.Add(-time.Second).Format(time.RFC3339), Kind: "subagent_stopped", Agent: "check", Task: "t1"},
+		{TS: now.Add(-3 * time.Hour).Format(time.RFC3339), Kind: "subagent_started", Agent: "research", Task: "t1"},
+		{TS: "not-a-time", Kind: "subagent_started", Agent: "prototype", Task: "t1"},
+	}
+	got := deriveNativeRunning(events, now)
+	if len(got) != 1 || got[0] != "implement" {
+		t.Errorf("只应推导 implement 运行中，实际 %v", got)
+	}
+}
+
+func TestMergeActivityEntriesThreeWay(t *testing.T) {
+	base := time.Now()
+	mk := func(src string, ago time.Duration) activityEntry {
+		return activityEntry{TS: base.Add(-ago).Format(time.RFC3339), Text: src, Source: src, sortTime: base.Add(-ago)}
+	}
+	merged := mergeActivityEntries(
+		[]activityEntry{mk("mtime", 3*time.Second)},
+		[]activityEntry{mk("channel", time.Second)},
+		[]activityEntry{mk("native", 2*time.Second)},
+	)
+	if len(merged) != 3 {
+		t.Fatalf("三路应合并为 3 条，实际 %d", len(merged))
+	}
+	if merged[0].Source != "channel" || merged[1].Source != "native" || merged[2].Source != "mtime" {
+		t.Errorf("应按 ts 倒序，实际 %v", merged)
+	}
+	// 30 条上限：三路各 20 条 → 只留最近 30 条。
+	var m, c, n []activityEntry
+	for i := 0; i < 20; i++ {
+		m = append(m, mk("mtime", time.Duration(i)*time.Second))
+		c = append(c, mk("channel", time.Duration(i)*time.Second))
+		n = append(n, mk("native", time.Duration(i)*time.Second))
+	}
+	if got := mergeActivityEntries(m, c, n); len(got) != 30 {
+		t.Errorf("三路各 20 条应截断到 30 条，实际 %d", len(got))
 	}
 }
 

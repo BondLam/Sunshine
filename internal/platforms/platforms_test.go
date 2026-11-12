@@ -348,7 +348,7 @@ func TestInstallClaude(t *testing.T) {
 	tree := readTree(t, dir)
 	assertClean(t, tree)
 	settings := tree[".claude/settings.json"]
-	for _, sub := range []string{"SUNSHINE_HOOK_PLATFORM=claude sunshine hook session-start", "SUNSHINE_HOOK_PLATFORM=claude sunshine hook subagent-context", "SUNSHINE_HOOK_PLATFORM=claude sunshine hook workflow-state"} {
+	for _, sub := range []string{"SUNSHINE_HOOK_PLATFORM=claude sunshine hook session-start", "SUNSHINE_HOOK_PLATFORM=claude sunshine hook subagent-context", "SUNSHINE_HOOK_PLATFORM=claude sunshine hook subagent-stop", "SUNSHINE_HOOK_PLATFORM=claude sunshine hook workflow-state"} {
 		if !strings.Contains(settings, sub) {
 			t.Errorf("settings.json 缺少 %q", sub)
 		}
@@ -405,7 +405,7 @@ func TestInstallCursor(t *testing.T) {
 	tree := readTree(t, dir)
 	assertClean(t, tree)
 	hooks := tree[".cursor/hooks.json"]
-	for _, sub := range []string{"SUNSHINE_HOOK_PLATFORM=cursor sunshine hook session-start", "SUNSHINE_HOOK_PLATFORM=cursor sunshine hook subagent-context", "SUNSHINE_HOOK_PLATFORM=cursor sunshine hook shell-session"} {
+	for _, sub := range []string{"SUNSHINE_HOOK_PLATFORM=cursor sunshine hook session-start", "SUNSHINE_HOOK_PLATFORM=cursor sunshine hook subagent-context", "SUNSHINE_HOOK_PLATFORM=cursor sunshine hook subagent-stop", "SUNSHINE_HOOK_PLATFORM=cursor sunshine hook shell-session"} {
 		if !strings.Contains(hooks, sub) {
 			t.Errorf("cursor hooks.json 缺少 %q", sub)
 		}
@@ -466,6 +466,13 @@ func TestInstallCodex(t *testing.T) {
 	// SessionStart 已接线（2026-11-09 用户确认，Trellis 未注册属上游遗漏）。
 	if !strings.Contains(hooks, "SessionStart") || !strings.Contains(hooks, "SUNSHINE_HOOK_PLATFORM=codex sunshine hook session-start") {
 		t.Error("Codex hooks.json 未注册 SessionStart")
+	}
+	// SubagentStop 已接线（v0.5.0），matcher 含 prototype。
+	if !strings.Contains(hooks, "SubagentStop") || !strings.Contains(hooks, "SUNSHINE_HOOK_PLATFORM=codex sunshine hook subagent-stop") {
+		t.Error("Codex hooks.json 未注册 SubagentStop")
+	}
+	if !strings.Contains(hooks, "sunshine-implement|sunshine-check|sunshine-research|sunshine-prototype") {
+		t.Error("Codex hooks.json 的 SubagentStop matcher 未含 prototype")
 	}
 	// config.toml：保留 [agents] max_depth = 1 与 multi_agent_v2 说明。
 	cfg := tree[".codex/config.toml"]

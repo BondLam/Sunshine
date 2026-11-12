@@ -17,9 +17,16 @@ const (
 	AgentImplement = "sunshine-implement"
 	AgentCheck     = "sunshine-check"
 	AgentResearch  = "sunshine-research"
+	AgentPrototype = "sunshine-prototype"
 )
 
-var agentsAll = []string{AgentImplement, AgentCheck, AgentResearch}
+var agentsAll = []string{AgentImplement, AgentCheck, AgentResearch, AgentPrototype}
+
+// shortAgentName 把 sunshine- 前缀去掉，得到 implement/check/research/prototype，
+// 与 activity.jsonl 与 serve 前端的角色键一致（agentType 已归一化）。
+func shortAgentName(agent string) string {
+	return strings.TrimPrefix(agent, "sunshine-")
+}
 
 func normalizeAgentName(name string) string {
 	name = strings.TrimSpace(name)
@@ -81,6 +88,13 @@ func RunSubagentContext(r io.Reader, opts Options) error {
 			return nil
 		}
 	}
+	if agentType == AgentPrototype {
+		// prototype 只记 start 事件，不注入 implement/check 式的大上下文
+		// （v0.3.11 token 规则：brief 由主会话在派发提示里给两份设计
+		// 文档路径，hook 不再注入；也不读 spec/workflow.md）。
+		RecordSubagentStart(root, "prototype", taskDir, GetString(input, "session_id", "sessionId", "sessionID"))
+		return nil
+	}
 	var context, newPrompt string
 	switch agentType {
 	case AgentImplement:
@@ -101,6 +115,9 @@ func RunSubagentContext(r io.Reader, opts Options) error {
 	if context == "" {
 		return nil
 	}
+	// 成功注入上下文后记一条 start 事件（serve 推导运行状态用）；
+	// 写盘失败静默丢弃，不影响注入输出。
+	RecordSubagentStart(root, shortAgentName(agentType), taskDir, GetString(input, "session_id", "sessionId", "sessionID"))
 	updated := map[string]any{}
 	for k, v := range toolInput {
 		updated[k] = v
@@ -180,6 +197,11 @@ func handleCodexSubagentStart(input HookInput, opts Options) {
 			return
 		}
 	}
+	if agentType == AgentPrototype {
+		// prototype 只记 start 事件，不注入上下文（同 Claude 路径）。
+		RecordSubagentStart(root, "prototype", taskDir, parentSessionID)
+		return
+	}
 	var context string
 	switch agentType {
 	case AgentImplement:
@@ -192,6 +214,8 @@ func handleCodexSubagentStart(input HookInput, opts Options) {
 	if context == "" {
 		return
 	}
+	// 成功注入上下文后记一条 start 事件；写盘失败静默丢弃。
+	RecordSubagentStart(root, shortAgentName(agentType), taskDir, parentSessionID)
 	WriteJSON(opts.out(), map[string]any{
 		"hookSpecificOutput": map[string]any{
 			"hookEventName":     "SubagentStart",

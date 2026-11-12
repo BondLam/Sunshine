@@ -326,7 +326,8 @@ func (s *Server) handleActivity(c *gin.Context) {
 		}
 	}
 
-	merged := mergeActivityEntries(mtimeEntries, channelEntries)
+	nativeEvents := loadNativeEvents(s.root)
+	merged := mergeActivityEntries(mtimeEntries, channelEntries, nativeEntries(nativeEvents))
 	entries := make([]map[string]any, 0, len(merged))
 	for _, e := range merged {
 		ts := e.TS
@@ -340,5 +341,8 @@ func (s *Server) handleActivity(c *gin.Context) {
 			"source": e.Source,
 		})
 	}
-	c.JSON(http.StatusOK, map[string]any{"entries": entries})
+	c.JSON(http.StatusOK, map[string]any{
+		"entries":        entries,
+		"native_running": deriveNativeRunning(nativeEvents, time.Now()),
+	})
 }

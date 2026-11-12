@@ -84,6 +84,7 @@
 
         /* ---- 活动流 ---- */
         activity: { entries: [] },
+        nativeRunningList: [],
         lastSeenActivityTs: null,
         lastSeenActivityCount: 0,
 
@@ -453,7 +454,24 @@
             var act = String(w.Activity || w.activity || '').toLowerCase();
             if (lc === 'running' || lc === 'active' || act === 'running' || act === 'in_turn' || act === 'working') n++;
           });
-          return this.workers.length ? n : '—';
+          // native 与 channel 不会同时有同一角色在跑（同一任务同一时刻
+          // 只走一种派发模式），两边直接相加。
+          n += this.nativeRunning().length;
+          return (this.workers.length || this.nativeRunning().length) ? n : '—';
+        },
+
+        // native 运行中：/api/activity 返回的 native_running（服务端推导，
+        // 含防 stale 规则）；无 start 事件时为空，绝不凭空显示运行中
+        nativeRunning: function () {
+          return Array.isArray(this.nativeRunningList) ? this.nativeRunningList : [];
+        },
+
+        // “运行中 Worker”指标卡副文案：channel worker 数优先，
+        // 无 channel 时说明 native hook 事件数
+        runningWorkersSub: function () {
+          if (this.workers.length) return '共 ' + this.workers.length + ' 个 worker';
+          if (this.nativeRunning().length) return 'native hook 事件：' + this.nativeRunning().length + ' 个运行中';
+          return '暂无 worker 数据';
         },
 
         workerLifecycleText: function (w) {
@@ -497,6 +515,11 @@
               if (self.roleOfName(self.workerName(x)) === r.key) w = x;
             });
             if (!w) {
+              // 无 channel worker 时回落到 native hook 推导：
+              // 运行中→绿灯/工作中；主会话行本批不动（仍待命）。
+              if (r.key !== 'main' && self.nativeRunning().indexOf(r.key) !== -1) {
+                return { key: r.key, label: r.label, lamp: 'green', stateText: '工作中', workerName: 'hook', taskLine: self.clusterTaskLine(r.key) };
+              }
               return { key: r.key, label: r.label, lamp: 'gray', stateText: '待命', workerName: '—', taskLine: self.clusterTaskLine(r.key) };
             }
             return {
@@ -719,6 +742,7 @@
             self.lastSeenActivityTs = maxTs;
             self.lastSeenActivityCount = entries.length;
             self.activity.entries = entries;
+            self.nativeRunningList = (data && Array.isArray(data.native_running)) ? data.native_running : [];
             self.drawHeatmap();
             self.drawSparkline();
           }).catch(function (e) { self.errors.activity = '活动流失败：' + e.message; });
@@ -788,8 +812,8 @@
           return (n / 10).toFixed(1) + ' /秒';
         },
 
-        // 热力格数据源：所选 channel 的事件流 + 其它 channel 的最近活动（去重）；
-        // mtime 文件变化不计入（不是 channel 事件）
+        // 热力格数据源：所选 channel 的事件流 + 其它 channel 的最近活动（去重）
+        // + native hook 事件；mtime 文件变化不计入（不是 channel/hook 事件）
         heatEvents: function () {
           var self = this;
           var out = [];
@@ -806,6 +830,13 @@
             var t = toMs(e.ts);
             if (t === null) return;
             out.push({ ts: t, role: self.roleOfName(parts.slice(2).join(' ')) || 'main' });
+          });
+          // native hook 事件：start/stop 都计入（30 秒窗口内，drawHeatmap 过滤）
+          this.activity.entries.forEach(function (e) {
+            if (e.source !== 'native') return;
+            var t = toMs(e.ts);
+            if (t === null) return;
+            out.push({ ts: t, role: self.workerForEntry(e) });
           });
           return out;
         },

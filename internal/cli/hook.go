@@ -28,7 +28,9 @@ var hookCmd = &cobra.Command{
   workflow-state     每轮提示词面包屑：只从 workflow.md 的
                      [workflow-state:STATUS] 标签块取内容
   subagent-context   子代理上下文注入：给 implement/check/research 子代理
-                     注入任务上下文
+                     注入任务上下文（prototype 只记启动事件，不注入）
+  subagent-stop      子代理结束：记一条 subagent_stopped 事件，供 serve
+                     推导智能体团运行状态（SubagentStop）
   shell-session      shell 执行前：待执行命令调用 sunshine task 命令时，
                      写一张 30 秒票据把会话身份桥接给子进程
   statusline         Claude Code 状态栏：输出 1-2 行状态
@@ -40,7 +42,7 @@ var hookCmd = &cobra.Command{
 	Args: cobra.ArbitraryArgs,
 	Run: func(cmd *cobra.Command, args []string) {
 		if len(args) == 0 {
-			fmt.Fprintln(os.Stderr, "用法：sunshine hook <事件>，事件为 session-start、workflow-state、subagent-context、shell-session、statusline 之一")
+			fmt.Fprintln(os.Stderr, "用法：sunshine hook <事件>，事件为 session-start、workflow-state、subagent-context、subagent-stop、shell-session、statusline 之一")
 			return
 		}
 		opts := hook.Options{Version: version, Stdout: cmd.OutOrStdout(), Stderr: cmd.ErrOrStderr()}
@@ -53,12 +55,14 @@ var hookCmd = &cobra.Command{
 			_ = hook.RunWorkflowState(os.Stdin, opts)
 		case "subagent-context":
 			_ = hook.RunSubagentContext(os.Stdin, opts)
+		case "subagent-stop":
+			_ = hook.RunSubagentStop(os.Stdin, opts)
 		case "shell-session":
 			_ = hook.RunShellSession(os.Stdin, opts)
 		case "statusline":
 			_ = hook.RunStatusline(os.Stdin, opts)
 		default:
-			fmt.Fprintf(os.Stderr, "未知 hook 事件 %q，可用事件为 session-start、workflow-state、subagent-context、shell-session、statusline\n", args[0])
+			fmt.Fprintf(os.Stderr, "未知 hook 事件 %q，可用事件为 session-start、workflow-state、subagent-context、subagent-stop、shell-session、statusline\n", args[0])
 		}
 	},
 }

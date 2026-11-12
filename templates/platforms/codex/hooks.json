@@ -20,7 +20,19 @@
             "type": "command"
           }
         ],
-        "matcher": "^(?:sunshine-implement|sunshine-check|sunshine-research)$"
+        "matcher": "^(?:sunshine-implement|sunshine-check|sunshine-research|sunshine-prototype)$"
+      }
+    ],
+    "SubagentStop": [
+      {
+        "hooks": [
+          {
+            "command": "SUNSHINE_HOOK_PLATFORM=codex sunshine hook subagent-stop",
+            "timeout": 30,
+            "type": "command"
+          }
+        ],
+        "matcher": "^(?:sunshine-implement|sunshine-check|sunshine-research|sunshine-prototype)$"
       }
     ],
     "UserPromptSubmit": [
