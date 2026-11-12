@@ -1,26 +1,49 @@
 # Sunshine
 
-A Go reimplementation of all Trellis features. The CLI interface and the generated spec files are all in Chinese.
+**An out-of-the-box engineering framework for AI coding — rebuilt in Go.**
 
-> 中文版：[README.cn.md](README.cn.md) · Full tutorial: [docs/tutorial.en.md](docs/tutorial.en.md)（[中文](docs/tutorial.md)）
+AI writes code fast, but every session it starts from scratch — no memory of your project, your conventions, or your team's requirements. Sunshine persists specs, tasks, and memory into your repo, so any coding agent works to your engineering standards. The CLI and the generated spec files are all in Chinese.
+
+[中文版](README.cn.md) • [Full tutorial](docs/tutorial.en.md) • [Releases](https://github.com/linrong1982/Sunshine/releases)
+
+[![Release](https://img.shields.io/github/v/release/linrong1982/Sunshine)](https://github.com/linrong1982/Sunshine/releases) [![CI](https://github.com/linrong1982/Sunshine/actions/workflows/ci.yml/badge.svg)](https://github.com/linrong1982/Sunshine/actions/workflows/ci.yml) [![Go](https://img.shields.io/github/go-mod/go-version/linrong1982/Sunshine)](https://go.dev/) [![Stars](https://img.shields.io/github/stars/linrong1982/Sunshine)](https://github.com/linrong1982/Sunshine/stargazers)
 
 **Note:** Sunshine's CLI itself is Chinese-only — commands, help text, prompts, and output are all in Chinese. This document translates the explanations into English, but commands and sample output are kept in the original Chinese so you can copy them verbatim.
 
-## Installation
+## Why Sunshine?
 
-macOS / Linux, one line (auto-detects OS and architecture, verifies sha256):
+| Capability | What it changes |
+| --- | --- |
+| **Auto-injected specs** | Write conventions once in `.sunshine/spec/`, then let Sunshine inject the relevant context into each session instead of repeating yourself. |
+| **Task-centered workflow** | Keep PRDs, implementation context, review context, and task status in `.sunshine/tasks/` so AI work stays structured. |
+| **Project memory** | Journals in `.sunshine/workspace/` preserve what happened last time, so each new session starts with real context. |
+| **Team-shared standards** | Specs live in the repo, so one person's hard-won workflow or rule can benefit the whole team. |
+| **Multi-platform setup** | Bring the same Sunshine structure to 22 AI coding platforms instead of rebuilding your workflow per tool. |
+| **Chinese-first, single binary** | CLI and generated specs are all in Chinese; the CLI is one Go binary with no Node.js or Python runtime to install. |
+
+## Prerequisites
+
+- macOS or Linux (Windows: download the matching zip from [Releases](https://github.com/linrong1982/Sunshine/releases), unzip it, and put `sunshine.exe` on your PATH).
+- Nothing else — no runtime to install.
+
+## Quick Start
 
 ```sh
+# 1. Install Sunshine
 curl -fsSL https://raw.githubusercontent.com/linrong1982/Sunshine/main/install.sh | sh
+
+# 2. Initialize in your repo
+sunshine init -u your-name
+
+# 3. Or initialize with only the platforms you use
+sunshine init --codex -y -u your-name
 ```
 
-Install a specific version (v0.3.11 is the current Release):
+Install a specific version (v0.5.0 is the current Release):
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/linrong1982/Sunshine/main/install.sh | sh -s -- v0.3.11
+curl -fsSL https://raw.githubusercontent.com/linrong1982/Sunshine/main/install.sh | sh -s -- v0.5.0
 ```
-
-Windows: download the matching zip from [Releases](https://github.com/linrong1982/Sunshine/releases), unzip it, and put `sunshine.exe` on your PATH.
 
 If you already have Go:
 
@@ -34,20 +57,27 @@ To upgrade later:
 sunshine upgrade
 ```
 
-## Quick start
+See the [full tutorial](docs/tutorial.en.md) for the complete storyline.
 
-```sh
-cd your-project
-sunshine init -u YourName -y   # Generate the Chinese .sunshine/ skeleton (specs, tasks, workflow)
-```
+## How to Use
 
-That is the only terminal command you need. Then open the project in Claude Code (Codex / Cursor work the same way) and ask for what you want in plain language — the agent drives the work following `.sunshine/workflow.md` and calls `sunshine` commands under the hood. See the [tutorial](docs/tutorial.en.md) for the full storyline.
+The workflow is simple:
 
-`init` installs Claude Code and Cursor by default; to install only Codex, use `sunshine init --codex -y`. All init operations (platforms, template picker, three modes) are in the [tutorial appendix](docs/tutorial.en.md#appendix-command-reference).
+1. **Describe what you want** in natural language in the agent UI (Claude Code first, Codex / Cursor the same idea).
+2. **Brainstorm** with the AI one question at a time until the PRD is clear, then implementation begins.
+3. **Let it run** — the AI calls `sunshine-implement` and auto-checks the result against specs, lint, type-check, and tests.
+4. **Type `/sunshine:finish-work`** when the work is done or the session context fills up. Sunshine archives the task and updates journals.
 
-## How it works: six scenarios
+## How It Works
 
-**Run `sunshine init` once in the terminal → ask in plain language inside the agent UI → the agent works through `workflow.md` (creates the task, writes prd/design, dispatches implement/check sub-agents, verifies, writes lessons back into the spec, finishes with `/sunshine:finish-work`) → you review the diff, accept, and commit.** For design-first work, the design documents land in `doc/` first, then split into sub-tasks (scenario 6). The terminal commands are the agent's tools, not your daily interface — an opening prompt names four things: the workflow, ask first, confirm then create the task and write the PRD, then implement.
+Sunshine runs a 4-phase loop with auto-invoked skills and sub-agents:
+
+1. **Plan** — the agent brainstorms with you one question at a time and writes `prd.md`. Research-heavy items go to a `sunshine-research` sub-agent. The result is curated specs + research files referenced from `implement.jsonl` / `check.jsonl`.
+2. **Implement** — a `sunshine-implement` sub-agent writes code from the PRD with the curated context auto-injected, no git commit.
+3. **Verify** — a `sunshine-check` sub-agent reviews the diff against specs and runs lint, type-check, and tests, self-fixing where it can.
+4. **Finish** — a final check runs, then `sunshine-update-spec` promotes new learnings back into `.sunshine/spec/` so the next session starts smarter.
+
+## Six scenarios
 
 Section 12 of the tutorial walks through six real scenarios, each one a complete end-to-end run:
 
@@ -59,6 +89,8 @@ Section 12 of the tutorial walks through six real scenarios, each one a complete
 | [Refactoring a legacy module](docs/tutorial.en.md#124-refactoring-a-legacy-module-pin-the-behavior-first-then-change-the-code) | The code runs, but it is no longer safe to change |
 | [Fixing a bug that keeps coming back](docs/tutorial.en.md#125-fixing-a-bug-that-keeps-coming-back-find-the-last-session-first) | The same class of problem appears again and again |
 | [Design-first product work](docs/tutorial.en.md#126-design-first-product-work-requirements--design-documents--split--code) | Design comes before development |
+
+For design-first work, the design documents land in `doc/` first, then split into sub-tasks (scenario 6). The terminal commands are the agent's tools, not your daily interface — an opening prompt names four things: the workflow, ask first, confirm then create the task and write the PRD, then implement.
 
 ## Core commands
 
@@ -78,10 +110,9 @@ The commands the agent calls under the hood are not yours to type; below are the
 
 ## Configuration
 
-The `.sunshine/config.yaml` generated by `init` comes with Chinese comments. Most options are commented-out defaults — uncomment and change only what you need; the rest can stay as they are:
+The `.sunshine/config.yaml` generated by `init` comes with Chinese comments. Most options are commented-out defaults — uncomment and change only what you need:
 
-- `session_commit_message` (default `"chore: record journal"`): commit message used when journal / index changes are auto-committed.
-- `session_auto_commit` (default `true`): auto-commit journal and task changes after `task add-session` / `task archive`.
+- `session_commit_message` (default `"chore: record journal"`) and `session_auto_commit` (default `true`): auto-commit journal and task changes after `task add-session` / `task archive`.
 - `max_journal_lines` (default `2000`): maximum lines in a single journal file before rotation.
 - `hooks.after_create / after_start / after_finish / after_archive`: shell commands run after task lifecycle events (each receives `TASK_JSON_PATH`).
 - `channel.worker_guard.idle_timeout` (default `5m`) and `max_live_workers` (default `6`): worker guards for `channel spawn`.
@@ -95,8 +126,50 @@ The `.sunshine/config.yaml` generated by `init` comes with Chinese comments. Mos
 
 `sunshine init --registry <source> --template <template id>` installs spec templates from a template marketplace. Sources can be `gh:owner/repo`, a full git URL, an HTTP(S) URL, a `git@` address, or a local git repository path. After installation the source is recorded in `registry.spec` in `config.yaml`, and `sunshine update` keeps refreshing it. A marketplace repository uses the standard layout `marketplace/index.json` + `marketplace/specs/`. In interactive mode, omitting `--template` lists that marketplace's spec templates for you to pick, so you don't need to know the template id in advance. See [section 8 of the tutorial](docs/tutorial.en.md#8-update-and-the-template-marketplace).
 
-## More
+## Resources
 
-- Full tutorial (one real storyline end to end): [docs/tutorial.en.md](docs/tutorial.en.md)（[中文](docs/tutorial.md)）
-- Full plan and per-stage implementation notes: [PLAN.md](PLAN.md)
-- Releases and downloads: [Releases](https://github.com/linrong1982/Sunshine/releases)
+| Need | Link |
+| --- | --- |
+| Install Sunshine in a repo | [Quick Start](#quick-start) |
+| See the workflow in practice | [Full tutorial](docs/tutorial.en.md) (six scenarios) |
+| Start from spec templates | [Template marketplace](#template-marketplace) |
+| Track releases | [Releases](https://github.com/linrong1982/Sunshine/releases) |
+| Read the full plan | [PLAN.md](PLAN.md) |
+
+## FAQ
+
+**How is Sunshine different from `CLAUDE.md`, `AGENTS.md`, or `.cursorrules`?**
+
+Those files are useful entry points, but they tend to become monolithic. Sunshine adds scoped specs, task PRDs, workflow gates, workspace memory, and platform-aware generated files around them.
+
+**Is Sunshine only for Claude Code?**
+
+No. Sunshine is a project layer that works across 22 coding agents and IDEs.
+
+**Is Sunshine a fork of Trellis?**
+
+No. Sunshine reimplements Trellis's behavior in Go from a feature list; no Trellis source code was copied (Trellis is AGPL-3.0). The workflow, commands, and file layout intentionally match Trellis so skills transfer.
+
+**Why is the CLI Chinese-only?**
+
+The team works in Chinese. Commands, output, and generated specs stay in Chinese so they can be copied verbatim; the documentation is bilingual.
+
+**Do I have to write every spec file manually?**
+
+No. Many teams start by letting AI draft specs from existing code and then tighten the important parts by hand. Sunshine works best when you keep the high-signal rules explicit and versioned.
+
+**Is Sunshine for solo developers or teams?**
+
+Both. Solo developers use it for memory and repeatable workflow. Teams get the larger benefit: shared standards, task boundaries, reviewable context, and platform portability.
+
+**Can I temporarily compare a project with and without Sunshine?**
+
+Yes. `sunshine ablate` temporarily removes all supported project-owned Sunshine surfaces after creating a verified recovery transaction outside the project. Start a fresh agent session for the comparison, then run `sunshine restore` to recover the exact prior state. Use `--dry-run` to preview either operation.
+
+## Community & Resources
+
+- [Full tutorial](docs/tutorial.en.md)
+- [GitHub Issues](https://github.com/linrong1982/Sunshine/issues)
+- [Releases](https://github.com/linrong1982/Sunshine/releases)
+
+Built with Go. A Go reimplementation of [Trellis](https://github.com/mindfold-ai/Trellis) — not affiliated with Mindfold.
