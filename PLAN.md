@@ -2470,3 +2470,9 @@ pre-commit install       # 在仓库根目录执行一次
 - 验证：go build/vet/gofmt 全过；go test ./... 20 个包全过；node --check app.js 过；jsdom 真实渲染验证（有数据/空项目/native 活动三路）控制台零报错（除已知 jsdom canvas getContext 未实现），native 夹具 implement 启动未结束 → 智能体团显示工作中、运行中 Worker=1、native_running=[implement]；真实 hook 命令端到端：subagent-context 派发与 subagent-stop 结束均写盘、退出码 0。
 - 实测：不带参数一键装上 v0.5.0（`sunshine version` = 0.5.0）；v0.4.4 原版二进制（从 Release 下载，沙箱 /usr/local/bin 在 VM 更换后已清空属预期）upgrade --dry-run 查到 v0.5.0（下载地址指向 v0.5.0 linux amd64，试运行未做修改）；darwin arm64 包 checksum OK（`12cc934e…`，Mach-O arm64）。
 - 其后 PLAN.md 发布记录补提交一笔（远端 SHA 见 GOAL.md）。
+
+## v0.5.1 发布记录（2026-11-12）
+- 主提交远端 `18f8c12`（本地 `1f02eaa`，3 个文件：init 启动打印 Sunshine 大字——FIGlet "Rebel" 字体预渲染的 "Sunshine"（8 行、最宽 79 列，node figlet@1.9.4，与 Trellis init.ts 的 figlet "Rebel" 做法一致），青色大字 + 灰色标语“开箱即用的 AI 编程工程框架”，`internal/cli/banner.go` 内嵌常量存放、`internal/cli/init.go` 的 RunE 开头调用；着色只在 stdout 是终端且未设 NO_COLOR、TERM 不是 dumb 时生效），tag 对象 `7dccd43`，Release：https://github.com/linrong1982/Sunshine/releases/tag/v0.5.1，6 个资产；发布 run 43180143015、两路 CI（43180143121、43180003561）均 success 无抖动。本版同时含 README 按 Trellis 风格重写（远端 `08912ac`：中英同结构，加粗一句话 + 问题段落 + 徽章 + Why 表格 + Prerequisites + Quick Start + How to Use + How It Works + 六个场景 + 核心命令 + 配置要点 + 模板市场 + Resources + FAQ + 社区；旧 README 的 v0.3.11 顺手改成 v0.5.0）与 README 翻英文为主（远端 `ab3e441`：README.md 换成英文版，中文版改名 README.cn.md；英文教程只修两处漏翻，其余中文是 CLI 真实输出/引用文件/用户输入原文，按约定保留）。
+- 验证：go build/vet/gofmt 全过；go test ./... 20 个包全过（含新单测 TestRenderInitBanner：着色/无色内容一致、行宽 ≤80 列、无行尾空格）；真实 init 跑出大字（管道无色）、伪终端出青色（`^[[36m`）、NO_COLOR=1 无转义码；两份 README 全部锚点核对通过、`**` 成对无吞字。
+- 实测：不带参数一键装上 v0.5.1（`sunshine version` = 0.5.1）；v0.5.0 原版二进制（从 Release 下载，沙箱 /usr/local/bin 在 VM 更换后已清空属预期）upgrade --dry-run 查到 v0.5.1（下载地址指向 v0.5.1 linux amd64，试运行未做修改）；darwin arm64 包 checksum OK（`c9f72742…`，Mach-O arm64）。
+- 其后 PLAN.md 发布记录补提交一笔（远端 SHA 见 GOAL.md）。
