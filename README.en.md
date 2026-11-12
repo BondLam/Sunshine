@@ -14,10 +14,10 @@ macOS / Linux, one line (auto-detects OS and architecture, verifies sha256):
 curl -fsSL https://raw.githubusercontent.com/linrong1982/Sunshine/main/install.sh | sh
 ```
 
-Install a specific version (v0.3.8 is the current Release):
+Install a specific version (v0.3.11 is the current Release):
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/linrong1982/Sunshine/main/install.sh | sh -s -- v0.3.8
+curl -fsSL https://raw.githubusercontent.com/linrong1982/Sunshine/main/install.sh | sh -s -- v0.3.11
 ```
 
 Windows: download the matching zip from [Releases](https://github.com/linrong1982/Sunshine/releases), unzip it, and put `sunshine.exe` on your PATH.

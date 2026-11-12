@@ -195,6 +195,7 @@ func TestInitCreatesSkeleton(t *testing.T) {
 		".sunshine/agents/check.md",
 		".sunshine/agents/implement.md",
 		".sunshine/agents/plan.md",
+		".sunshine/agents/prototype.md",
 		".sunshine/agents/research.md",
 		".sunshine/spec/system.md",
 		".sunshine/spec/frontend.md",
@@ -239,8 +240,8 @@ func TestInitCreatesSkeleton(t *testing.T) {
 	if !bytes.Equal(got, native) {
 		t.Error("init 生成的 workflow.md 与完整版 native 模板不一致")
 	}
-	// agents 五个定义均为中文。
-	for _, name := range []string{"architect", "check", "implement", "plan", "research"} {
+	// agents 六个定义均为中文。
+	for _, name := range []string{"architect", "check", "implement", "plan", "prototype", "research"} {
 		agent, err := os.ReadFile(filepath.Join(dir, ".sunshine", "agents", name+".md"))
 		if err != nil {
 			t.Errorf("缺少 agent 定义 %s：%v", name, err)

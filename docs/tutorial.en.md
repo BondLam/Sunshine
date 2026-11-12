@@ -1197,7 +1197,7 @@ The requirements list is one item per requirement (real file content, excerpt): 
 
 The system prototype is one file with two pages plus navigation between them: a "申请 | 审批列表" (Request | Approval list) nav at the top, a request page with a type dropdown (mandatory), start and end dates, a reason text field (mandatory), and a submit button, and an approval list page as a table (applicant, type, start and end dates, days, status) carrying three mock rows （张三 pending, 李四 approved, 王五 pending), each with a 通过 (approve) and 驳回 (reject) button — the demo is clickable. One prototype serves multiple requirements: requirements one and two both live in this one prototype, one page each; and the split follows the requirements — the sub-tasks split per requirement.
 
-The designer builds the design package step by step too: clarify the requirements and write them into the requirements list first, then the outline design (structure, interfaces, acceptance), then the prototype — one page per requirement in the list, with mock data — and the complete system prototype is the end of the design phase, not the start. If building the prototype exposes a gap in the requirements, the requirements list is updated with it (through the change path), but the overall direction stays requirements first, prototype last.
+The designer builds the design package step by step too: clarify the requirements and write them into the requirements list first, then the outline design (structure, interfaces, acceptance), then dispatch `sunshine-prototype` to build the prototype — one page per requirement in the list, with mock data (the dispatch prompt gives only the requirements list and the outline design; the sub-agent reports back just the page count, the mock record count, and the file path, and the main session never writes the prototype itself) — and the complete system prototype is the end of the design phase, not the start. If building the prototype exposes a gap in the requirements, the requirements list is updated with it (through the change path), but the overall direction stays requirements first, prototype last.
 
 Then comes the requirements review — the designer's last act before exiting: Claude Code lays out the whole package for you to confirm — the PRD, the design document list, and the split plan; nothing moves on until you confirm.
 
@@ -1318,9 +1318,9 @@ curl -s localhost:3000/api/v1/leaves
 
 The commit is `b3893e2 需求二：审批请假申请，审批列表页 + GET 接口` (requirement two: approve a leave request, approval list page plus GET API); after the archive the parent shows 2/2 done.
 
-Finally the parent gets its final integration review — checked once against the acceptance criteria in the outline design and the system prototype — and then it is archived:
+Finally the parent gets its final integration review — checked once against the acceptance criteria in the outline design, the two sub-tasks' check results, and the interface contract, without re-reading the whole prototype — and then it is archived:
 
-> **Claude Code:** Integration review: the request page's three types and mandatory reason match the prototype, all three API checks (400, `NEED_APPROVAL`, 200) and the GET list passed, and the records carry `reason` and `days`. Archive the parent?
+> **Claude Code:** Integration review: the acceptance criteria all passed — the request page's three types and mandatory reason, all three API checks (400, `NEED_APPROVAL`, 200) and the GET list, and the records carry `reason` and `days`; the two sub-tasks' check results and the interface contract line up too. Archive the parent?
 >
 > **You:** Archive it.
 
@@ -1413,6 +1413,8 @@ doc/prototype/原型.html:12
 
 (In English: the requirements list line — "Annual leave is at most 5 days per request; over the cap it returns NEED_APPROVAL for approval." The outline design line — "Annual leave is at most 5 days per request; over the cap it returns `NEED_APPROVAL`." The prototype line — "Annual leave is at most 5 days per request; over the cap it goes to approval.")
 
+The prototype edit is a single line (the cap note); a change this small is made in the main session with a targeted grep, not a fresh `sunshine-prototype` dispatch — only structural changes get re-dispatched.
+
 Then comes the requirements review — this time only the changed part is reviewed, not the whole design package again:
 
 > **Claude Code:** For review, only the three changed places: the cap moved from 10 days to 5 in the requirements list, the outline design, and the system prototype, and nothing else changed a word; requirement two is unaffected. Once you confirm, the designer exits, I'll create the new task and curate its context, and developers enter. OK?
@@ -1450,11 +1452,11 @@ The whole scenario runs as one closed loop, with every entry, exit, and handoff 
 
 1. **State the requirement** (you): state what to build in Claude Code.
 2. **Clarify the requirement** (the designer enters): the agent asks first, pinning down the rules and the prototype details.
-3. **The design package** (the designer): write the requirements list first, then the outline design, then the system prototype — one page per requirement in the list, with mock data. The prototype is the end of the design phase. Handoff: the three design documents in `doc/`.
+3. **The design package** (the designer): write the requirements list first, then the outline design, then dispatch `sunshine-prototype` to build the system prototype — one page per requirement in the list, with mock data (the main session only takes the report, never writes the prototype itself). The prototype is the end of the design phase. Handoff: the three design documents in `doc/`.
 4. **The requirements review** (you confirm): review the whole package (the design package plus the split plan); the designer exits after it passes. Handoff: the approved design package.
 5. **The split** (the agent): split the whole scope in one pass, per requirement (one requirement is one sub-task by default; split frontend and backend into two sub-tasks when both are large, with the interface contract in the outline design as the handoff); the split starts nothing. Handoff: the task directories (`task.json` parent/children, `prd.md`, `implement.jsonl`, `check.jsonl`).
 6. **Development** (developers enter): activate the sub-tasks one by one, five rounds each (implement → check → write back the spec → commit → archive), each round reading only its own context list. Handoff: the changed code, the updated spec, the commit.
-7. **Integration review and archive** (the parent task): once all sub-tasks are archived, the parent reviews once against the outline design and the prototype, then archives. Handoff: the archived task directories.
+7. **Integration review and archive** (the parent task): once all sub-tasks are archived, the parent reviews once against the acceptance criteria, the two sub-tasks' check results, and the interface contract (without re-reading the whole prototype), then archives. Handoff: the archived task directories.
 8. **Requirement change** (the designer returns): change the design package → review only the changed part → handoff (the updated design package, the review confirmation, the new task's context lists, the `[变更]` record in the PRD) → developers enter on a new task. Archived tasks are never reopened.
 9. **Picking the work back up**: the state lives entirely in files (`task.json` status, the `.current-task` pointer, the jsonl lists, `prd.md`, `spec/`); a new session runs `/sunshine:continue` and routes by status to the matching step.
 

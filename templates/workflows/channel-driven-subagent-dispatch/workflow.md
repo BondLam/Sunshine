@@ -134,7 +134,7 @@ Channel 驱动的子代理派发是本工作流的默认执行模型。主会话
 [workflow-state:in_progress]
 流程：channel 驱动的 `implement` 工作线程 -> channel 驱动的 `check` 工作线程 -> `sunshine-update-spec` -> 提交（第 3.4 步）-> `/sunshine:finish-work`。
 主会话默认：用 `sunshine channel spawn` 配合 `.sunshine/agents/implement.md` 与 `.sunshine/agents/check.md`；除非明确要求或宿主专属工具必需，否则不要用原生的 Claude Task / Codex sub_agent。
-工作线程上下文顺序：jsonl 条目 -> `prd.md` -> `design.md（如有）` -> `implement.md（如有）`。用 `implement`、`check`、`check-cx`、`check-cc` 这类稳定的工作线程代号；需要精确结果时用 `sunshine channel messages --raw` 读结果。
+工作线程上下文顺序：jsonl 条目 -> `prd.md` -> `design.md（如有）` -> `implement.md（如有）`。jsonl 条目只读 reason 指明的部分，大文件先 grep 定位。用 `implement`、`check`、`check-cx`、`check-cc` 这类稳定的工作线程代号；需要精确结果时用 `sunshine channel messages --raw` 读结果。
 [/workflow-state:in_progress]
 
 [workflow-state:in_progress-inline]
@@ -220,6 +220,8 @@ sunshine task create "<任务标题>" --slug <名称>
 
 **设计文档落盘**：设计阶段产出的文档（需求列表、概要设计、高保真原型等，按项目与设计者自定，有没有都行）落盘在项目 `doc/`，不在 `.sunshine`；首次落盘时创建 `doc/` 目录。`doc/` 里有什么就用什么，没有原型就按 PRD 或需求列表拆；什么设计文档都没有就是纯代码任务，走直接开发。产品设计文档与任务目录里的技术设计 `design.md` 不是一回事，别混淆。
 
+**高保真原型派发给子代理**：原型是代码（HTML/CSS/JS + mock 数据），不要由主会话顺手写。用 `sunshine channel spawn --agent prototype` 派发（加载 `.sunshine/agents/prototype.md`），派发消息里给出 `doc/design/需求列表.md` 与 `doc/design/概要设计.md` 的路径；子代理只读这两份文件，产出 `doc/prototype/原型.html` 后只汇报页数、mock 记录数与文件路径，主会话不直接写原型，只收汇报。初版生成与结构性大改走子代理；小修（改个按钮颜色、一行文案）在主会话里用 grep 定向改，不重新派发。
+
 #### 1.2 任务拆解 `[optional · once]`
 
 当一个任务包含多个可独立验证的交付物，或工作量明显超出单次实现时，拆成父任务加子任务。轻量任务、单交付物任务跳过本步。
@@ -267,7 +269,7 @@ sunshine task create "<任务标题>" --slug <名称>
 sunshine task start <任务目录>
 ```
 
-父任务不激活（除非自身有直接实现工作）：逐个激活子任务；全部子任务完成后，父任务做最终集成复核。
+父任务不激活（除非自身有直接实现工作）：逐个激活子任务；全部子任务完成后，父任务做最终集成复核。复核读验收标准 + 各子任务的检查结果 + 接口约定，不重读整个原型。
 
 **需求变更（开发中途）**：需求在开发中途变了（新增或变更），不要原地改代码，也不要重开整个任务——只针对变化的部分回炉：回到 1.1 问清变化点（只问 delta，不重问已定的）→ 按顺序更新事实来源：`prd.md` 里记一笔 `[变更 YYYY-MM-DD]`（改了什么、为什么、谁定的）→ `doc/` 设计文档（概要设计、原型）同步改 → 受影响的子任务改 `prd.md` / `design.md` / `implement.md`，范围用 `sunshine task set-scope` 改、新文件用 `sunshine task add-context` 加进清单 → 回到 1.5 只评审变更的部分，评审通过再动手。定波及面时对照父任务的子任务映射：没被波及的子任务不停；还在 planning 的直接改；已经 in_progress 的先停下手头的活，回炉完再继续（状态不用改）；已经归档的不 reopen（归档的是历史），新建子任务挂在父任务下走完整流程，描述里写清原任务与变更原因。新增需求同理：迷你一轮 1.1 → 1.2 → 1.4 → 1.5，新子任务挂父任务下。上下文清单只能加不能删（没有 remove-context），失效的条目要么手动改 jsonl，要么在 `prd.md` 里注明不用读哪份。
 

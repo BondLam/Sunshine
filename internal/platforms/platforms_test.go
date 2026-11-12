@@ -334,6 +334,7 @@ func TestInstallClaude(t *testing.T) {
 		".claude/agents/sunshine-implement.md",
 		".claude/agents/sunshine-check.md",
 		".claude/agents/sunshine-research.md",
+		".claude/agents/sunshine-prototype.md",
 		".claude/settings.json",
 	}
 	if !containsAll(files, want...) {
@@ -395,6 +396,7 @@ func TestInstallCursor(t *testing.T) {
 		".cursor/agents/sunshine-implement.md",
 		".cursor/agents/sunshine-check.md",
 		".cursor/agents/sunshine-research.md",
+		".cursor/agents/sunshine-prototype.md",
 		".cursor/hooks.json",
 	}
 	if !containsAll(files, want...) {
@@ -440,6 +442,7 @@ func TestInstallCodex(t *testing.T) {
 		".codex/agents/sunshine-implement.toml",
 		".codex/agents/sunshine-check.toml",
 		".codex/agents/sunshine-research.toml",
+		".codex/agents/sunshine-prototype.toml",
 		".codex/hooks.json",
 		".codex/config.toml",
 	}

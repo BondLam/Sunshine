@@ -2304,3 +2304,32 @@ pre-commit install       # 在仓库根目录执行一次
 - 改法（中英文同步，§12.6 未动）：整节替换，每场景只留三样东西——场景说明、开场提示词（一个字未动）、与 Claude Code 的对话（问 → 答 → 确认规划 → 汇报进展）；`sunshine ...` 命令行在 12.1–12.5 里清零（原来 30 行）；只保留验证结果（值班表输出、审计日志出现 1 次、测试全绿 `ok shop`、401 日志、spec 写进去的内容、代码本身），且都以“Claude Code 跑给你看 / 验给你看”的口吻出现，不贴产生它们的命令。12.3 的 channel 协调只留两条消息的文本（对话里说），12.5 的 mem 只留找到的会话编号与命中句（对话里说）。
 - 规模：中文 450→242 行、英文 462→252 行，共删 418 行、增 48 行。
 - 核对：标题一致；开场提示词逐块与 HEAD 比对一致（中文 9 处、英文 6 处）；§12.6 一字未动；中英文各 5 处进退场标记；无 `****` 残留；全量测试无 FAIL。
+
+## v0.3.11：原型 agent + token 精简（2026-11-12，已实现并验证，待发版）
+
+- 动因（用户指出）：生成高保真原型就是写代码（HTML/CSS/JS + mock 数据），不应由主会话在设计阶段顺手写——原型文本会住在主会话上下文里，之后每轮（评审、拆解、子任务规划、父任务复核）都要再付一次。省的不是写原型的成本（谁写都一样），而是重复上下文成本。另附一次 token 审计，见下。
+- 定下的模型：**原型归设计管（需求、评审、验收在设计阶段），生产交给子代理**。新增 `sunshine-prototype` agent；初版生成与结构性大改走该 agent，小修（改个按钮颜色、一行文案）留在主会话，用 grep 只读相关那一页。
+- 工作项（共 7 项）：
+  1. **新 agent `sunshine-prototype`**：brief 只给两样——`doc/design/需求列表.md` + `doc/design/概要设计.md`（主会话在派发提示里给路径）；产出单文件系统原型 `doc/prototype/原型.html`（全部页面 + 导航 + mock 数据）；mock 数据只放演示够用的几条，只做需求列表里的页，不打磨样式细节；不读 `.sunshine/spec/` 与 workflow.md（原型是独立演示物，不是产品）；不 git commit；不派生其他子代理；最后汇报只写页数、mock 记录数、文件路径，**不准把原型全文贴回汇报里**。不复用 `sunshine-implement`（已核实：implement 定义强制动手前先读 workflow.md + `.sunshine/spec/`，设计阶段还没有上下文清单，复用会白读）。
+  2. **三份 workflow 模板的 1.1 设计先行分支**（native 341 行、tdd 334 行、channel-driven 209 行附近）：原型生成改为派发 `sunshine-prototype`。native/tdd 用宿主原生子代理（Task 工具，`subagent_type` 为 `sunshine-prototype`）；channel-driven 用 `sunshine channel spawn --agent prototype`（加载 `.sunshine/agents/prototype.md`）。
+  3. **派发协议加一句“只读 reason 指明的部分”**：native 237 行、tdd 230 行附近、channel-driven 137 行的“读上下文的顺序：jsonl 条目 → prd.md → design.md → implement.md”之后加——jsonl 条目只读 reason 指明的部分，大文件先 grep 定位。jsonl 的 reason 本来就写了是哪页（“系统原型：申请页”）。
+  4. **设计先行模式下父任务 prd.md 改成索引**：brainstorm skill 产物规则 168 行段落后加——父任务 prd.md 只写目标、验收标准与指向（需求见 `doc/design/需求列表.md`，概要见 `doc/design/概要设计.md`），不把需求列表全文复述；需求的唯一事实来源是 `doc/` 里的设计文档。子任务自己的 prd.md 不动（那是子任务自己的合同）。与 skill 已有的收敛检查（“把重复的事实合并到一个权威章节”）一致。
+  5. **父任务集成复核的读法**：native 478 行、channel-driven 270 行附近加——复核读验收标准 + 各子任务的检查结果 + 接口约定，不重读整个原型。
+  6. **教程 §12.6（中英文）同步三处**：① 设计阶段做原型那段（中文 1078 行、闭环一览 1329 行）——改为派发 `sunshine-prototype` 做原型，主会话只收汇报；② 父任务集成复核（中文 1199–1201 行）——按第 5 项的读法改；③ 变更时改原型（中文 1275 行附近，上限提示 10→5 是一行小改）——注明小改在主会话里 grep 定向改，不重新派发。§12.6 开场提示词一个字不动（它不点名派发，派发是 workflow 自身的默认做法）；其余六处开场提示词一个字不动。
+  7. **README 装指定版本示例改到 v0.3.11**：README.md:20、README.en.md:17/20 的 v0.3.8 改成 v0.3.11（随本版发版一起做；此前待定的“改成 v0.3.10”widget 已被本版 supersede，不再单独做）。
+- 已核实的接线事实（实施时照此办，不要另发明）：
+  - agent 安装：`internal/platforms/platforms.go:481` 的 `agentNames = ["implement", "check", "research"]` 是 md 平台的唯一事实源；`mdAgents`/`pullAgents`/`agentSkillCopies` 由它生成登记。加 `"prototype"` 即自动装到 12 个 md 平台 + grok/kimi；但每个平台的定义文件必须存在：`templates/platforms/<tmplDir>/agents/sunshine-prototype.md`（claude、cursor、gemini、qoder、pi、zcode、trae、omp、snow、opencode、grok、kimi；以各平台现有 implement.md 为蓝本改前置元数据，正文同一份原型 brief）。codex（.toml）、kiro（.json）、copilot（.agent.md）、droid（.factory/droids/）是显式登记，各补一份同名定义。codebuddy 的 AgentFiles 是 `mdAgents("codebuddy", ".codebuddy/agents")`（platforms.go:391），加 `"prototype"` 进 `agentNames` 即自动覆盖，已放定义文件并验证。dsh/kilo/antigravity/devin 没有 agents（kilo/antigravity/devin 的 AgentCapable=false；dsh 由 common 渲染）——prototype 的平台覆盖与 research 完全一致；reasonix 目前没有 research（只有 implement+check），不加 prototype，原因已核实（见下）。
+  - `.sunshine/agents/` 通用定义：`templates/templates.go` 的 `Sunshine` FS（`//go:embed all:sunshine`）+ `internal/scaffold/scaffold.go:106` 的 WalkDir 全目录拷入，新增 `templates/sunshine/agents/prototype.md` 即自动随 init 落盘（以 `templates/sunshine/agents/implement.md` 为蓝本改写）。`internal/workflow/agents.go` 的 `CollectMissingAgents` 会校验 workflow 引用的 agent 文件在磁盘上存在——所以通用定义必须有，否则 `workflow` 命令会报缺 agent。
+  - hook 不动：`internal/hook/subagent.go` 的 `agentsAll` 只有 implement/check/research；prototype 不在列时 `subagent-context` hook 对它直接返回 nil，派发提示原样通过——这正是要的行为（原型 agent 的上下文是派发提示里给的设计文档路径，不需要 hook 再注入任务上下文）。不要“顺手”把它加进 agentsAll。
+  - `continue.md` 不用改：原型生成发生在 1.1（planning）内，continue 按 status 分流到 1.1 即可；原型做到一半关闭重开，主会话进 1.1 看到 `doc/prototype/原型.html` 缺失或不完整就重新派发，状态在文件里。
+  - sunshine-meta skill 的 workflow.md 例子（`templates/platforms/common/bundled-skills/sunshine-meta/references/local-architecture/workflow.md`）如含 1.1 设计先行分支或派发协议文字，同步改（v0.3.7 时同步过编号）。
+- 测试与核对（缺一不可）：
+  - 文件数断言必须同步改：`internal/platforms/platforms_new_test.go`（16 平台）、`internal/platforms/platforms_e_test.go`（codebuddy/copilot/droid），以及所有其他断言安装文件数的测试（grep `wantCounts` 与安装文件数，全改）；`internal/scaffold/scaffold_test.go:194-198` 的 agents 清单 5→6。
+  - 全量 `go build`/`gofmt`/`go vet`/`go test ./...` 0 失败；新 agent 定义逐平台抽查（frontmatter 格式与各平台现有 implement 一致）；真实二进制 `init` 后核对 `.claude/agents/sunshine-prototype.md` 与 `.sunshine/agents/prototype.md` 落盘；三份 workflow 模板的 1.1/派发协议/父任务复核文字逐处核对；六处开场提示词与 §12.6 开场提示词逐块比对一个字未动；全文无 trellis 残留、无 `{{}}` 占位；`sunshine workflow` 无参数查模板、task validate 不报缺 agent。
+  - 模板是编译进二进制的（go:embed），改动只随发版生效；不要用“只推 main、用户手动拷”代替发版（v0.3.5 的守卫是特例，本批直接发版）。
+- 发版：下一版 v0.3.11，走既定发版固定动作（本地 commit → 确认工作树干净 → push-initial.py → fetch + reset 对齐 → Git Tags API 两步打 tag → 轮询 CI/发布 run → 核 Release 6 个资产 → 真实一键装新版 + 旧版 upgrade --dry-run + darwin checksum/Mach-O → PLAN.md 追加发布记录并再推一笔 → 更新 GOAL.md/MEMORY.md/goal entry → 汇报）。
+- 审计时查过、决定不动的（不要在本批里翻出来）：hook 每轮面包屑实测只有四五行；check 与 update-spec 分开读是刻意的职责分离且 spec 文件小；每子任务五轮是用户定的“都要走子代理”；1.2 拆解的整包通读省不掉。
+- 独立验证（2026-11-12，我复核）：全量测试 19 包 0 失败（我亲自跑过，含两处小修复后重跑 platforms/scaffold/workflow/cli）；真实二进制 init 核对（`.claude/agents/sunshine-prototype.md`、`.sunshine/agents/prototype.md` 落盘，channel-driven 切换成功且 223 行有原型派发段，task validate 只报 2 个预期 jsonl 错误、无缺 agent 报错）；六处开场提示词与 §12.6 开场提示词逐块比对未动（教程 diff 只动 §12.6 正文与复核对话两句）；新增行与新文件无 trellis、无 `{{}}`、无 `****` 残留（两处 grep 命中是本节核对文字本身）；hook 与 continue.md 未动。
+- 两处我亲自改的：汇报格式示例页名由“需求一的页面/需求二的页面”改成“申请页/审批列表页”（17 个文件，codex .toml 无此例）；本节实施说明里 codebuddy 一句有误已纠正（platforms.go:391 是 `mdAgents("codebuddy", ".codebuddy/agents")`）。
+- 两处定夺：kiro prototype.json 的 agentSpawn hook 块保留（与 research.json 同形；hook 对 prototype 直接返回 nil，是一次无害空调用）；native/tdd 1.1 的“用 Task 工具派发”不展开 Kimi 等平台变体（派发协议已通用于所有平台与所有子代理，主平台是 Claude Code）。
+- reasonix 缺 research 是故意的（上游 Trellis 自身的 reasonix 模板目录就只有 check 与 implement 两份；`platforms_new_test.go:301` 有测试钉死），不用另立任务。

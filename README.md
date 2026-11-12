@@ -17,7 +17,7 @@ curl -fsSL https://raw.githubusercontent.com/linrong1982/Sunshine/main/install.s
 装指定版本：
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/linrong1982/Sunshine/main/install.sh | sh -s -- v0.3.8
+curl -fsSL https://raw.githubusercontent.com/linrong1982/Sunshine/main/install.sh | sh -s -- v0.3.11
 ```
 
 Windows 请到 [Releases](https://github.com/linrong1982/Sunshine/releases) 页下载对应 zip，解压后把 `sunshine.exe` 放进 PATH。

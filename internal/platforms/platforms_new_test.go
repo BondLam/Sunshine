@@ -13,9 +13,9 @@ import (
 // 文件数来自各规格的最终生成文件完整清单（A1/B/A3/C 路）。
 func TestInstallNewPlatforms(t *testing.T) {
 	wantCounts := map[string]int{
-		"kiro": 50, "gemini": 49, "qoder": 49,
-		"pi": 51, "zcode": 49, "trae": 49, "omp": 49, "snow": 54,
-		"opencode": 56, "dsh": 47, "reasonix": 47, "grok": 49, "kimi": 52,
+		"kiro": 51, "gemini": 50, "qoder": 50,
+		"pi": 52, "zcode": 50, "trae": 50, "omp": 50, "snow": 55,
+		"opencode": 57, "dsh": 47, "reasonix": 47, "grok": 50, "kimi": 54,
 		"kilo": 46, "antigravity": 46, "devin": 46,
 	}
 	for _, id := range []string{
@@ -300,6 +300,9 @@ func TestInstallNewPlatformsSpotChecks(t *testing.T) {
 		mustContain(t, check, "runAs: subagent", "reasonix check 子代理版")
 		if _, err := os.Stat(filepath.Join(dir, ".reasonix", "skills", "sunshine-research")); !os.IsNotExist(err) {
 			t.Error("reasonix 不应有 sunshine-research")
+		}
+		if _, err := os.Stat(filepath.Join(dir, ".reasonix", "skills", "sunshine-prototype")); !os.IsNotExist(err) {
+			t.Error("reasonix 不应有 sunshine-prototype（上游只有 implement+check，见 v0.3.11 实施说明）")
 		}
 		tree := readTree(t, dir)
 		dirs := map[string]bool{}

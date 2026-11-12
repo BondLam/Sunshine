@@ -167,6 +167,8 @@ TASK_DIR=$(sunshine task create "<简短任务标题>" --description "<一句话
 
 产品设计文档与技术设计文档不是一回事：产品设计文档（需求列表、概要设计、高保真原型等，按项目与设计者自定，有没有都行）落盘在项目 `doc/`，不在 `.sunshine`；首次落盘时创建 `doc/` 目录；路径登记进 `prd.md` 的参考文档，并在 1.4 配置上下文时编进 `implement.jsonl` / `check.jsonl`。任务目录里的 `design.md` 是复杂任务的技术设计，别混淆。
 
+设计先行模式下，父任务的 `prd.md` 只写目标、验收标准与指向（需求见 `doc/design/需求列表.md`，概要见 `doc/design/概要设计.md`），不把需求列表全文复述；需求的唯一事实来源是 `doc/` 里的设计文档。子任务自己的 `prd.md` 不动（那是子任务自己的合同）。
+
 轻量任务可以只有 `prd.md`。复杂任务在运行 `sunshine task start` 之前必须有 `prd.md`、`design.md` 与 `implement.md`。
 
 `implement.md` 不能代替 `implement.jsonl`。在子代理派发工作流中，`implement.jsonl` 与 `check.jsonl` 在运行 `sunshine task start` 之前必须各至少包含一条真实的规范/调研记录；空清单，或只有旧的 `_example` 占位行，不算数。内联工作流跳过这道 JSONL 门禁，因为阶段 2 通过 `sunshine-before-dev` 加载上下文。
