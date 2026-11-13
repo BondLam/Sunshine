@@ -1650,7 +1650,13 @@ State the requirement to Claude Code (same for Codex and Cursor):
 
 Example prompt (an example, not a record of a real session):
 
-> I want to build a web store with coupons from zero, design-first. Please follow the Sunshine workflow: ask me first to pin down the unclear product logic and technical decisions; once confirmed, create the task, write the PRD, and land the requirements list, the outline design, and the system prototype in doc/; after the review passes, split it into sub-tasks per requirement and then implement. The store needs a product list, adding to cart, checkout, using a coupon at checkout for a discount, and a coupon list page showing each coupon's threshold, amount, status, and expiry. The tech stack isn't decided yet — help me pin down the requirements first.
+> I want to build a web store with coupons from zero, design-first. Please follow the Sunshine workflow.
+>
+> Design runs per requirement, one loop at a time: for each requirement, ask me first to pin down that requirement's product logic (one question at a time, options first), record the answer in prd.md right away, write that requirement into doc/design/需求列表.md as an R-xxx line, then dispatch a prototype sub-agent to build or update that requirement's page from the requirements list. The prototype is a multi-page HTML demo with mock data — don't ask real or demo; don't ask about the tech stack in the design phase.
+>
+> After the loop, generate the delivery document for the client as needed (the outline design is one possibility), then give me the final planning summary for review — by then the requirements list, the outline design, and the prototype pages are already in doc/. After the review passes, split it into sub-tasks per requirement and then implement.
+>
+> The store needs a product list, adding to cart, checkout, using a coupon at checkout for a discount, and a coupon list page showing each coupon's threshold, amount, status, and expiry.
 
 Here is the session (the conversation is an example; the commands and outputs are real values from runs):
 
