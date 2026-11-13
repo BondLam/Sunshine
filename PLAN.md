@@ -2672,7 +2672,7 @@ pre-commit install       # 在仓库根目录执行一次
 
 **发布 v0.5.7（2026-11-13，已发布，已验证）**：主提交两笔——设计先行改按需求循环（本地 `f73e658` → 远端 `db86aa5`，25 个文件）与全仓改名 BondLam → linrong007（本地 `b769481` → 远端 `ac7dcca`，142 个文件、239 处；PLAN.md 里 47 处历史记录保留原样）。tag v0.5.7 对象 `d4b1af5` → `ac7dcca`。Release：https://github.com/linrong007/Sunshine/releases/tag/v0.5.7，6 个资产。发布 run `43383896867` success。验证：changelog 含改名与设计循环两笔主提交；darwin arm64 checksum 对上（`a6eefaef…`）；Mach-O 64-bit arm64 确认；一键装（新 linrong007 地址）装上 v0.5.7；v0.5.6 旧二进制 `upgrade --dry-run` 查到 0.5.7（下载地址已是 linrong007）。首轮发布曾失败：tag 指向 `db86aa5` 时 run `43381946424` 在 goreleaser 发布步失败（只建了空草稿，已删），CI 两路均 success；改名后（`.goreleaser.yaml` 的 owner 由 BondLam 改成 linrong007）重新触发即成功，改名很可能是失败根因（未读到工作流日志，未完全证实）。另：`go install goreleaser` 在沙箱失败（/tmp tmpfs 512MB 空间不足），已改下预编译 v2.12.1 备用（/tmp/goreleaser-bin/goreleaser），最终没用上。
 
-## 设计先行两处提问问题（2026-11-13，用户全流程实跑发现，已实施、已推送远端 a5e440c，未发版）
+## 设计先行两处提问问题（2026-11-13，用户全流程实跑发现，已发布 v0.5.8）
 
 **背景**：用户在 Mac 上从零跑带优惠券的 web 商城（设计先行），开场提示词点名 sunshine 工作流 + 设计先行 + 需求问清 + PRD + doc/ 设计文档 + 评审后按需求拆子任务。1.1 提问阶段发现两个问题：
 
@@ -2691,4 +2691,6 @@ pre-commit install       # 在仓库根目录执行一次
 
 **当前这轮的绕法**：用户 Mac 上这轮跑的是 v0.5.7（旧工作流），两处问题在这一轮里还会问，回答默认值即可继续——第一问答“演示（mock）”，第二问答“原型用简单 HTML，技术栈等拆解时第一个任务再定”。改完发新版后升级才生效。
 
-**追加（2026-11-13，用户点选“模式必须问”）**：用户又指出，提示词里没提设计时这版好像直接跳开发——模式没说清就默认，等于把设计阶段悄悄跳过了。已定：模式必须问。brainstorm skill 与三份 workflow 模板的“先定模式”一句同步改成硬性要求——开场提示词已说清的不重复问；没说清时，必须先问用户一句再往下走，不许默认（尤其不许默认直接开发）；可以检查 `doc/` 是否已有设计文档辅助判断，但不能拿它代替问。这次只改了这一句（brainstorm 1 处 + 三份 workflow 各 1 处），其余不动；验证：go build/vet/test 全过，init 实测新文字在位（workflow.md 与两份 skills）。与上面两处提问问题同一批，待用户点选再一起提交推送。
+**追加（2026-11-13，用户点选“模式必须问”）**：用户又指出，提示词里没提设计时这版好像直接跳开发——模式没说清就默认，等于把设计阶段悄悄跳过了。已定：模式必须问。brainstorm skill 与三份 workflow 模板的“先定模式”一句同步改成硬性要求——开场提示词已说清的不重复问；没说清时，必须先问用户一句再往下走，不许默认（尤其不许默认直接开发）；可以检查 `doc/` 是否已有设计文档辅助判断，但不能拿它代替问。这次只改了这一句（brainstorm 1 处 + 三份 workflow 各 1 处），其余不动；验证：go build/vet/test 全过，init 实测新文字在位（workflow.md 与两份 skills）。
+
+**发布 v0.5.8（2026-11-13，已发布，已验证）**：主提交两笔——设计先行两处提问问题修复（本地 `e65ece5` → 远端 `a5e440c`，6 个文件）与模式必须问（本地 `8362a99` → 远端 `331edff`，5 个文件）。tag v0.5.8 对象 `a43417e` → `331edff`。Release：https://github.com/linrong007/Sunshine/releases/tag/v0.5.8，6 个资产。发布 run `43392424428` success。验证：changelog 含两笔主提交 + 两笔 docs 提交；darwin arm64 checksum 对上（`cb667201…`）；Mach-O 64-bit arm64 确认；一键装（linrong007 地址）装上 v0.5.8；v0.5.7 发布版二进制 `upgrade --dry-run` 查到 0.5.8（下载地址已是 linrong007）。
