@@ -904,17 +904,38 @@ Example prompt (an example, not a record of a real session):
 
 Here is how the session continues (the conversation is an example; the commands and outputs are real values from runs):
 
-> **Claude Code:** One question first — it decides how this is built: where does the product data live — hard-coded for now, or read from a file, or a database?
+> **Claude Code:** One question first — it decides how this is built: which stack — a single Go file on the standard library `net/http`, or a framework, or a database?
 >
-> **You:** Hard-code it for now, three products is enough for the demo.
+> **You:** A single Go file, standard library only, module `webstore`, no database.
 >
-> **Claude Code:** Good, the rest goes the same way, one question at a time: which fields the list shows, what currency the prices are in — then I'll sum up. Got it. Here's the plan: create the task "商品列表" (Product list), with a PRD that says the home page shows the product list (name, price, stock), three products hard-coded for now; done means the service runs and `curl /api/products` returns the three products. Once you confirm, I'll create the task, write the PRD, and start implementing. OK?
+> **Claude Code:** Good, next: where does the product data live — hard-coded for now, or read from a file?
 >
-> **You:** OK, go ahead.
+> **You:** Hard-code it for now, three products is enough for the demo: 无线鼠标 (wireless mouse) ¥89, stock 120; 机械键盘 (mechanical keyboard) ¥299, stock 45; 27寸显示器 (27" monitor) ¥1299, stock 20.
 >
-> **Claude Code:** The task is created, the context is lined up, the task is started. Now I'll implement it: a small service, the product list at `/api/products`, and the home page shows the same list. Let me show you the run.
-
-Here is the real run result:
+> **Claude Code:** One more: which fields does the list show?
+>
+> **You:** Name, price, and stock, prices in yuan.
+>
+> **Claude Code:** Good, that's all the questions. Here's the final planning summary — once you approve it, I'll get moving:
+>
+> **Final planning summary**
+>
+> - Goal: build the web store from scratch, a single Go file, port 18080; first the product list.
+> - In scope: the product list (list page + `GET /api/products`); the three products hard-coded.
+> - Out of scope: login, payment, ordering, orders, persistence, styling polish; add-to-cart is the next requirement, not this task.
+> - Key decisions (all confirmed): a single Go file on the standard library, no third-party dependencies; product data hard-coded; port 18080.
+> - Risks / deferred items: restarting loses the data (accepted, enough for the demo); no auth, no persistence (to decide later).
+> - Artifact status: the planning task's PRD + the three specs (system/frontend/backend) + the PRD of the first implementation task, "商品列表" (Product list); zero product code (0 `.go` files), no `task start` yet.
+>
+> Once you approve this plan, I'll create the planning task, write the PRD and the three specs — still no product code, and the implementation task stays unstarted. OK?
+>
+> **You:** Approved.
+>
+> **Claude Code:** The planning artifacts are on disk: the three specs and the "商品列表" (Product list) PRD are written, zero product code, the implementation task is created but not started. Here's the delivery list for your confirmation — once you approve it, I'll start the implementation.
+>
+> **You:** Approved.
+>
+> **Claude Code:** Starting the task, dispatching the `sunshine-implement` subagent. Implementation done, dispatching the `sunshine-check` subagent: `go vet` and `go build` are green, nothing to fix. Let me show you the run:
 
 ```sh
 curl -s localhost:18080/api/products
@@ -923,11 +944,40 @@ curl -s localhost:18080/api/products
 
 Open the home page in a browser and the three products are there too: 无线鼠标 89 元 (wireless mouse, ¥89), 机械键盘 299 元 (mechanical keyboard, ¥299), 27寸显示器 1299 元 (27" monitor, ¥1299).
 
-> **Claude Code:** Done — the task is archived:
+> **Claude Code:** Step 3.3, spec write-back: no update — the implementation followed exactly the decisions written into the spec during planning, no new patterns, no new pitfalls. Here's the commit plan — reply "OK" and I'll run it:
+>
+> ```text
+> Suggested commits (in order):
+>   1. chore: 初始化 Sunshine 工程骨架（全栈）
+>   2. feat: 商品列表页 + GET /api/products
+>      - go.mod, main.go, the two task directories
+> Unrecognized dirty files (in no commit — please confirm include or exclude):
+>   - None
+> ```
+>
+> **You:** OK.
+>
+> **Claude Code:** Commits done: `98d1e5d chore: 初始化 Sunshine 工程骨架（全栈）`, `acaa3e3 feat: 商品列表页 + GET /api/products`. The rest is wrap-up: run `/finish-work` to archive the tasks and record the session log. Shall I run it now?
+>
+> **You:** Go ahead.
+
+The first archive attempt was refused: the current branch `main` is also the `base_branch`, and a PR cannot point at its own branch. I cut `feat/product-list`, ran `set-branch` for both tasks, and re-archived — through. `finish-work` archived the product-list task and the planning task, and recorded the session log:
+
+```sh
+git log --oneline
+# eb7adc7 chore: record journal
+# e961e60 chore(task): archive 11-13-webstore
+# 71f3de9 chore(task): archive 11-13-product-list
+# acaa3e3 feat: 商品列表页 + GET /api/products
+# 98d1e5d chore: 初始化 Sunshine 工程骨架（全栈）
+```
+
+> **Claude Code:** Done — the tasks are archived:
 
 ```text
-[2026-11] - 1 个任务
-  - 11-13-商品列表/
+[2026-11] - 2 个任务
+  - 11-13-product-list/
+  - 11-13-webstore/
 ```
 
 Then the second requirement:
@@ -938,28 +988,74 @@ Then the second requirement:
 >
 > **You:** In memory, enough for the demo.
 >
-> **Claude Code:** Good, then what adding returns, and how the total is calculated — then I'll sum up. Got it: create the task "加入购物车" (Add to cart); clicking "加入购物车" (Add to cart) puts the product in the cart, and `GET /api/cart` shows the items and the total; done means adding two products totals 388. Once you confirm, I'll create the task and start implementing. OK?
+> **Claude Code:** One more: what does adding return, and how is the total calculated?
 >
-> **You:** OK, go ahead.
+> **You:** `POST /api/cart/add` to add, `GET /api/cart` for the items and the total; add a wireless mouse first, then a mechanical keyboard, total 388. An unknown id returns 404, adding the same product again accumulates the quantity.
 >
-> **Claude Code:** The task is created, the context is lined up, the task is started. Now I'll implement it: `POST /api/cart` to add, `GET /api/cart` to view the cart, and an "加入购物车" (Add to cart) button after each product on the list page. Let me show you the run.
-
-Here is the real run result: add a wireless mouse, then a mechanical keyboard, and the cart holds both, totalling 388:
+> **Claude Code:** Good, here's the plan summary: the goal is add-to-cart; in scope are `POST /api/cart/add`, `GET /api/cart`, and an "加入购物车" (Add to cart) button after each product on the list page; out of scope are changing `GET /api/products` and persistence; the key decisions are an in-memory cart, quantity accumulates on repeat adds, and an unknown id returns 404. The artifact is the "加入购物车" (Add to cart) PRD, zero product code, not started. Once you approve it, I'll write the PRD; once you approve the delivery, I'll start the implementation. OK?
+>
+> **You:** Approved.
+>
+> **Claude Code:** The PRD is on disk, zero product code, not started. Confirm, and I'll start the implementation once you approve.
+>
+> **You:** Approved.
+>
+> **Claude Code:** Starting the task, dispatching the `sunshine-implement` subagent; implementation done, dispatching the `sunshine-check` subagent — green. Let me show you the run:
 
 ```sh
+curl -s -X POST localhost:18080/api/cart/add -H 'Content-Type: application/json' -d '{"id":1}'
+# {"status":"ok"}
+curl -s -X POST localhost:18080/api/cart/add -H 'Content-Type: application/json' -d '{"id":2}'
+# {"status":"ok"}
 curl -s localhost:18080/api/cart
 # {"items":[{"id":1,"name":"无线鼠标","price":89,"qty":1},{"id":2,"name":"机械键盘","price":299,"qty":1}],"total":388}
+curl -s -o /dev/null -w "%{http_code}" -X POST localhost:18080/api/cart/add -H 'Content-Type: application/json' -d '{"id":999}'
+# 404
 ```
 
-> **Claude Code:** Done — the task is archived:
+`GET /api/products` still returns the same three products, and every product on the home page has an "加入购物车" (Add to cart) button after it.
+
+> **Claude Code:** Step 3.3, spec write-back: no update. One commit in the plan — reply "OK" and I'll run it:
+>
+> ```text
+> Suggested commits (in order):
+>   1. feat: 加入购物车 + GET /api/cart
+>      - main.go, the 11-13-add-to-cart task directory
+> Unrecognized dirty files: none
+> ```
+>
+> **You:** OK.
+>
+> **Claude Code:** Commit done: `ba61066 feat: 加入购物车 + GET /api/cart`. Run `/finish-work` to archive and record the log — shall I run it now?
+>
+> **You:** Go ahead.
+
+`finish-work` archived "加入购物车" (Add to cart) and recorded the session log:
+
+```sh
+git log --oneline
+# 2d87dc7 chore: record journal
+# 01d6eba chore(task): archive 11-13-add-to-cart
+# ba61066 feat: 加入购物车 + GET /api/cart
+# eb7adc7 chore: record journal
+# e961e60 chore(task): archive 11-13-webstore
+# 71f3de9 chore(task): archive 11-13-product-list
+# acaa3e3 feat: 商品列表页 + GET /api/products
+# 98d1e5d chore: 初始化 Sunshine 工程骨架（全栈）
+```
+
+> **Claude Code:** Done — the tasks are archived:
 
 ```text
-[2026-11] - 2 个任务
-  - 11-13-加入购物车/
-  - 11-13-商品列表/
+[2026-11] - 3 个任务
+  - 11-13-add-to-cart/
+  - 11-13-product-list/
+  - 11-13-webstore/
 ```
 
-Two requirements done, and the project now has: a running store service, two archived task records, and the specs from the default templates.
+Two requirements done, and the project now has: a running store service, three archived task records, and the specs from the default templates.
+
+One real pitfall here is worth writing down: add-to-cart was only raised later, and the planning task (`11-13-webstore`) had already been archived when the first task finished, so no subtask can be created under an archived parent — "加入购物车" (Add to cart) had to be created as an independent task (`parent: null`), with its PRD pointing back and forth to the archived parent. Per workflow 1.2, splitting happens exactly once — if both requirements had been known at planning time, both subtasks should have been created then, and the parent archived only after all its subtasks were archived; an archived task never reopens, and rework goes through a new task running the full flow.
 
 ### 12.2 Adopting an existing project: land the conventions in spec first
 
@@ -992,34 +1088,95 @@ Example prompt (an example, not a record of a real session):
 
 Here is how the session continues (the conversation is an example; the commands and outputs are real values from runs):
 
-> **Claude Code:** I can see all three conventions: APIs return `{ code, data }`, prices are stored in cents, and the port is fixed at 3000. Quick check on where they go — the first two into `backend.md`, but the port: `system.md` or `backend.md`?
+> **Claude Code:** One question first: where are the three conventions written right now?
 >
-> **You:** The first two into `backend.md`. The port is a team-wide rule — put it in `system.md`.
+> **You:** Nowhere — only spoken. The code shows the same practices, though.
 >
-> **Claude Code:** Got it. Here's the plan: create the task "把现有约定落进规范", write a PRD that says land the three remembered conventions from the README into spec; acceptance is all three conventions landed in spec. Once you confirm, I'll create the task, write the PRD, and write the conventions in. OK?
+> **Claude Code:** Next: what exactly do the three conventions say?
 >
-> **You:** OK, go ahead.
+> **You:** APIs return `{code, data}`; prices are stored in cents and divided by 100 for display; the port is fixed at 3000.
 >
-> **Claude Code:** The task is created and the conventions are written in. Here is what actually landed:
+> **Claude Code:** Next: this run writes spec only, no product code — right? And if the check finds the code disagreeing with a convention, what do I do?
+>
+> **You:** Right — zero product-code changes; if something disagrees, report it first, don't change the code on your own.
+>
+> **Claude Code:** Next: which spec file does each convention go in?
+>
+> **You:** The API format and the cents rule go into `backend.md`; port 3000 goes into `system.md`.
+>
+> **Claude Code:** Last one: what counts as done?
+>
+> **You:** The three conventions land in spec verbatim; check verifies each one against the code; then commit, archive, and record the log.
+>
+> **Claude Code:** Good, that's all the questions. Here's the final planning summary — once you approve it, I'll get moving:
+>
+> **Final planning summary**
+>
+> - Goal: write the store's three spoken conventions into `.sunshine/spec/` so later tasks follow them automatically; no product-code changes.
+> - In scope: conventions 1 and 2 into `backend.md`, convention 3 into `system.md`; the code as it stands is the source of truth (product and order endpoints, `src/db.js`, `src/server.js`).
+> - Out of scope: no product-code changes (`src/`, `package.json` untouched); don't change the conventions themselves, only record them; no design-first (no `doc/`, straight to development).
+> - Key decisions (all confirmed): a light task, PRD only, no design.md/implement.md; no parent/child split; the port rule goes in `system.md` (a global principle), not `backend.md`.
+> - Risks / deferred items: the current branch `main` is also the `base_branch`, so archiving will refuse — cut a feature branch and `set-branch` before archiving.
+> - Artifact status: `prd.md` is written (with the Q&A record above); `implement.jsonl`/`check.jsonl` have 2 real entries each, `task validate` passes; the three spec lines are written by implement after `task start`.
+>
+> Once you approve this plan, I'll write the PRD first; writing the spec is itself this task's implementation, so the three lines go in after approval and `task start`. OK?
+>
+> **You:** Approved.
+>
+> **Claude Code:** The PRD is on disk, zero product code, not started. Confirm, and I'll start the task, write the spec, and verify it against the code once you approve.
+>
+> **You:** Approved.
+>
+> **Claude Code:** Starting the task, dispatching the `sunshine-implement` subagent to write the three conventions into spec; implementation done, dispatching the `sunshine-check` subagent to verify each one against the code. Here is what actually landed (line numbers verified):
 
 ```markdown
-## 商品与订单接口（团队已有约定）
-
-- 接口统一返回 `{ code, data }`，code 是大写下划线错误码。
+## backend.md
+- 接口统一返回 `{code, data}`。
 - 价格统一用“分”存库，展示时除以 100。
 ```
 
 ```markdown
-## 团队约定
-
-- 服务端口固定 3000，改端口要全组同步。
+## system.md
+- 服务端口固定 3000。
 ```
+
+The check results, all true, no issues, no fixes: convention 1 — `grep "res.json" src/` finds 5 places, all `{ code: 0, data: ... }` or `{ code: 404, data: null }`; convention 2 — `db.js` holds the three prices as 8900/29900/129900 (cents), `products.js` divides by 100 in two places (`price: p.price / 100`), and the order `totalPrice` multiplies cents; convention 3 — `server.js` has `const PORT = 3000;` and `app.listen(PORT, ...)`. `node --check` passes all four files, and the product code is untouched (`git diff --stat` is empty). A live run confirmed it too: the server log says "商城服务运行在端口 3000" (the store service runs on port 3000), `GET /products` returns the three products (prices 89/299/1299), and `POST /orders {"productId":2,"quantity":3}` returns `{"code":0,"data":{"id":1,"productId":2,"quantity":3,"totalPrice":89700}}` — 29900×3, cents arithmetic as agreed.
+
+> **Claude Code:** Step 3.3, spec write-back: the spec is this task's deliverable, and there is no new knowledge beyond the three conventions — no further spec updates. Here's the commit plan — reply "OK" and I'll run it:
+>
+> ```text
+> Suggested commits (in order):
+>   1. docs: 把三条口头约定写进规范
+>      - .claude/ (Sunshine init: Claude Code platform config)
+>      - .cursor/ (Sunshine init: Cursor platform config)
+>      - .sunshine/ (project skeleton + task artifacts + the three conventions in spec)
+> Unrecognized dirty files (in no commit — please confirm include or exclude):
+>   - None
+> ```
+>
+> **You:** OK.
+>
+> **Claude Code:** Commit done: `0476a72 docs: 把三条口头约定写进规范` (122 files), working tree clean. Run `/finish-work` to archive and record the log — shall I run it now?
+>
+> **You:** Go ahead.
+
+The first archive attempt was refused: the current branch `main` is also the `base_branch`, and a PR cannot point at its own branch. I cut `docs/old-shop-conventions`, ran `set-branch` for the task, and re-archived — through. `finish-work` archived the task and recorded the session log:
+
+```sh
+git log --oneline
+# f0c95ed chore: record journal
+# b8fcd1a chore(task): archive 11-13-old-shop-conventions
+# 0476a72 docs: 把三条口头约定写进规范
+# 998efb7 chore: 初始提交：Express 商城（商品/订单接口）
+```
+
+One ordering detail: the work commit `0476a72` was made on `main`, and the feature branch was only cut before archiving, so `main` holds just the first two commits and the archive and journal commits live only on `docs/old-shop-conventions`.
 
 > **Claude Code:** Those two blocks are what landed. The task ran its normal course and is archived:
 
 ```text
 [2026-11] - 1 个任务
-  - 11-13-把现有约定落进规范/
+  - 11-13-old-shop-conventions/
 ```
 
 From now on the conventions no longer live only in senior engineers' heads: the agent on a new task reads the spec, and the conventions survive people leaving. The acceptance bar for adopting an existing project is one line — **after `init`, `git status` shows no modified old files, and spec has one more convention that used to live only in memory**.
@@ -1040,15 +1197,66 @@ Here is how the session continues (the conversation is an example; the commands 
 >
 > **You:** 400, with the error code ADDRESS_REQUIRED.
 >
-> **Claude Code:** Good, the rest goes the same way, one question at a time: one text box for the address or split by province/city/district, and in what order the four layers change — then I'll sum up. Got it. Here's the plan: create the task "下单必填收货地址" (Delivery address mandatory at checkout), with a PRD that says change all four layers together — an address field on the checkout page, POST /orders without an address returns 400 (ADDRESS_REQUIRED), and the order record gains an address field; the context list holds the API contract (backend.md), and the agent reads the code files itself during implementation; the change order is API first, then UI, through the channel. Once you confirm, I'll create the task, line up the context, and start it. OK?
+> **Claude Code:** Next: one text box for the address, or split by province/city/district?
 >
-> **You:** OK, go ahead.
+> **You:** Just one text box, `name="address"`.
 >
-> **Claude Code:** The task is created and the context is lined up. The four layers change API first, then UI, and I put the order in the channel — two messages: API first — POST /orders with a missing address returns 400 with `ADDRESS_REQUIRED`; once the API is done, the UI — an address field on the checkout page, and the order can't be submitted without it.
+> **Claude Code:** Next: in what order do the four layers change?
 >
-> **Claude Code:** The channel is bound to the task, so the task path shows in the messages; these two are numbered coordination messages, not casual notes. Waiting for a worker's reply and getting a timeout is normal when no worker answers — this section only coordinates as far as sending the messages, and spawning a real worker needs a logged-in claude / codex on this machine (section 10). At the end the workflow goes back to native and the task is archived as usual.
+> **You:** API first, then UI — put the order in the channel.
+>
+> **Claude Code:** Next: what does the address field in the order record store?
+>
+> **You:** The raw string exactly as submitted.
+>
+> **Claude Code:** Last one: what counts as done?
+>
+> **You:** Two curls (400 without an address, 200 with one, the order carrying the address) plus a `name="address"` field on the checkout page; the task is archived as usual.
+>
+> **Claude Code:** Good, that's all the questions. Here's the final planning summary — once you approve it, I'll get moving:
+>
+> **Final planning summary**
+>
+> - Goal: make the delivery address mandatory at checkout, one task across the product, API, data, and UI layers.
+> - In scope: an address field on the checkout page; `POST /orders` without an address returns 400 (ADDRESS_REQUIRED); the order record gains an address field; the PRD rule.
+> - Out of scope: the product endpoints and price calculation, port 3000, coupons, login/auth, design-first.
+> - Key decisions (all confirmed): a missing address returns 400 + ADDRESS_REQUIRED (not a 200 with an error message); a single text box, `name="address"`; API first, then UI, with the order going through the channel; the address is stored as the raw string.
+> - Risks / deferred items: if no worker replies, the channel wait will time out (normal — this section only coordinates as far as sending the messages; spawning a real worker needs a logged-in claude/codex on this machine); the empty/blank-address edge was not asked in the Q&A, so the implementation handles it under the "mandatory" reading.
+> - Artifact status: a light task, `prd.md` only; `implement.jsonl`/`check.jsonl` have 1 entry each (only the `.sunshine/spec/backend.md` contract, no code files), `task validate` passes; zero product code, no `task start` yet.
+>
+> Once you approve this plan, I'll write the PRD and the context list — still no product code, no start. OK?
+>
+> **You:** Approved.
+>
+> **Claude Code:** The PRD and the context list are on disk, zero product code, not started. Confirm, and I'll start the task and begin implementing once you approve.
+>
+> **You:** Approved.
+>
+> **Claude Code:** Starting the task, dispatching the `sunshine-implement` subagent. The four layers change API first, then UI, and I put the order in the channel — two messages:
 
-Here is the real run result: ordering without an address returns 400, ordering with one succeeds, and the order carries the address:
+```sh
+sunshine channel create s3-cross --type chat --task .sunshine/tasks/11-13-下单必填收货地址 --force
+# 已创建 channel 's3-cross'（chat）位于 /home/hatch/.sunshine/channels/-tmp-scenes-s3-cross/s3-cross
+sunshine channel send s3-cross --by main "1. 先改 API：POST /orders 缺 address 返回 400，错误码 ADDRESS_REQUIRED"
+sunshine channel send s3-cross --by main "2. API 改完再改 UI：结算页加收货地址输入框，缺了不让提交"
+sunshine channel messages s3-cross --raw
+# {"by":"main","cwd":"/tmp/scenes/s3-cross","kind":"create","origin":"cli","scope":"project","seq":1,"task":".sunshine/tasks/11-13-下单必填收货地址","ts":"2026-11-13T04:02:50.625514611Z","type":"chat"}
+# {"by":"main","kind":"message","origin":"cli","seq":2,"text":"1. 先改 API：POST /orders 缺 address 返回 400，错误码 ADDRESS_REQUIRED","ts":"2026-11-13T04:02:50.639038496Z"}
+# {"by":"main","kind":"message","origin":"cli","seq":3,"text":"2. API 改完再改 UI：结算页加收货地址输入框，缺了不让提交","ts":"2026-11-13T04:02:50.650859117Z"}
+```
+
+(In English: "1. Change the API first: POST /orders without an address returns 400, error code ADDRESS_REQUIRED"; "2. Once the API is done, change the UI: add an address field to the checkout page, and the order can't be submitted without it.")
+
+The channel is bound to the task, so the task path shows in the messages; these two are numbered coordination messages, not casual notes. Waiting 10 seconds for a worker's reply and getting a timeout is normal — this section only coordinates as far as sending the messages, and spawning a real worker needs a logged-in claude / codex on this machine (section 10):
+
+```sh
+time sunshine channel wait s3-cross --from impl --kind done --timeout 10s
+# 错误：超时：等待 channel 's3-cross' 超时（10s），仍在等待：impl（上游退出码 124）
+# EXIT:1
+# real  0m10.013s
+```
+
+Implementation done, dispatching the `sunshine-check` subagent. Here is the real run result: ordering without an address returns 400, ordering with one succeeds, and the order carries the address:
 
 ```sh
 curl -s -X POST localhost:3000/api/orders -H 'Content-Type: application/json' -d '{"items":[{"id":1,"qty":1}]}' -w "\nHTTP %{http_code}\n"
@@ -1058,6 +1266,37 @@ curl -s -X POST localhost:3000/api/orders -H 'Content-Type: application/json' -d
 curl -s -X POST localhost:3000/api/orders -H 'Content-Type: application/json' -d '{"items":[{"id":1,"qty":1}],"address":"北京市朝阳区建国路 1 号"}' -w "\nHTTP %{http_code}\n"
 # {"code":"OK","data":{"id":1,"items":[{"id":1,"qty":1}],"address":"北京市朝阳区建国路 1 号","status":"待付款"}}
 # HTTP 200
+```
+
+Also verified: `GET /api/products` still returns the prices 8900/29900/129900 (cents); the checkout page has a `name="address"` field; an empty string or a blank address also returns 400 `ADDRESS_REQUIRED` — the Q&A never asked that one separately, so the implementation handled it under the "mandatory" reading and wrote it into the spec.
+
+> **Claude Code:** Step 3.3, spec write-back: `backend.md` gains a section, "下单必填收货地址" (Delivery address mandatory at checkout) — `POST /api/orders` without an `address` (missing, empty, or blank) returns 400, error code `ADDRESS_REQUIRED`, `data` is `null`; the order record carries an `address` field holding the raw string as submitted. Here's the commit plan — reply "OK" and I'll run it:
+>
+> ```text
+> Suggested commits (in order):
+>   1. 下单必填收货地址：结算页加地址输入框，缺地址返回 400（ADDRESS_REQUIRED）
+>      - public/checkout.html
+>      - src/routes/orders.js
+>      - .sunshine/spec/backend.md
+> Unrecognized dirty files (in no commit — please confirm include or exclude):
+>   - .sunshine/.current-task
+>   - .sunshine/tasks/11-13-下单必填收货地址/
+> ```
+>
+> **You:** OK.
+>
+> **Claude Code:** Commit done: `da27e80 下单必填收货地址：结算页加地址输入框，缺地址返回 400（ADDRESS_REQUIRED）` (3 files). Run `/finish-work` to archive and record the log — shall I run it now?
+>
+> **You:** Go ahead.
+
+Before archiving I cut a feature branch first (`main` is also the `base_branch`, so archiving directly would be refused): `git checkout -b feature/address-required` + `task set-branch`. `finish-work` archived the task and recorded the session log:
+
+```sh
+git log --oneline
+# c229570 chore: record journal
+# c956c40 chore(task): archive 11-13-下单必填收货地址
+# da27e80 下单必填收货地址：结算页加地址输入框，缺地址返回 400（ADDRESS_REQUIRED）
+# ed97a6e 12.2 商城 baseline：Express 商城 + 约定进 spec
 ```
 
 The checkout page has the address field too, and the task ran its normal course and is archived:
@@ -1105,11 +1344,37 @@ Here is how the session continues (the conversation is an example; the commands 
 >
 > **You:** Right, only the discount rules; the signature stays, and behavior must not change.
 >
-> **Claude Code:** Got it. Here's the plan: switch to the TDD template first, create the task "重构价格计算"; write characterization tests to pin those three cases (all green is the baseline), then pull the discount rules into constants and two small functions with `Price` only composing them, and run the same tests again — still all green. Once you confirm, I'll start. OK?
+> **Claude Code:** Good, that's all the questions. Here's the final planning summary — once you approve it, I'll get moving:
 >
-> **You:** OK, go ahead.
+> **Final planning summary**
+>
+> - Goal: pull the discount rules in `Price` out of the `if`s into one place, so changing a rule means changing one place; behavior must not change by a single cent.
+> - In scope: the discount rules in `calc.go` become constants plus `applyBulk` / `applyVIP`, with `Price` only composing them; a new `calc_test.go` pins the three cases; the cart (`CartTotal`) and order totals (`OrderTotal`) keep going through `Price`, no caller changes.
+> - Out of scope: no signature or return-value changes; no changes to the discount values or the order they stack (bulk first, then VIP); no new discount tiers, no performance work.
+> - Key decisions (all confirmed): write characterization tests to pin the current behavior first (all green is the baseline), then refactor; run the same tests after the refactor — still all green.
+> - Risks / deferred items: none. The integer division order matches the original implementation (multiply first, then divide), and the three cases cover bulk and the VIP stack.
+> - Artifact status: `prd.md` is written; `implement.jsonl`/`check.jsonl` have 1 entry each (`.sunshine/spec/backend.md`), `validate` passes; a light task, no `design.md`/`implement.md`.
+>
+> Once you approve this plan, I'll write the PRD and the context list — still no product code, no start. OK?
+>
+> **You:** Approved.
+>
+> **Claude Code:** The PRD and the context list are on disk, zero product code, not started. Confirm, and I'll switch to the TDD template, start the task, and begin implementing once you approve.
+>
+> **You:** Approved.
 >
 > **Claude Code:** The workflow is on the TDD template, the task is created and started. Writing the characterization tests to pin the three cases first:
+
+```sh
+sunshine workflow --template tdd
+# ✓ 已把 .sunshine/workflow.md 换成 "tdd"
+sunshine task create "重构价格计算" --description "把 Price 的折扣规则从 if 里抽成常量与两个小函数，签名与行为不变；购物车和订单总价继续走 Price。" --base-branch main
+# 已为本会话激活任务：.sunshine/tasks/11-13-重构价格计算
+sunshine task set-branch 11-13-重构价格计算 refactor-price
+# ✓ 分支已设为：refactor-price
+sunshine task start 11-13-重构价格计算
+# ✓ 状态：planning → in_progress
+```
 
 Then write characterization tests — not tests for behavior you want, but tests that pin the existing behavior as it is:
 
@@ -1132,7 +1397,14 @@ func TestPrice(t *testing.T) {
 }
 ```
 
-Let me show you the run — all green (`ok shop 0.003s`). All green is the baseline — this step changed no business code at all, it only proves "the current behavior is exactly these three cases". Only then does the refactor happen: discount rules become constants and two small functions, and `Price` only composes them:
+Let me show you the run — all green. All green is the baseline — this step changed no business code at all, it only proves "the current behavior is exactly these three cases". The first run is green in the real run: the old code already returns exactly those three values, so characterization tests can only pin the existing behavior — there is no red run to write about:
+
+```sh
+go test ./...
+# ok  	shop	0.003s
+```
+
+Only then does the refactor happen: discount rules become constants and two small functions, and `Price` only composes them:
 
 ```go
 // 折扣规则集中在这里改；Price 只做组合。
@@ -1153,7 +1425,23 @@ func Price(qty int, vip bool) int {
 
 (In English: "Discount rules change here and nowhere else; Price only composes them.")
 
-Run the same tests once more after the refactor — still all green (`ok shop 0.003s`). The behavior did not change, so the refactor stands. The red light in the TDD workflow is for new behavior; a pure refactor runs the other way around: **write characterization tests to pin the behavior (green), then refactor (still green)**. Wrap up by writing the new convention into spec, so the next change starts from the test table:
+Run the same tests once more after the refactor — still all green. The behavior did not change, so the refactor stands. The red light in the TDD workflow is for new behavior; a pure refactor runs the other way around: **write characterization tests to pin the behavior (green), then refactor (still green)**:
+
+```sh
+go test ./...
+# ok  	shop	0.011s
+go test -count=1 ./...
+# ok  	shop	0.003s
+go test -count=1 -v ./...
+# === RUN   TestPrice
+# --- PASS: TestPrice (0.00s)
+# PASS
+# ok  	shop	0.004s
+```
+
+(The first run after the refactor is `0.011s`, which includes compilation; re-running with `-count=1` gives `0.003s`, matching the pre-refactor run.) Dispatching the `sunshine-check` subagent: `func Price(qty int, vip bool) int` is unchanged, `cart.go` and `order.go` still go through `Price`, `go vet` exits 0, `go fmt` is clean — nothing to fix.
+
+> **Claude Code:** Step 3.3, spec write-back: the new convention goes into `backend.md`, so the next rule change starts from the test table:
 
 ```markdown
 ## 价格计算
@@ -1163,12 +1451,55 @@ Run the same tests once more after the refactor — still all green (`ok shop 0.
 
 (In English: "Price calculation: discount rules live in the constants and applyBulk / applyVIP in calc.go; Price only composes them. Change a rule by changing the case table in calc_test.go first.")
 
-Archive the task as usual and switch the workflow back to native:
+> **Claude Code:** Here's the commit plan — reply "OK" and I'll run it:
+>
+> ```text
+> Suggested commits (in order):
+>   1. refactor: 把 Price 的折扣规则抽成常量与小函数
+>      - calc.go
+>      - calc_test.go
+>      - .sunshine/spec/backend.md
+> Unrecognized dirty files (in no commit — please confirm include or exclude):
+>   - .sunshine/workflow.md (the TDD template switch — back to baseline once the workflow is switched back to native)
+>   - .sunshine/.template-hashes.json (the template switch's side record, same)
+>   - .sunshine/tasks/11-13-重构价格计算/ (task artifacts, carried by the archive commit)
+>   - .sunshine/.current-task (the current-task pointer, cleaned up by archiving)
+> ```
+>
+> **You:** OK.
+>
+> **Claude Code:** Commit done: `f73b1e3 refactor: 把 Price 的折扣规则抽成常量与小函数` (3 files, +46/−5). Run `/finish-work` to archive and record the log — shall I run it now?
+>
+> **You:** Go ahead.
+
+`finish-work` archived the task and recorded the session log:
+
+```sh
+git log --oneline -5
+# 2dc676c chore: record journal
+# 50c33dc chore(task): archive 11-13-重构价格计算
+# f73b1e3 refactor: 把 Price 的折扣规则抽成常量与小函数
+# e293a24 chore: sunshine init
+# 3fb2275 chore: 初始化商城价格计算场景
+```
+
+Archive the task as usual:
 
 ```text
 [2026-11] - 1 个任务
   - 11-13-重构价格计算/
 ```
+
+Then switch the workflow back to native — switching directly fails (the `workflow.md` has local changes), so add `--force`:
+
+```sh
+sunshine workflow --template native
+# 错误：.sunshine/workflow.md 已有本地修改，请加 --force 覆盖，或用 --create-new 写 .sunshine/workflow.md.new
+sunshine workflow --template native --force
+#   ✓ 已把 .sunshine/workflow.md 换成 "native"
+```
+
+After switching back, `workflow.md` and `.template-hashes.json` are both back to baseline.
 
 ### 12.5 Fixing a bug that keeps coming back: find the last session first
 
@@ -1182,7 +1513,19 @@ Example prompt (an example, not a record of a real session):
 
 Here is how the session continues (the conversation is an example; the commands and outputs are real values from runs):
 
-> **Claude Code:** I checked `mem` first: the last related session is the dispatch from November 10, 05:05, whose message to the worker already mentions 401. One question first: is this the same class of problem — the store project's codex worker failing to connect with a 401?
+> **Claude Code:** I checked `mem` first:
+
+```sh
+sunshine mem search 401 --global
+# 范围：全部项目  平台=all  关键词="401"
+#
+# [codex   ] 2026-11-10 05:05  01a1c3d8-457  /tmp/scenes/s5-bug  相关度=1.000  命中=1（用户=1，助手=0）  轮次=1
+#     [用户] 线上 codex worker 又连不上了，之前报过 401，帮我查一下这次的原因
+#
+# 共 1 个会话
+```
+
+> **Claude Code:** The last related session is the dispatch from November 10, 05:05, whose message to the worker already mentions 401. One question first: is this the same class of problem — the store project's codex worker failing to connect with a 401?
 >
 > **You:** Same class — still 401 today.
 >
@@ -1190,35 +1533,107 @@ Here is how the session continues (the conversation is an example; the commands 
 >
 > **You:** Reproduce it on this machine, codex isn't logged in.
 >
-> **Claude Code:** Got it. Here's the plan: reproduce the dispatch once on this machine to confirm it's still 401; then create the task with the session id in the description, and write the lesson into spec after the fix. Once you confirm, I'll start. OK?
+> **Claude Code:** Good, that's all the questions. Here's the final planning summary — once you approve it, I'll get moving:
 >
-> **You:** OK, go ahead.
+> **Final planning summary**
 >
-> **Claude Code:** Reproducing the dispatch once on this machine: a channel is created, the same message goes to the worker, and the worker starts — then fails in its log (codex is not logged in on this machine, the same precondition section 10 states):
+> - Goal: reproduce the 401, locate the root cause, and write the lesson into system.md.
+> - In scope: build a channel on this machine, send the original message, spawn the codex worker, confirm the 401 in worker.log, confirm the root cause, write the lesson.
+> - Out of scope: no changes to the store's business code; don't log in to codex for the user; don't fix codex or the channel itself; don't handle spawn failures other than 401.
+> - Key decisions (all confirmed): the reproduction only verifies as far as the 401 appearing; the login is left for the user to handle.
+> - Risks / deferred items: none (the 401 has already appeared three times, and the root cause points to not being logged in).
+> - Artifact status: the PRD plus the context list (system.md, backend.md), zero product code.
+>
+> Once you approve this plan, I'll write the PRD (with the session id 01a1c3d8 in the description) and the context list — still no product code, no start. OK?
+>
+> **You:** Approved.
+>
+> **Claude Code:** The PRD and the context list are on disk (`implement.jsonl`/`check.jsonl` have 2 entries each, `task validate` passes), zero product code, not started. Confirm, and I'll start the task and begin the reproduction once you approve.
+>
+> **You:** Approved.
+>
+> **Claude Code:** Starting the task, dispatching the `sunshine-implement` subagent to reproduce. Reproducing the dispatch once on this machine: a channel is created, the same message goes to the worker, and the worker starts — then fails in its log (codex is not logged in on this machine, the same precondition section 10 states; `ls ~/.codex/auth.json` → `No such file or directory`):
+
+```sh
+sunshine channel create codex-401 --type chat --task .sunshine/tasks/11-13-codex-worker-401
+# 已创建 channel 'codex-401'（chat）位于 /home/hatch/.sunshine/channels/-tmp-s5-repro/codex-401
+sunshine channel spawn codex-401 --provider codex --as worker
+# {"pid": 7235, "log": "/home/hatch/.sunshine/channels/-tmp-s5-repro/codex-401/worker.log", "worker": "worker"}
+sunshine channel send codex-401 --to worker "线上 codex worker 又连不上了，之前报过 401，帮我查一下这次的原因"
+# {"by":"main","kind":"message","origin":"cli","seq":3,"text":"线上 codex worker 又连不上了，之前报过 401，帮我查一下这次的原因","to":"worker","ts":"2026-11-13T04:01:49.517881231Z"}
+```
+
+The 401 line in worker.log (verbatim, first seen 2026-11-13T04:01:49.049897Z), appearing 7 times:
 
 ```text
 failed to connect to websocket: HTTP error: 401 Unauthorized, url: wss://api.openai.com/v1/responses
 ```
 
-> **Claude Code:** The worker never answered, but the session is on disk. `mem` finds this dispatch: the one from November 10, 05:05, session 01a1c3d8; searching 401 hits once — the sentence sent to the worker: "线上 codex worker 又连不上了，之前报过 401，帮我查一下这次的原因" (the codex worker online can't connect again — it reported 401 before; help me check the cause this time).
+And the root-cause line (verbatim):
 
-One boundary found by actually running this, worth remembering: **`mem` searches the words in dialogue turns (user / assistant); it does not search error events**. The session from the early hours of November 10 (`01a1c376`, in `/tmp/h-test/chanproj`) had a worker fail with the same 401, but its 401 only appears in an error event, not in any dialogue turn — so searching `401` does not find it. What you search for is the sentence that was sent to the worker at the time. This run is findable because the message sent to the worker already says 401.
+```text
+unexpected status 401 Unauthorized: Missing bearer or basic authentication in header, url: wss://api.openai.com/v1/responses
+```
 
-Once the last session confirms it is the same class of problem, create the task — with the session id (01a1c3d8) in the description, so the agent does not have to ask "what happened last time" all over again. When the task is done, the lesson goes into spec — otherwise it will happen the same way next time, which is the actual fix for a recurring bug:
+The worker then retried on its own, `Reconnecting... 2/5` through `5/5` — which is exactly the evidence for "don't spawn again and again". Waiting for the worker's reply returned a terminal error event (seq 16), and then the worker was stopped:
+
+```sh
+sunshine channel wait codex-401 --from worker --kind done,error --timeout 2m
+# {"by":"worker","kind":"error","message":"unexpected status 401 Unauthorized: Missing bearer or basic authentication in header, url: https://api.openai.com/v1/responses, cf-ray: a59ae10cfee192d0-DFW, request id: req_856bb946182d43f9a9620b912c13e4cc","origin":"worker","seq":16,"ts":"2026-11-13T04:02:06.752406346Z"}
+sunshine channel kill codex-401 --as worker
+```
+
+(Note: the positional form `kill codex-401 worker` errors with `accepts 1 arg(s), received 2` — use `--as worker`.)
+
+> **Claude Code:** Dispatching the `sunshine-check` subagent — all green, nothing to fix: the 401 log line hit 7 times exactly; the root cause is codex not being logged in (`~/.codex/auth.json` still does not exist); the lesson sits at system.md:17; the business code is untouched (`git diff --stat -- server.js package.json` is empty); searching `mem` for 401 now returns 2 sessions — the new one from this reproduction, `01a1d311-99c`, plus the original `01a1c3d8-457`. The lesson is in spec:
 
 ```markdown
 ## 多 Agent 派发
 
-- 派发 codex worker 前先确认本机 codex 已登录；spawn 失败时先看 worker.log（401 即未登录），不要反复重派。
+- 派发 codex worker 前，先确认本机 codex 已登录（`~/.codex/auth.json` 存在；未登录时 worker 拿不到 bearer token，启动即 401）。
+- spawn 失败时先看 worker.log，不要反复重派：`failed to connect to websocket: HTTP error: 401 Unauthorized, url: wss://api.openai.com/v1/responses` 即未登录（根因：`Missing bearer or basic authentication in header`），重派只会重复报 401。
+- 复现记录：2026-11-13，商城项目派 codex worker 连不上报 401（此前 11 月 9 日、11 月 10 日凌晨已出现两次）；mem 搜 401 命中会话 01a1c3d8（2026-11-10 05:05）。
 ```
 
-(In English: "Multi-agent dispatch: before spawning a codex worker, confirm codex is logged in on this machine; when a spawn fails, read worker.log first (401 means not logged in) instead of spawning again and again.")
+(In English: "Multi-agent dispatch: before spawning a codex worker, confirm codex is logged in on this machine (`~/.codex/auth.json` exists; if it is not logged in, the worker gets no bearer token and fails with 401 at startup). When a spawn fails, read worker.log first and don't spawn again and again: the websocket 401 line means not logged in (root cause: `Missing bearer or basic authentication in header`), and re-spawning only repeats the 401. Reproduction record: 2026-11-13, the store project spawned a codex worker that could not connect, 401 (twice before, on November 9 and in the early hours of November 10); searching `mem` for 401 hits session 01a1c3d8 (2026-11-10 05:05).")
+
+One boundary found by actually running this, worth remembering: **`mem` searches the words in dialogue turns (user / assistant); it does not search error events**. The session from the early hours of November 10 (`01a1c376`, in `/tmp/h-test/chanproj`) had a worker fail with the same 401, but its 401 only appears in an error event, not in any dialogue turn — so searching `401` does not find it. What you search for is the sentence that was sent to the worker at the time. This run is findable because the message sent to the worker already says 401. Grep of the session files confirmed it: `01a1c376`'s 401 only appears in the error field of an `event_msg/task_complete`, while `01a1c3d8` has the user's own words. The November 9 case is the same: `01a1bfa4-3c6`'s session file does contain the same 401 error line, `01a1bfa3`'s does not.
+
+Once the last session confirms it is the same class of problem, create the task — with the session id (01a1c3d8) in the description, so the agent does not have to ask "what happened last time" all over again. When the task is done, the lesson goes into spec — otherwise it will happen the same way next time, which is the actual fix for a recurring bug.
+
+> **Claude Code:** Step 3.3, spec write-back: no other new knowledge beyond this lesson, backend.md needs no change. One commit in the plan — reply "OK" and I'll run it:
+>
+> ```text
+> Suggested commits (in order):
+>   1. docs: codex worker 401 教训写进 system.md（多 Agent 派发）
+>      - .sunshine/spec/system.md
+> Unrecognized dirty files (in no commit — please confirm include or exclude):
+>   - .sunshine/.current-task (the task-session pointer, cleaned up by archiving)
+>   - .sunshine/tasks/11-13-codex-worker-401/ (the task directory, managed by finish-work's archive commit)
+> ```
+>
+> **You:** OK.
+>
+> **Claude Code:** Commit done: `9a4b2bd docs: codex worker 401 教训写进 system.md（多 Agent 派发）` (1 file, 6 lines added). Only a spec file changed, so the prefix is `docs:`, not `fix:`. Run `/finish-work` to archive and record the log — shall I run it now?
+>
+> **You:** Go ahead.
+
+Before archiving I cut a feature branch first (`master` is also the `base_branch`, so archiving directly would be refused): `git checkout -b fix/codex-worker-401` + `task set-branch`. `finish-work` archived the task and recorded the session log:
+
+```sh
+git log --oneline
+# c29bd5e chore: record journal
+# 38775f6 chore(task): archive 11-13-codex-worker-401
+# 9a4b2bd docs: codex worker 401 教训写进 system.md（多 Agent 派发）
+# bfe6581 chore: sunshine init（后端）
+# 6ed4c18 chore: 商城后端初始代码
+```
 
 Archive the task as usual:
 
 ```text
 [2026-11] - 1 个任务
-  - 11-13-修复-codex-worker-401/
+  - 11-13-codex-worker-401/
 ```
 
 Next time a 401 shows up, the agent reads the spec and checks the login first, instead of spawning another worker into the same wall.
@@ -1260,8 +1675,8 @@ doc/prototype/优惠券页.html
 The requirements list is one item per requirement (real file content, excerpt): requirement one "下单用优惠券" (use a coupon at checkout) points at the checkout page in the system prototype — the checkout page takes a coupon code, the discount rule is 10 yuan off on orders over 100 yuan, and a coupon must be unused and unexpired or it is refused; requirement two "优惠券列表" (the coupon list) points at the coupon page in the system prototype — the list shows coupon name, threshold, amount, status, and expiry. The outline design's interface lines read (real content):
 
 ```text
-| POST /api/orders | body：items + address + couponCode | 订单（含实付 total） | 券不存在/已用/过期/不满门槛返回 400 + 错误码（COUPON_INVALID / COUPON_USED / COUPON_EXPIRED / COUPON_THRESHOLD）；MAN100JIAN10 满 100 元减 10 元（满 10000 分减 1000 分） |
-| GET /api/coupons | 无 | 全部券（券名、门槛、面额、状态、有效期） | 列表接口，不分页 |
+| POST /api/orders | { items, address, couponCode } | { code, data: order }，实付写在 data.total | 校验顺序：不存在 → 已使用 → 已过期 → 不满门槛；失败返回 400 + 错误码（COUPON_INVALID / COUPON_USED / COUPON_EXPIRED / COUPON_THRESHOLD）；MAN100JIAN10 满 100 元减 10 元（满 10000 分减 1000 分） |
+| GET /api/coupons | 无 | { code, data: coupons }，三条券 | 返回全部券，不分页 |
 ```
 
 (In English: "`POST /api/orders`: body has items, address, and couponCode; a missing, used, expired, or below-threshold coupon returns 400 with `COUPON_INVALID` / `COUPON_USED` / `COUPON_EXPIRED` / `COUPON_THRESHOLD`; MAN100JIAN10 is 10 yuan off on orders over 100 yuan (10,000 points off 1,000 points), and a successful order returns the amount actually paid. `GET /api/coupons` returns all coupons — name, threshold, amount, status, expiry — with no pagination.")
@@ -1270,7 +1685,7 @@ The system prototype is a set of pages under `doc/prototype/`, plus an `index.ht
 
 The designer builds the design package step by step too: clarify the requirements and write them into the requirements list first, then the outline design (structure, interfaces, acceptance), then dispatch `sunshine-prototype` to build the prototype — one page per requirement in the list, with mock data (the dispatch prompt gives only the requirements list and the outline design; the sub-agent reports back just the page count, the mock record count, and the file path, and the main session never writes the prototype itself) — and the complete system prototype is the end of the design phase, not the start. If building the prototype exposes a gap in the requirements, the requirements list is updated with it (through the change path), but the overall direction stays requirements first, prototype last.
 
-Then comes the requirements review — the designer's last act before exiting: Claude Code lays out the whole package for you to confirm — the PRD, the design document list, and the split plan; nothing moves on until you confirm.
+Then comes the requirements review — the designer's last act before exiting: Claude Code lays out the whole package for you to confirm — the PRD, the design document list, and the split plan; nothing moves on until you confirm. This step is the 1.5 requirements review, which is this section's "final planning summary":
 
 > **Claude Code:** For review: the PRD, the requirements list, the outline design, and the system prototype are all ready, and the split is two sub-tasks — requirement one is the checkout page plus the POST API, requirement two is the coupon page plus the GET API. Once you confirm, I'll create the parent task and split it in one go. OK?
 >
@@ -1284,7 +1699,7 @@ Example prompt (an example, not a real conversation record):
 
 > The design review passed and the subtasks are split. Now let's start development following the sunshine workflow: first list the parent task's subtasks and the first subtask's context for me to confirm; after I confirm, start from the first subtask and work through them one by one; start each subtask, then check it, write the specs back, commit, and archive it before starting the next one; once all subtasks are archived, run the final integration review on the parent task and archive it.
 
-After confirmation, development follows the five rounds below; if the session closes and reopens midway, run `/sunshine:continue` — it routes by the `task.json` status.
+After confirmation, development follows the flow below; if the session closes and reopens midway, run `/sunshine:continue` — it routes by the `task.json` status.
 
 The split happens once, after the review passes — and it follows the requirements: one prototype serves multiple requirements, so the sub-tasks split per requirement, covering the whole scope, with the sub-task list settled in one pass; the split itself starts nothing, and both sub-tasks are created in `planning`. The parent task records the sub-task map, and developers enter with the work already split and the context already curated (each sub-task's context points at its own page in the system prototype).
 
@@ -1296,9 +1711,9 @@ Here is the real task list (the split is nested as soon as it lands):
 sunshine task list
 # 全部活动任务：
 #
-#   - 11-13-商城优惠券/ (planning) [0/2 已完成] [developer]
-#     - 11-13-下单用优惠券/ (planning) [developer]
-#     - 11-13-优惠券列表/ (planning) [developer]
+#   - 11-13-商城优惠券/ (planning) [0/2 已完成] [lin]
+#     - 11-13-下单用优惠券/ (planning) [lin]
+#     - 11-13-优惠券列表/ (planning) [lin]
 #
 # 总计：3 个任务
 ```
@@ -1347,35 +1762,86 @@ sunshine task start 11-13-下单用优惠券
 # ✓ 状态：planning → in_progress（降级）
 ```
 
-Once `start` succeeds, the status is written into `task.json` and the pointer into `.sunshine/.current-task` — close the session and reopen it, and the state is still in the files, not in the conversation (there is a resumption example below).
+Once `start` succeeds, the status is written into `task.json` and the pointer into `.sunshine/.current-task` — close the session and reopen it, and the state is still in the files, not in the conversation (there is a resumption example below). Before archiving, cut a feature branch first (`master` is also the `base_branch`, so archiving directly would be refused): `git checkout -b feat/coupon-checkout` + `task set-branch`.
 
 Here is the session while it develops (the conversation is an example; the commands and outputs are real values from runs):
 
 > **Claude Code:** Requirement one is starting: the main session dispatches `sunshine-implement` to add a coupon code input to `checkout.html` against the checkout page in the system prototype and add four checks to the POST in `orders.js`, then dispatches `sunshine-check` to verify against the spec in `check.jsonl`.
 >
-> **Claude Code:** Implement is done: the checkout page has a coupon code input (`name="couponCode"`); the POST checks in order — missing, used, expired, below threshold — returning 400 for a bad coupon, and 10 yuan off over 100 yuan, so one mechanical keyboard comes to 28,900 points. Check passed too: four 400 branches, one coupon code input, all three coupons in place, and all four curl checks pass. I added a coupon-API and a checkout-page convention to the spec. Commit once? (One commit: checkout page plus coupon API plus spec conventions.)
+> **Claude Code:** Implement is done: the checkout page has a coupon code input (`name="couponCode"`); the POST checks in order — missing, used, expired, below threshold — returning 400 for a bad coupon, and 10 yuan off over 100 yuan, so one mechanical keyboard comes to 28,900 points. Check passed too: all four curl checks pass. I added a coupon-API and a checkout-page convention to the spec. Here's the commit plan — reply "OK" and I'll run it:
 >
-> **You:** Commit it, and archive this sub-task.
+> ```text
+> Suggested commits (in order):
+>   1. 需求一：下单用优惠券，结算页 + 券接口
+>      - src/db.js / src/routes/orders.js / public/checkout.html
+>      - .sunshine/spec/backend.md / .sunshine/spec/frontend.md
+> Unrecognized dirty files (in no commit): .claude/, .cursor/ (init scaffolding), the rest of .sunshine/ (skeleton plus task directories, managed by archive/add-session), doc/ (the design package, a planning artifact of the parent task)
+> ```
 >
-> **Claude Code:** Done — `task finish` clears the pointer and `task archive` archives it after the commit. The parent is now 1/2 done.
+> **You:** OK.
+>
+> **Claude Code:** Commit done: `057abbd 需求一：下单用优惠券，结算页 + 券接口` (5 files, 75 lines added, 2 deleted). Run `/finish-work` to archive and record the log — shall I run it now?
+>
+> **You:** Go ahead.
 
-Key output (real runs): the three grep checks read `4`, `1`, `3` (four 400 branches, one coupon code input, three coupons); the four curl checks: a bad code `NOPE` is `{"code":"COUPON_INVALID","data":null}`, HTTP 400, one mechanical keyboard is 200 with order `id` 1 and 28,900 points paid, one wireless mouse is `{"code":"COUPON_THRESHOLD","data":null}`, HTTP 400, two wireless mice are 200 with order `id` 2 and 16,800 points paid; the commit is `7634b3b 需求一：下单用优惠券，结算页 + 券接口` (requirement one: use a coupon at checkout, checkout page plus coupon API); the archive is `b67ebfc chore(task): archive 11-13-下单用优惠券`; after the archive the parent shows 1/2 done.
+Key output (real runs): the four curl checks — a bad code `NOPE` is `{"code":"COUPON_INVALID"}`, HTTP 400; one mechanical keyboard is 200 with order `id` 1 and 28,900 points paid; one wireless mouse is `{"code":"COUPON_THRESHOLD"}`, HTTP 400; two wireless mice are 200 with order `id` 2 and 16,800 points paid:
+
+```sh
+curl -s -X POST localhost:3000/api/orders -H 'Content-Type: application/json' -d '{"items":[{"id":1,"qty":1}],"address":"测试地址","couponCode":"NOPE"}' -w "\nHTTP %{http_code}\n"
+# {"code":"COUPON_INVALID"}
+# HTTP 400
+
+curl -s -X POST localhost:3000/api/orders -H 'Content-Type: application/json' -d '{"items":[{"id":2,"qty":1}],"address":"测试地址","couponCode":"MAN100JIAN10"}' -w "\nHTTP %{http_code}\n"
+# {"code":"OK","data":{"id":1,"items":[{"id":2,"name":"机械键盘","price":29900,"qty":1}],"address":"测试地址","couponCode":"MAN100JIAN10","total":28900,"status":"待付款"}}
+# HTTP 200
+
+curl -s -X POST localhost:3000/api/orders -H 'Content-Type: application/json' -d '{"items":[{"id":1,"qty":1}],"address":"测试地址","couponCode":"MAN100JIAN10"}' -w "\nHTTP %{http_code}\n"
+# {"code":"COUPON_THRESHOLD"}
+# HTTP 400
+
+curl -s -X POST localhost:3000/api/orders -H 'Content-Type: application/json' -d '{"items":[{"id":1,"qty":2}],"address":"测试地址","couponCode":"MAN100JIAN10"}' -w "\nHTTP %{http_code}\n"
+# {"code":"OK","data":{"id":2,"items":[{"id":1,"name":"无线鼠标","price":8900,"qty":2}],"address":"测试地址","couponCode":"MAN100JIAN10","total":16800,"status":"待付款"}}
+# HTTP 200
+```
+
+`finish-work` archived requirement one and recorded the session log:
+
+```sh
+git log --oneline
+# e4ac2b2 chore: record journal
+# be797d4 chore(task): archive 11-13-下单用优惠券
+# 057abbd 需求一：下单用优惠券，结算页 + 券接口
+# 0fae77b 商城优惠券演示起点：重建 s2-old 商城
+```
+
+After the archive the parent shows 1/2 done.
 
 One sub-task goes round by round like this — what each round reads and what it produces is in the files, never in the conversation:
 
-1. **Implement (2.1)**: read the files in `implement.jsonl` (the checkout page in the system prototype, the outline design) plus your own `prd.md`, and dispatch `sunshine-implement` to change the code. Produces: the changed `checkout.html` and `orders.js` (plus the coupon table in `db.js`).
-2. **Check (2.2)**: read the files in `check.jsonl` (the frontend spec, the backend API contract) and dispatch `sunshine-check` to verify. Produces: the grep / curl verification results.
-3. **Write back the spec (3.3)**: `sunshine-update-spec` writes the new conventions into `spec/` (coupon API, checkout page). Produces: the updated `frontend.md` and `backend.md`.
-4. **Commit (3.4)**: one commit (code plus spec conventions). Produces: commit `7634b3b`.
-5. **Wrap up**: `task finish` clears the pointer, `task archive` moves the task directory into `archive/2026-11/` and sets the status to `completed`. Produces: the archived task directory, and the parent at 1/2 done.
+1. **Approve**: after the 1.5 review passes, the sub-task's own 1.1 fills in the PRD and 1.4 curates the context; only after approval does `task start` run.
+2. **Implement (2.1)**: read the files in `implement.jsonl` (the checkout page in the system prototype, the outline design) plus your own `prd.md`, and dispatch `sunshine-implement` to change the code. Produces: the changed `checkout.html` and `orders.js` (plus the coupon table in `db.js`).
+3. **Check (2.2)**: read the files in `check.jsonl` (the frontend spec, the backend API contract) and dispatch `sunshine-check` to verify. Produces: the curl verification results.
+4. **Write back the spec (3.3)**: `sunshine-update-spec` writes the new conventions into `spec/` (`backend.md:17` for the coupon API, `frontend.md:18` for coupons). Produces: the updated `frontend.md` and `backend.md`.
+5. **Commit (3.4)**: draft the commit plan, show it once, ask for one confirmation, then commit (one commit: code plus spec conventions). Produces: commit `057abbd`.
+6. **Wrap up (3.5 + finish-work)**: remind the user they can run `/finish-work`; once they confirm, run it: archive the task and record the session log. Produces: archive commit `be797d4`, journal commit `e4ac2b2`, and the parent at 1/2 done.
 
-Only after requirement one is archived does requirement two start — the same five rounds (dialogue skipped; the commands and outputs are real values from runs):
+Only after requirement one is archived does requirement two start — the same flow (dialogue skipped; the commands and outputs are real values from runs):
 
 > **Claude Code:** Requirement two is starting: dispatching `sunshine-implement` to write `public/优惠券页.html` against the coupon page in the system prototype and add the `GET /api/coupons` API, then `sunshine-check` to verify.
 >
-> **Claude Code:** Implement is done: the coupon page fetches the GET API and renders the table; GET returns all three coupons. Check passed too: the fetch is there, the table is there, GET returns 3 coupons. I added a coupon-list and a GET-API convention to the spec. Commit once?
+> **Claude Code:** Implement is done: the coupon page fetches the GET API and renders the table; GET returns all three coupons. Check found one problem and fixed it directly: the first coupon page was a static table with the three coupons hard-coded, which contradicts the spec just written in 3.3 — "fetch the data from GET /api/coupons, don't hard-code the mock"; it now renders with `fetch("/api/coupons")` (with Loading, empty, and error states), re-verified with the page at 200 and the API still returning three coupons. Step 3.3 judgment: the coupon-API section in backend.md and the coupon section in frontend.md already cover GET /api/coupons and API-driven rendering — no new content, spec untouched. Here's the commit plan — reply "OK" and I'll run it:
 >
-> **You:** Commit it, and archive this sub-task.
+> ```text
+> Suggested commits (in order):
+>   1. 需求二：优惠券列表，优惠券页 + GET 接口
+>      - src/routes/coupons.js, src/server.js, public/优惠券页.html
+> ```
+>
+> **You:** OK.
+>
+> **Claude Code:** Commit done: `d44083b 需求二：优惠券列表，优惠券页 + GET 接口` (3 files, 62 lines added). Run `/finish-work` to archive and record the log — shall I run it now?
+>
+> **You:** Go ahead.
 
 Key output (real runs):
 
@@ -1384,13 +1850,13 @@ curl -s localhost:3000/api/coupons
 # {"code":"OK","data":[{"code":"MAN100JIAN10","name":"满100减10","threshold":10000,"amount":1000,"status":"未使用","expires":"2026-12-31"},{"code":"MAN200JIAN30","name":"满200减30","threshold":20000,"amount":3000,"status":"已使用","expires":"2026-12-31"},{"code":"NEW5","name":"新人5元券","threshold":0,"amount":500,"status":"已过期","expires":"2026-10-01"}]}
 ```
 
-The commit is `51920ca 需求二：优惠券列表，优惠券页 + GET 接口` (requirement two: the coupon list, coupon page plus GET API); the archive is `e15f11c chore(task): archive 11-13-优惠券列表`; after the archive the parent shows 2/2 done.
+`finish-work` archived requirement two (`b0044a9`) and recorded the session log (`eb9b771`); after the archive the parent shows 2/2 done.
 
-Finally the parent gets its final integration review — checked once against the acceptance criteria in the outline design, the two sub-tasks' check results, and the interface contract, without re-reading the whole prototype — and then it is archived:
+Finally the parent gets its final integration review — checked once against the acceptance criteria in the outline design, the two sub-tasks' check results, and the interface contract, without re-reading the whole prototype — and then it is archived. The review ran five checks in one service run, all green: NOPE `{"code":"COUPON_INVALID"}` HTTP 400; one keyboard `total:28900` HTTP 200; one mouse `{"code":"COUPON_THRESHOLD"}` HTTP 400; two mice `total:16800` HTTP 200; GET /api/coupons with three coupons (threshold 10000) HTTP 200. Both places share the same coupons data.
 
-> **Claude Code:** Integration review: the acceptance criteria all passed — the checkout page's coupon code input, all four coupon checks (a bad code 400, a below-threshold order 400, two discounted orders at 200), and the GET list with three coupons; the two sub-tasks' check results and the interface contract line up too. Archive the parent?
+> **Claude Code:** The integration review passed: the acceptance criteria all passed, and the two sub-tasks' check results and the interface contract line up too. Run `/finish-work` to archive the parent task and record the log — shall I run it now?
 >
-> **You:** Archive it.
+> **You:** Go ahead.
 
 **[Developers exit]**
 
@@ -1457,24 +1923,26 @@ After the project is done and archived, the business asks for the discount thres
 
 > **You:** The requirement changed: the discount threshold moves from 100 yuan to 200 yuan. Follow the Sunshine workflow: the designer returns to change the design package first, and implementation only starts after the review passes.
 >
-> **Claude Code:** The blast radius is requirement one only: requirement two is archived and unaffected (the list page doesn't gate on the threshold) — no reopening; requirement one is archived too — no reopening either. Here's the plan: the designer returns first and changes three places — the requirement-one line in the requirements list, the interface line in the outline design, and the threshold note on the checkout page in the system prototype; the review then covers only those three places, and the designer exits after it passes; then a new task "满减门槛改成 200" records `[变更 2026-11-13]` in its PRD, the threshold in `db.js` moves to 20,000 points, the spec updates the same way, and curl verifies the 178-yuan and 299-yuan cases. Once you confirm, I'll start. OK?
+> **Claude Code:** The blast radius is requirement one only: requirement two is archived and unaffected (the list page doesn't gate on the threshold) — no reopening; requirement one is archived too — no reopening either. 1.1 asks just the delta — one question: what does the threshold move to? Answer: 200 yuan. Here's the plan: the designer returns first and changes three places — the requirement-one line in the requirements list, the interface line in the outline design, and the threshold note on the checkout page in the system prototype; the review then covers only those three places, and the designer exits after it passes; then a new task "满减门槛改成 200" records `[变更 2026-11-13]` in its PRD, the threshold in `db.js` moves to 20,000 points, the spec updates the same way, and curl verifies the 178-yuan and 299-yuan cases. Once you confirm, I'll start. OK?
 >
 > **You:** OK, go ahead.
 
 Here are the three places the designer changed on the return (real file content, all 200 yuan after the change):
 
 ```text
-doc/design/需求列表.md:17
-| R-001 | 下单用优惠券 | 结算页 | 结算页输入券码，满减规则：满 200 元减 10 元，订单总额达到 20000 分才减面额；券须未使用且未过期，否则提示不可用 | P0 | 券码 MAN100JIAN10：满 200 元减 10 元；已用/过期/不满门槛下单失败并提示 |
+doc/design/需求列表.md:23
+| R-001 | 下单用优惠券 | 结算页输入券码，满 200 元减 10 元；券须未使用且未过期，否则下单失败并提示原因 | P0 | 券码 NOPE 下单返回 400 COUPON_INVALID；1 件机械键盘用券实付 28900 分；1 件无线鼠标用券返回 400 COUPON_THRESHOLD；2 件无线鼠标用券返回 400 COUPON_THRESHOLD |
 
-doc/design/概要设计.md:34
-| POST /api/orders | body：items + address + couponCode | 订单（含实付 total） | 券不存在/已用/过期/不满门槛返回 400 + 错误码（COUPON_INVALID / COUPON_USED / COUPON_EXPIRED / COUPON_THRESHOLD）；MAN100JIAN10 满 200 元减 10 元（满 20000 分减 1000 分） |
+doc/design/概要设计.md:41
+| POST /api/orders | { items, address, couponCode } | { code, data: order }，实付写在 data.total | 校验顺序：不存在 → 已使用 → 已过期 → 不满门槛；失败返回 400 + 错误码（COUPON_INVALID / COUPON_USED / COUPON_EXPIRED / COUPON_THRESHOLD）；MAN100JIAN10 满 200 元减 10 元（满 20000 分减 1000 分） |
 
-doc/prototype/结算页.html:27
+doc/prototype/结算页.html:39
 <p class="hint">满 200 元减 10 元</p>
 ```
 
-(In English: the requirements list line — "Checkout takes a coupon code; the discount rule is 10 yuan off on orders over 200 yuan, and the order total must reach 20,000 points before the amount comes off; a coupon must be unused and unexpired or it is refused. Coupon MAN100JIAN10: 10 yuan off over 200 yuan; a used, expired, or below-threshold coupon fails the order with a notice." The outline design line — the POST interface line, with "MAN100JIAN10 is 10 yuan off on orders over 200 yuan (20,000 points off 1,000 points)". The prototype line — "10 yuan off on orders over 200 yuan.")
+(In English: the requirements list line — "Checkout takes a coupon code; the discount rule is 10 yuan off on orders over 200 yuan, and a coupon must be unused and unexpired or it is refused. A bad code NOPE returns 400 COUPON_INVALID; one mechanical keyboard with a coupon pays 28,900 points; one wireless mouse with a coupon returns 400 COUPON_THRESHOLD; two wireless mice with a coupon return 400 COUPON_THRESHOLD." The outline design line — the POST interface line, with "MAN100JIAN10 is 10 yuan off on orders over 200 yuan (20,000 points off 1,000 points)". The prototype line — "10 yuan off on orders over 200 yuan.")
+
+(The acceptance criteria, the open items, the change log, and the data section of the outline design were synced in the same files too — otherwise the same file would contradict itself; grep confirms all three places read 200, and the only "100" left in the design documents is the history note in the change log and the coupon names.)
 
 The prototype edit is a single line (the threshold note); a change this small is made in the main session with a targeted grep, not a fresh `sunshine-prototype` dispatch — only structural changes get re-dispatched.
 
@@ -1494,7 +1962,7 @@ Example prompt (an example, not a real conversation record):
 
 The blast radius is decided against two things — the parent task's `children` list in `task.json` (the sub-task map) and the design package in `doc/` (the requirements list, the outline design, the prototype pages). A sub-task is affected when the change touches its PRD, design, interface, or prototype page. Then handle each by category:
 
-- **Archived**: never reopen. Create a new rework sub-task under the parent, run the full flow, and note the original task and the reason for the change in its description.
+- **Archived**: never reopen. Create a new task and run the full flow, noting the original task and the reason for the change in its description. Note: no sub-task can be created under an archived parent (`task create --parent` fails with "父任务无法解析"), so the rework task is created as an independent task, with its PRD naming the archived parent it belongs to.
 - **In progress**: pause the work, rework, then resume; the status stays as is.
 - **Not started (`planning`)**: edit it in place — scope with `task set-scope`, context with `task add-context`.
 - **Unaffected**: keep going, don't stop.
@@ -1523,9 +1991,52 @@ The PRD records it too (real content): `[变更 2026-11-13] MAN100JIAN10 的满�
 
 **[Designer exits, developers enter]**
 
-Developers enter and implement against the new task's context: the threshold in `db.js` moves to 20,000 points, the spec updates the same way, and curl verifies both cases.
+Developers enter and implement against the new task's context. Creating the task hit a wall first: `task create "满减门槛改成 200" --parent 11-13-商城优惠券` failed with "父任务无法解析：11-13-商城优惠券" — the parent is archived and no longer under `.sunshine/tasks`. Per the workflow — archived tasks never reopen, a new task runs the full flow — it was created as an independent task instead: `11-13-满减门槛改成-200`. A feature branch was cut before starting (`feat/coupon-threshold-200` + `set-branch`), then the full flow: approve → implement subagent → check subagent → spec write-back → commit plan → commit → finish-work archive.
 
-Key output (real runs): two wireless mice return `{"code":"COUPON_THRESHOLD","data":null}` (before the change it was 200 with 16,800 points paid), one mechanical keyboard returns 200 with 28,900 points paid; the commit is `06a179c 变更：满减门槛改成 200 元（100→200）` (change: the discount threshold moves to 200 yuan, 100 → 200); after the archive there are 4 tasks in total. The three old tasks sit untouched in the archive, and the change is its own task with a complete record — next time someone asks why the threshold is 200 yuan, the `[变更 2026-11-13]` line in `prd.md` is the answer.
+The implementation changed three places: the threshold in `db.js` from 10000 to 20000 (verified by grep at :12); the `backend.md` sync — grep confirmed that before the change, backend.md never stated a specific threshold value (no "10000" or "100 yuan" anywhere), so the "sync" actually added a line: `满减门槛（2026-11-13 由 100 元改为 200 元）：MAN100JIAN10 threshold 20000 分，amount 1000 分；不满 200 元用该券返回 400 COUPON_THRESHOLD。`; and the threshold note in `public/checkout.html:12`, also moved to 200 yuan (leaving it would have the page lying about the new threshold).
+
+Key output (real runs): two wireless mice return `{"code":"COUPON_THRESHOLD"}` (before the change it was 200 with 16,800 points paid), one mechanical keyboard returns 200 with 28,900 points paid:
+
+```sh
+curl -s -X POST localhost:3000/api/orders -H 'Content-Type: application/json' -d '{"items":[{"id":1,"qty":2}],"address":"","couponCode":"MAN100JIAN10"}' -w "\nHTTP %{http_code}\n"
+# {"code":"COUPON_THRESHOLD"}
+# HTTP 400
+
+curl -s -X POST localhost:3000/api/orders -H 'Content-Type: application/json' -d '{"items":[{"id":2,"qty":1}],"address":"","couponCode":"MAN100JIAN10"}' -w "\nHTTP %{http_code}\n"
+# {"code":"OK","data":{"id":1,"items":[{"id":2,"name":"机械键盘","price":29900,"qty":1}],"address":"","couponCode":"MAN100JIAN10","total":28900,"status":"待付款"}}
+# HTTP 200
+```
+
+GET /api/coupons re-verified: MAN100JIAN10's threshold is now 20000. The commit is `759af17 变更：满减门槛改成 200 元（100→200）` (3 files, 3 lines added, 2 deleted); `finish-work` archived it (`3d18edf`) and recorded the log (`42afb6f`), bringing the total to 4 tasks:
+
+```sh
+sunshine task list-archive
+# 已归档任务：
+#
+# [2026-11] - 4 个任务
+# - 11-13-下单用优惠券/
+# - 11-13-优惠券列表/
+# - 11-13-商城优惠券/
+# - 11-13-满减门槛改成-200/
+
+git log --oneline
+# 42afb6f chore: record journal
+# 3d18edf chore(task): archive 11-13-满减门槛改成-200
+# 759af17 变更：满减门槛改成 200 元（100→200）
+# 1618fe9 chore: record journal
+# 444e009 chore(task): archive 11-13-商城优惠券
+# eb9b771 chore: record journal
+# b0044a9 chore(task): archive 11-13-优惠券列表
+# d44083b 需求二：优惠券列表，优惠券页 + GET 接口
+# e4ac2b2 chore: record journal
+# be797d4 chore(task): archive 11-13-下单用优惠券
+# 057abbd 需求一：下单用优惠券，结算页 + 券接口
+# 0fae77b 商城优惠券演示起点：重建 s2-old 商城
+```
+
+The three old tasks sit untouched in the archive, and the change is its own task with a complete record — next time someone asks why the threshold is 200 yuan, the `[变更 2026-11-13]` line in `prd.md` is the answer.
+
+One mismatch of names is worth recording: after the change, MAN100JIAN10's name is still "满100减10" while its threshold is 20000; this run was not asked to rename it, the outline design's data section notes it, and the code and the GET output are unchanged.
 
 **The full loop at a glance**
 
@@ -1539,9 +2050,9 @@ The whole scenario runs as one closed loop, with every entry, exit, and handoff 
 
 The backend is split separately: this store's backend already exists (Express, the one from 12.2), so there is no selection to make; the coupon backend work (the coupon checks, the coupon list API) goes straight into requirement one and two's PRDs. Only when the backend is large (pick a language, model the database, wire up a cache) does it first split out a "Backend foundation: tech selection and scaffolding" sub-task ahead of the rest, with the selection items (language, framework, database, cache) marked `[待定]` (to be decided) in its PRD; its 1.1 asks the questions and pins the selection down before it builds, and the requirement sub-tasks only start after it archives.
 
-6. **Development** (developers enter): activate the sub-tasks one by one, five rounds each (implement → check → write back the spec → commit → archive), each round reading only its own context list. Handoff: the changed code, the updated spec, the commit.
+6. **Development** (developers enter): activate the sub-tasks one by one, each running the full flow (approve → implement subagent → check subagent → spec write-back → commit plan → commit → finish-work archive), each step reading only its own context list. Handoff: the changed code, the updated spec, the commit, the archive record, and the session log.
 7. **Integration review and archive** (the parent task): once all sub-tasks are archived, the parent reviews once against the acceptance criteria, the two sub-tasks' check results, and the interface contract (without re-reading the whole prototype), then archives. Handoff: the archived task directories.
-8. **Requirement change** (the designer returns): change the design package → review only the changed part → handoff (the updated design package, the review confirmation, the new task's context lists, the `[变更]` record in the PRD) → developers enter on a new task. Archived tasks are never reopened.
+8. **Requirement change** (the designer returns): change the design package → review only the changed part → handoff (the updated design package, the review confirmation, the new task's context lists, the `[变更]` record in the PRD) → developers enter on a new task. Archived tasks are never reopened; the new task is an independent task (no sub-task can be created under an archived parent).
 9. **Picking the work back up**: the state lives entirely in files (`task.json` status, the `.current-task` pointer, the jsonl lists, `prd.md`, `spec/`); a new session runs `/sunshine:continue` and routes by status to the matching step.
 
 ## Appendix: command reference

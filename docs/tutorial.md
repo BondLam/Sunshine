@@ -794,17 +794,38 @@ sunshine upgrade --dry-run
 
 下面是接下来的会话示意（对话是示例；命令与输出是真实实跑值）：
 
-> **Claude Code：** 先问一个决定怎么做的问题：商品数据放哪——先写死在代码里，还是读文件、接数据库？
+> **Claude Code：** 先问一个决定怎么做的问题：技术选型怎么定——Go 单文件、标准库 `net/http`，还是上框架、接数据库？
 >
-> **你：** 先写死在代码里，三件商品够演示就行。
+> **你：** Go 单文件，标准库就够了，module 叫 `webstore`，不接数据库。
 >
-> **Claude Code：** 好，剩下的也是一次一个问：列表显示哪些字段、价格用什么单位——问完再汇总。明白了，规划是这样：建任务「商品列表」，PRD 里写首页展示商品列表（名称、价格、库存），三件商品先写死在代码里；验收就是服务跑起来，`curl /api/products` 能看到三件商品。确认后我就建任务、写 PRD、开始实现，没问题吗？
+> **Claude Code：** 好，再问一个：商品数据放哪——先写死在代码里，还是读文件？
 >
-> **你：** 没问题，开始吧。
+> **你：** 先写死在代码里，三件商品够演示就行：无线鼠标 89 元、库存 120；机械键盘 299 元、库存 45；27 寸显示器 1299 元、库存 20。
 >
-> **Claude Code：** 任务建好了，上下文配好了，任务启动了。我现在开始实现：写个小服务，商品列表走 `/api/products`，首页也一样能点着看，跑给你看。
-
-跑给你看的结果是真实的：
+> **Claude Code：** 最后一个：列表显示哪些字段？价格用什么单位？
+>
+> **你：** 名称、价格、库存三样，价格用元。
+>
+> **Claude Code：** 好，问完了，给你一份最终规划总结，确认后我再动手：
+>
+> **最终规划总结**
+>
+> - 目标：从零做 web 商城，Go 单文件，端口 18080；先做商品列表。
+> - 范围内：商品列表（列表页 + `GET /api/products`）；三件商品写死在代码里。
+> - 范围外：登录、支付、下单、订单、持久化、样式精修；加入购物车是下一个需求，不在本任务。
+> - 关键决策（均已确认）：Go 标准库单文件、无第三方依赖；商品数据写死在代码里；端口 18080。
+> - 风险/延期项：重启丢数据（接受，演示够用）；无鉴权、无持久化（后续再议）。
+> - 产物状态：规划任务 PRD + spec 三件套（system/frontend/backend）+ 首个实现任务「商品列表」的 PRD；零产品代码（`.go` 文件 0 个），未 `task start`。
+>
+> 批准这份规划后，我就创建规划任务、写 PRD 和三份 spec，仍不碰产品代码、不启动实现任务。没问题吗？
+>
+> **你：** 批准。
+>
+> **Claude Code：** 规划产出已落盘：spec 三件套和「商品列表」的 PRD 都写好了，零产品代码，实现任务已创建但未启动。交付清单给你确认一下，批准后我再启动实现。
+>
+> **你：** 批准。
+>
+> **Claude Code：** 启动任务，派 `sunshine-implement` 子代理实现。实现完成，派 `sunshine-check` 子代理核查：`go vet`、`go build` 全绿，没有需要修的问题。跑给你看：
 
 ```sh
 curl -s localhost:18080/api/products
@@ -813,11 +834,40 @@ curl -s localhost:18080/api/products
 
 浏览器打开首页，三件商品也都在：无线鼠标 89 元、机械键盘 299 元、27寸显示器 1299 元。
 
+> **Claude Code：** 3.3 回写 spec：无更新——实现完全按规划时写入 spec 的决策走，没有新模式、新坑。提交计划如下，回复“行”就执行：
+>
+> ```text
+> 建议提交（按顺序）：
+>   1. chore: 初始化 Sunshine 工程骨架（全栈）
+>   2. feat: 商品列表页 + GET /api/products
+>      - go.mod、main.go、两个任务目录
+> 未识别的脏文件（不在任何提交里——请确认包含还是排除）：
+>   - 无
+> ```
+>
+> **你：** 行。
+>
+> **Claude Code：** 提交完了：`98d1e5d chore: 初始化 Sunshine 工程骨架（全栈）`、`acaa3e3 feat: 商品列表页 + GET /api/products`。剩下的就是收尾：运行 `/finish-work` 归档任务、记录会话日志，要现在执行吗？
+>
+> **你：** 可以。
+
+归档时先被拒了一次：当前分支 `main` 也是 `base_branch`，PR 不能指向自身分支。切出 `feat/product-list`、给两个任务都 `set-branch` 后重新归档，通过。`finish-work` 归档了「商品列表」和规划任务，记了会话日志：
+
+```sh
+git log --oneline
+# eb7adc7 chore: record journal
+# e961e60 chore(task): archive 11-13-webstore
+# 71f3de9 chore(task): archive 11-13-product-list
+# acaa3e3 feat: 商品列表页 + GET /api/products
+# 98d1e5d chore: 初始化 Sunshine 工程骨架（全栈）
+```
+
 > **Claude Code：** 做完了，任务归档了：
 
 ```text
-[2026-11] - 1 个任务
-  - 11-13-商品列表/
+[2026-11] - 2 个任务
+  - 11-13-product-list/
+  - 11-13-webstore/
 ```
 
 接着做第二个需求：
@@ -828,28 +878,74 @@ curl -s localhost:18080/api/products
 >
 > **你：** 先放内存，演示够用就行。
 >
-> **Claude Code：** 好，再问加购后返回什么、总价怎么算，问完汇总。明白了：建任务「加入购物车」，点“加入购物车”把商品放进购物车，`GET /api/cart` 看件数和总价；验收就是加两件商品，总价 388。确认后我就建任务、开始实现，没问题吗？
+> **Claude Code：** 再问一个：加购后返回什么、总价怎么算？
 >
-> **你：** 没问题，开始吧。
+> **你：** `POST /api/cart/add` 加购，`GET /api/cart` 看件数和总价；先加一件无线鼠标、再加一件机械键盘，总价 388。不存在的 id 返回 404，重复加购数量累加。
 >
-> **Claude Code：** 任务建好了，上下文配好了，任务启动了。我现在开始实现：加 `POST /api/cart` 加购、`GET /api/cart` 看购物车，列表页每件商品后面加个“加入购物车”按钮，跑给你看。
-
-跑给你看的结果是真实的：先加一件无线鼠标、再加一件机械键盘，购物车里是这两件，总价 388：
+> **Claude Code：** 好，规划总结：目标是加入购物车；范围内是 `POST /api/cart/add`、`GET /api/cart`、列表页每件商品一个“加入购物车”按钮；范围外是不改 `GET /api/products`、不做持久化；关键决策是内存购物车、重复加购数量累加、不存在的 id 返回 404。产物是「加入购物车」的 PRD，零产品代码，未启动。批准后我写 PRD，批准交付后启动实现，没问题吗？
+>
+> **你：** 批准。
+>
+> **Claude Code：** PRD 已落盘，零产品代码，未启动。确认一下，批准后我启动实现。
+>
+> **你：** 批准。
+>
+> **Claude Code：** 启动任务，派 `sunshine-implement` 子代理实现；实现完成，派 `sunshine-check` 子代理核查，全绿。跑给你看：
 
 ```sh
+curl -s -X POST localhost:18080/api/cart/add -H 'Content-Type: application/json' -d '{"id":1}'
+# {"status":"ok"}
+curl -s -X POST localhost:18080/api/cart/add -H 'Content-Type: application/json' -d '{"id":2}'
+# {"status":"ok"}
 curl -s localhost:18080/api/cart
 # {"items":[{"id":1,"name":"无线鼠标","price":89,"qty":1},{"id":2,"name":"机械键盘","price":299,"qty":1}],"total":388}
+curl -s -o /dev/null -w "%{http_code}" -X POST localhost:18080/api/cart/add -H 'Content-Type: application/json' -d '{"id":999}'
+# 404
+```
+
+`GET /api/products` 还是三件商品不变，首页每件商品后面都有一个“加入购物车”按钮。
+
+> **Claude Code：** 3.3 回写 spec：无更新。提交计划只有一条，回复“行”就执行：
+>
+> ```text
+> 建议提交（按顺序）：
+>   1. feat: 加入购物车 + GET /api/cart
+>      - main.go、11-13-add-to-cart 任务目录
+> 未识别的脏文件：无
+> ```
+>
+> **你：** 行。
+>
+> **Claude Code：** 提交完了：`ba61066 feat: 加入购物车 + GET /api/cart`。运行 `/finish-work` 归档、记日志，要现在执行吗？
+>
+> **你：** 可以。
+
+`finish-work` 归档了「加入购物车」，记了会话日志：
+
+```sh
+git log --oneline
+# 2d87dc7 chore: record journal
+# 01d6eba chore(task): archive 11-13-add-to-cart
+# ba61066 feat: 加入购物车 + GET /api/cart
+# eb7adc7 chore: record journal
+# e961e60 chore(task): archive 11-13-webstore
+# 71f3de9 chore(task): archive 11-13-product-list
+# acaa3e3 feat: 商品列表页 + GET /api/products
+# 98d1e5d chore: 初始化 Sunshine 工程骨架（全栈）
 ```
 
 > **Claude Code：** 做完了，任务归档了：
 
 ```text
-[2026-11] - 2 个任务
-  - 11-13-加入购物车/
-  - 11-13-商品列表/
+[2026-11] - 3 个任务
+  - 11-13-add-to-cart/
+  - 11-13-product-list/
+  - 11-13-webstore/
 ```
 
-两个需求走完，项目里就有了：能跑的商城服务、两条归档的任务记录、按默认模板生成的规范。
+两个需求走完，项目里就有了：能跑的商城服务、三条归档的任务记录、按默认模板生成的规范。
+
+这里踩了一个真实的坑，值得记下来：加入购物车是后来才提的需求，规划任务（`11-13-webstore`）在第一个任务做完时就已经归档了，已归档的父任务下建不了子任务，所以「加入购物车」只能建成独立任务（`parent: null`），PRD 里写明与已归档父任务互相指向。按工作流 1.2，拆解只做一次——如果一开始就知道有两个需求，规划时就该把两个子任务都建好，父任务等全部子任务归档后再归档；已归档的任务不 reopen，要返工就新建任务走完整流程。
 
 ### 12.2 接入存量项目：先把约定落进 spec
 
@@ -880,34 +976,95 @@ curl -s localhost:18080/api/cart
 
 下面是接下来的会话示意（对话是示例；命令与输出是真实实跑值）：
 
-> **Claude Code：** 三条约定我都看到了：接口统一返回 `{ code, data }`、价格统一用“分”存库、端口固定 3000。确认一下分法：前两条进 `backend.md`，端口那条呢——放 `system.md` 还是 `backend.md`？
+> **Claude Code：** 先问一个问题：三条约定目前写在哪份文档里了？
 >
-> **你：** 前两条进 `backend.md`；端口是全组约定，放 `system.md`。
+> **你：** 哪份都没写，只在口头上；代码里能看到对应的做法。
 >
-> **Claude Code：** 好，规划是这样：建任务「把现有约定落进规范」，PRD 里写把 README 里三条靠人记的约定写进 spec；验收就是三条约定都写进 spec 了。确认后我就建任务、写 PRD、把约定写进去，没问题吗？
+> **Claude Code：** 再问一个：三条约定的准确表述是什么？
 >
-> **你：** 没问题，开始吧。
+> **你：** 接口统一返回 `{code, data}`；价格统一用“分”存库，展示除以 100；端口固定 3000。
 >
-> **Claude Code：** 任务建好了，约定写进去了，下面是真实写进去的内容：
+> **Claude Code：** 再问一个：这次只写规范、不改产品代码，对吗？核查发现代码和约定对不上怎么办？
+>
+> **你：** 对，零产品代码改动；对不上的先汇报，不擅自改代码。
+>
+> **Claude Code：** 再问一个：三条约定分别写进哪个 spec 文件？
+>
+> **你：** 接口格式、价格用“分”进 `backend.md`；端口 3000 进 `system.md`。
+>
+> **Claude Code：** 最后一个：怎么算完成？
+>
+> **你：** 三条约定原文进 spec；check 对照代码逐条验证属实；提交、归档、记日志。
+>
+> **Claude Code：** 好，问完了，给你一份最终规划总结，确认后我再动手：
+>
+> **最终规划总结**
+>
+> - 目标：把商城已有的三条口头约定写进 `.sunshine/spec/`，让后续任务自动遵守；不改产品代码。
+> - 范围内：约定 1、2 进 `backend.md`，约定 3 进 `system.md`；以代码现状为准（商品/订单接口、`src/db.js`、`src/server.js`）。
+> - 范围外：不改任何产品代码（`src/`、`package.json` 均不动）；不改约定本身，只落盘；不做设计先行（无 `doc/`，走直接开发）。
+> - 关键决策（均已确认）：轻量任务，只有 PRD，不建 design.md/implement.md；不拆父子任务；端口约定放 `system.md`（总原则）而非 `backend.md`。
+> - 风险/延期项：当前分支 `main` 就是 `base_branch`，归档时会拒绝，归档前需切功能分支 + `set-branch`。
+> - 产物状态：`prd.md` 已写好（含上述问答记录）；`implement.jsonl`/`check.jsonl` 各 2 条真实条目，`task validate` 全部通过；spec 三行待 `task start` 后由 implement 写入。
+>
+> 批准这份规划后，我先写 PRD；写 spec 本身就是这个任务的实现，等批准交付、task start 之后再由 implement 写入。没问题吗？
+>
+> **你：** 批准。
+>
+> **Claude Code：** PRD 已落盘，零产品代码，未启动。确认一下，批准后我启动任务、写 spec、再对照代码核查。
+>
+> **你：** 批准。
+>
+> **Claude Code：** 启动任务，派 `sunshine-implement` 子代理把三条约定写进 spec；实现完成，派 `sunshine-check` 子代理对照代码逐条验证。下面是真实写进去的内容（行号已核对）：
 
 ```markdown
-## 商品与订单接口（团队已有约定）
-
-- 接口统一返回 `{ code, data }`，code 是大写下划线错误码。
+## backend.md
+- 接口统一返回 `{code, data}`。
 - 价格统一用“分”存库，展示时除以 100。
 ```
 
 ```markdown
-## 团队约定
-
-- 服务端口固定 3000，改端口要全组同步。
+## system.md
+- 服务端口固定 3000。
 ```
+
+check 的核查结果，全部属实，无问题、无修复：约定 1，`grep "res.json" src/` 共 5 处，全部是 `{ code: 0, data: ... }` 或 `{ code: 404, data: null }`；约定 2，`db.js` 里三件商品的价格是 8900/29900/129900（分），`products.js` 两处 `price: p.price / 100`，订单 `totalPrice` 是分价相乘；约定 3，`server.js` 里 `const PORT = 3000;`、`app.listen(PORT, ...)`。`node --check` 四个文件全部通过，产品代码零改动（`git diff --stat` 为空）。还实跑验证了一次：服务日志是“商城服务运行在端口 3000”，`GET /products` 返回三件商品（价格 89/299/1299），`POST /orders {"productId":2,"quantity":3}` 返回 `{"code":0,"data":{"id":1,"productId":2,"quantity":3,"totalPrice":89700}}`——29900×3，分价运算一致。
+
+> **Claude Code：** 3.3 回写 spec：spec 就是本任务的交付物，没有超出三条约定的新知识，无新增规范更新。提交计划如下，回复“行”就执行：
+>
+> ```text
+> 建议提交（按顺序）：
+>   1. docs: 把三条口头约定写进规范
+>      - .claude/（sunshine init：Claude Code 平台配置）
+>      - .cursor/（sunshine init：Cursor 平台配置）
+>      - .sunshine/（工程骨架 + 任务产物 + 三条约定进 spec）
+> 未识别的脏文件（不在任何提交里——请确认包含还是排除）：
+>   - 无
+> ```
+>
+> **你：** 行。
+>
+> **Claude Code：** 提交完了：`0476a72 docs: 把三条口头约定写进规范`（122 个文件），工作区干净。运行 `/finish-work` 归档、记日志，要现在执行吗？
+>
+> **你：** 可以。
+
+归档时先被拒了一次：当前分支 `main` 也是 `base_branch`，PR 不能指向自身分支。切出 `docs/old-shop-conventions`、给任务 `set-branch` 后重新归档，通过。`finish-work` 归档了任务，记了会话日志：
+
+```sh
+git log --oneline
+# f0c95ed chore: record journal
+# b8fcd1a chore(task): archive 11-13-old-shop-conventions
+# 0476a72 docs: 把三条口头约定写进规范
+# 998efb7 chore: 初始提交：Express 商城（商品/订单接口）
+```
+
+注意顺序细节：工作提交 `0476a72` 做在 `main` 上，功能分支是归档前才切的，所以 `main` 上只有前两条，归档与日志两条提交只在 `docs/old-shop-conventions` 上。
 
 > **Claude Code：** 上面两段就是写进去的，任务照常走完、归档了：
 
 ```text
 [2026-11] - 1 个任务
-  - 11-13-把现有约定落进规范/
+  - 11-13-old-shop-conventions/
 ```
 
 从这时起，约定不再只活在老员工的记忆里：新任务的 agent 会读 spec，老员工离职也不带走规范。存量项目接入的验收标准就一条——**init 之后 `git status` 里没有被改过的旧文件，spec 里多了一条以前只靠人记的约定**。
@@ -928,15 +1085,64 @@ curl -s localhost:18080/api/cart
 >
 > **你：** 400，错误码 ADDRESS_REQUIRED。
 >
-> **Claude Code：** 好，剩下的也是一次一个问：地址是只一个文本框还是分省市区、四层按什么顺序改——问完再汇总。明白了，规划是这样：建任务「下单必填收货地址」，PRD 里写四层一起改——结算页加地址输入框、POST /orders 缺地址返回 400（ADDRESS_REQUIRED）、订单记录多 address 字段；上下文清单里放接口契约（backend.md），实现时 agent 自己读代码文件；改动顺序先 API 再 UI，走 channel 说清楚。确认后我就建任务、配上下文、启动，没问题吗？
+> **Claude Code：** 再问一个：地址是只一个文本框还是分省市区？
 >
-> **你：** 没问题，开始吧。
+> **你：** 只一个文本框，`name="address"`。
 >
-> **Claude Code：** 任务建好了，上下文配好了。四层按先 API 再 UI 的顺序改，顺序我发到 channel 里说清楚，两条消息：先改 API——POST /orders 缺 address 返回 400，错误码 ADDRESS_REQUIRED；API 改完再改 UI——结算页加收货地址输入框，缺了不让提交。
+> **Claude Code：** 再问一个：四层按什么顺序改？
 >
-> **Claude Code：** channel 和任务绑在一起，消息里能看到任务路径；这两条是带序号的协调消息，不是随手一句话。没有 worker 回复时等一会儿就超时，这是正常的——本节的协调只做到发消息这一步，拉起真实 worker 的前提是本机有已登录的 claude / codex（第 10 节讲过）。收尾时工作流切回 native，任务照常归档。
+> **你：** 先 API 再 UI，顺序发到 channel 里说清楚。
+>
+> **Claude Code：** 再问一个：订单记录里的 address 存什么？
+>
+> **你：** 存下单时传的原样字符串。
+>
+> **Claude Code：** 最后一个：怎么算完成？
+>
+> **你：** 两档 curl（缺地址 400、带地址 200 含 address）+ 结算页有 `name="address"` 输入框；任务照常归档。
+>
+> **Claude Code：** 好，问完了，给你一份最终规划总结，确认后我再动手：
+>
+> **最终规划总结**
+>
+> - 目标：下单必填收货地址，一个任务横跨产品、API、数据和 UI 四层。
+> - 范围内：结算页加 address 输入框；`POST /orders` 缺地址返回 400（ADDRESS_REQUIRED）；订单记录多 address 字段；PRD 规则。
+> - 范围外：商品接口与价格计算、端口 3000、优惠券、登录/鉴权、设计先行。
+> - 关键决策（均已确认）：缺地址 400 + ADDRESS_REQUIRED（非 200 带错误信息）；单文本框 `name="address"`；先 API 再 UI，顺序走 channel；address 存原样字符串。
+> - 风险/延期项：无 worker 回复时 channel wait 会超时（正常，本节协调只做到发消息；拉起真实 worker 需本机已登录 claude/codex）；空/空白地址边界问答未定，由实现按“必填”语义处理。
+> - 产物状态：轻量任务只有 `prd.md`；`implement.jsonl`/`check.jsonl` 各 1 条（只放 `.sunshine/spec/backend.md` 契约，不放代码文件），`task validate` 全部通过；零产品代码，未 `task start`。
+>
+> 批准这份规划后，我写 PRD 和上下文清单，仍不碰产品代码、不启动。没问题吗？
+>
+> **你：** 批准。
+>
+> **Claude Code：** PRD 和上下文清单已落盘，零产品代码，未启动。确认一下，批准后我启动任务、开始实现。
+>
+> **你：** 批准。
+>
+> **Claude Code：** 启动任务，派 `sunshine-implement` 子代理实现。四层按先 API 再 UI 的顺序改，顺序我发到 channel 里说清楚，两条消息：
 
-跑给你看的结果是真实的：缺地址下单返回 400，带地址下单成功，订单里有地址：
+```sh
+sunshine channel create s3-cross --type chat --task .sunshine/tasks/11-13-下单必填收货地址 --force
+# 已创建 channel 's3-cross'（chat）位于 /home/hatch/.sunshine/channels/-tmp-scenes-s3-cross/s3-cross
+sunshine channel send s3-cross --by main "1. 先改 API：POST /orders 缺 address 返回 400，错误码 ADDRESS_REQUIRED"
+sunshine channel send s3-cross --by main "2. API 改完再改 UI：结算页加收货地址输入框，缺了不让提交"
+sunshine channel messages s3-cross --raw
+# {"by":"main","cwd":"/tmp/scenes/s3-cross","kind":"create","origin":"cli","scope":"project","seq":1,"task":".sunshine/tasks/11-13-下单必填收货地址","ts":"2026-11-13T04:02:50.625514611Z","type":"chat"}
+# {"by":"main","kind":"message","origin":"cli","seq":2,"text":"1. 先改 API：POST /orders 缺 address 返回 400，错误码 ADDRESS_REQUIRED","ts":"2026-11-13T04:02:50.639038496Z"}
+# {"by":"main","kind":"message","origin":"cli","seq":3,"text":"2. API 改完再改 UI：结算页加收货地址输入框，缺了不让提交","ts":"2026-11-13T04:02:50.650859117Z"}
+```
+
+channel 和任务绑在一起，消息里能看到任务路径；这两条是带序号的协调消息，不是随手一句话。等 worker 回复等了 10 秒就超时了，这是正常的——本节的协调只做到发消息这一步，拉起真实 worker 的前提是本机有已登录的 claude / codex（第 10 节讲过）：
+
+```sh
+time sunshine channel wait s3-cross --from impl --kind done --timeout 10s
+# 错误：超时：等待 channel 's3-cross' 超时（10s），仍在等待：impl（上游退出码 124）
+# EXIT:1
+# real  0m10.013s
+```
+
+实现完成，派 `sunshine-check` 子代理核查。跑给你看的结果是真实的：缺地址下单返回 400，带地址下单成功，订单里有地址：
 
 ```sh
 curl -s -X POST localhost:3000/api/orders -H 'Content-Type: application/json' -d '{"items":[{"id":1,"qty":1}]}' -w "\nHTTP %{http_code}\n"
@@ -946,6 +1152,37 @@ curl -s -X POST localhost:3000/api/orders -H 'Content-Type: application/json' -d
 curl -s -X POST localhost:3000/api/orders -H 'Content-Type: application/json' -d '{"items":[{"id":1,"qty":1}],"address":"北京市朝阳区建国路 1 号"}' -w "\nHTTP %{http_code}\n"
 # {"code":"OK","data":{"id":1,"items":[{"id":1,"qty":1}],"address":"北京市朝阳区建国路 1 号","status":"待付款"}}
 # HTTP 200
+```
+
+另外核对过：`GET /api/products` 返回的价格还是 8900/29900/129900（分）；结算页里有 `name="address"` 的输入框；空串、空白地址同样返回 400 `ADDRESS_REQUIRED`——问答里没单独问，实现按“必填”语义处理，写进了 spec。
+
+> **Claude Code：** 3.3 回写 spec：`backend.md` 新增一节“下单必填收货地址”——`POST /api/orders` 缺 `address`（缺失、空串、空白）返回 400，错误码 `ADDRESS_REQUIRED`，`data` 为 `null`；订单记录含 `address` 字段，存下单时传的原样字符串。提交计划如下，回复“行”就执行：
+>
+> ```text
+> 建议提交（按顺序）：
+>   1. 下单必填收货地址：结算页加地址输入框，缺地址返回 400（ADDRESS_REQUIRED）
+>      - public/checkout.html
+>      - src/routes/orders.js
+>      - .sunshine/spec/backend.md
+> 未识别的脏文件（不在任何提交里——请确认包含还是排除）：
+>   - .sunshine/.current-task
+>   - .sunshine/tasks/11-13-下单必填收货地址/
+> ```
+>
+> **你：** 行。
+>
+> **Claude Code：** 提交完了：`da27e80 下单必填收货地址：结算页加地址输入框，缺地址返回 400（ADDRESS_REQUIRED）`（3 个文件）。运行 `/finish-work` 归档、记日志，要现在执行吗？
+>
+> **你：** 可以。
+
+归档前先切了功能分支（`main` 也是 `base_branch`，直接归档会被拒）：`git checkout -b feature/address-required` + `task set-branch`。`finish-work` 归档了任务，记了会话日志：
+
+```sh
+git log --oneline
+# c229570 chore: record journal
+# c956c40 chore(task): archive 11-13-下单必填收货地址
+# da27e80 下单必填收货地址：结算页加地址输入框，缺地址返回 400（ADDRESS_REQUIRED）
+# ed97a6e 12.2 商城 baseline：Express 商城 + 约定进 spec
 ```
 
 结算页里也有地址输入框了，任务照常走完、归档了：
@@ -991,11 +1228,37 @@ func Price(qty int, vip bool) int {
 >
 > **你：** 对，只抽折扣规则，签名不动，行为不能变。
 >
-> **Claude Code：** 明白了，规划是这样：先切到 TDD 模板，建任务「重构价格计算」；先写特征测试把这三档钉住（全绿是基线），再把折扣规则抽成常量与两个小函数，`Price` 只做组合，改完同一套测试再跑一次还是全绿。确认后我就开始，没问题吗？
+> **Claude Code：** 好，问完了，给你一份最终规划总结，确认后我再动手：
 >
-> **你：** 没问题，开始吧。
+> **最终规划总结**
+>
+> - 目标：把 `Price` 里写死在 `if` 里的折扣规则抽出来，改规则只改一处；行为一分不能变。
+> - 范围内：`calc.go` 折扣规则抽成常量与 `applyBulk` / `applyVIP`，`Price` 只做组合；新增 `calc_test.go` 特征测试钉三档；购物车（`CartTotal`）与订单总价（`OrderTotal`）继续走 `Price`，不改调用方。
+> - 范围外：不改签名/返回值；不改折扣数值与叠加顺序（先批量、后 VIP）；不加新折扣档、不做性能优化。
+> - 关键决策（均已确认）：先写特征测试钉住现有行为（全绿是基线），再重构；重构后同一套测试再跑一次还是全绿。
+> - 风险/延期项：无。整数除法顺序与原实现一致（先乘后除），三档覆盖满件与 VIP 叠加。
+> - 产物状态：`prd.md` 已写；`implement.jsonl`/`check.jsonl` 各 1 条（`.sunshine/spec/backend.md`），`validate` 全过；轻量任务，无 `design.md`/`implement.md`。
+>
+> 批准这份规划后，我写 PRD 和上下文清单，仍不碰产品代码、不启动。没问题吗？
+>
+> **你：** 批准。
+>
+> **Claude Code：** PRD 和上下文清单已落盘，零产品代码，未启动。确认一下，批准后我切 TDD 模板、启动任务、开始实现。
+>
+> **你：** 批准。
 >
 > **Claude Code：** 工作流切到 TDD 模板了，任务建好了，启动了。先写特征测试把三档钉住：
+
+```sh
+sunshine workflow --template tdd
+# ✓ 已把 .sunshine/workflow.md 换成 "tdd"
+sunshine task create "重构价格计算" --description "把 Price 的折扣规则从 if 里抽成常量与两个小函数，签名与行为不变；购物车和订单总价继续走 Price。" --base-branch main
+# 已为本会话激活任务：.sunshine/tasks/11-13-重构价格计算
+sunshine task set-branch 11-13-重构价格计算 refactor-price
+# ✓ 分支已设为：refactor-price
+sunshine task start 11-13-重构价格计算
+# ✓ 状态：planning → in_progress
+```
 
 然后写特征测试（characterization test）——不是测“想要的行为”，是把现有行为原样钉住：
 
@@ -1018,7 +1281,14 @@ func TestPrice(t *testing.T) {
 }
 ```
 
-跑给你看，全绿（`ok shop 0.003s`）——测试全绿是基线，这一步没改任何业务代码，只证明了“现在的行为就是这三行用例”。接下来才重构：折扣规则抽成常量与两个小函数，`Price` 只做组合：
+跑给你看，全绿——测试全绿是基线，这一步没改任何业务代码，只证明了“现在的行为就是这三行用例”。实跑第一遍就是绿灯：老代码本身就输出这三档值，特征测试只能钉住现有行为，不可能红；不要写跑红：
+
+```sh
+go test ./...
+# ok  	shop	0.003s
+```
+
+接下来才重构：折扣规则抽成常量与两个小函数，`Price` 只做组合：
 
 ```go
 // 折扣规则集中在这里改；Price 只做组合。
@@ -1037,7 +1307,23 @@ func Price(qty int, vip bool) int {
 }
 ```
 
-重构后同一套测试再跑一次，还是全绿（`ok shop 0.003s`）——行为没变，改动才算成立。TDD 工作流里的红灯是给新行为的，纯重构的顺序是反过来的：**先写特征测试钉住行为（绿灯），再重构（还是绿灯）**。收尾时把新约定写进 spec，以后改规则先改用例表：
+重构后同一套测试再跑一次，还是全绿——行为没变，改动才算成立。TDD 工作流里的红灯是给新行为的，纯重构的顺序是反过来的：**先写特征测试钉住行为（绿灯），再重构（还是绿灯）**：
+
+```sh
+go test ./...
+# ok  	shop	0.011s
+go test -count=1 ./...
+# ok  	shop	0.003s
+go test -count=1 -v ./...
+# === RUN   TestPrice
+# --- PASS: TestPrice (0.00s)
+# PASS
+# ok  	shop	0.004s
+```
+
+（重构后第一遍是 `0.011s`，含编译；`-count=1` 重跑是 `0.003s`，与重构前一致。）派 `sunshine-check` 子代理核查：`func Price(qty int, vip bool) int` 签名未变，`cart.go` 与 `order.go` 仍走 `Price`，`go vet` 退出 0，`go fmt` 干净，无问题可修。
+
+> **Claude Code：** 3.3 回写 spec：把新约定写进 `backend.md`，以后改规则先改用例表：
 
 ```markdown
 ## 价格计算
@@ -1045,12 +1331,55 @@ func Price(qty int, vip bool) int {
 - 折扣规则集中在 calc.go 的常量与 applyBulk / applyVIP，Price 只做组合；改规则先改 calc_test.go 的用例表。
 ```
 
-任务照常归档了，工作流切回 native：
+> **Claude Code：** 提交计划如下，回复“行”就执行：
+>
+> ```text
+> 建议提交（按顺序）：
+>   1. refactor: 把 Price 的折扣规则抽成常量与小函数
+>      - calc.go
+>      - calc_test.go
+>      - .sunshine/spec/backend.md
+> 未识别的脏文件（不在任何提交里——请确认包含还是排除）：
+>   - .sunshine/workflow.md（TDD 模板切换，收尾切回 native 后与基线一致）
+>   - .sunshine/.template-hashes.json（模板切换的附带记录，同上）
+>   - .sunshine/tasks/11-13-重构价格计算/（任务产物，由归档提交带走）
+>   - .sunshine/.current-task（当前任务指针，归档时清理）
+> ```
+>
+> **你：** 行。
+>
+> **Claude Code：** 提交完了：`f73b1e3 refactor: 把 Price 的折扣规则抽成常量与小函数`（3 个文件，+46/−5）。运行 `/finish-work` 归档、记日志，要现在执行吗？
+>
+> **你：** 可以。
+
+`finish-work` 归档了任务，记了会话日志：
+
+```sh
+git log --oneline -5
+# 2dc676c chore: record journal
+# 50c33dc chore(task): archive 11-13-重构价格计算
+# f73b1e3 refactor: 把 Price 的折扣规则抽成常量与小函数
+# e293a24 chore: sunshine init
+# 3fb2275 chore: 初始化商城价格计算场景
+```
+
+任务照常归档了：
 
 ```text
 [2026-11] - 1 个任务
   - 11-13-重构价格计算/
 ```
+
+收尾时工作流切回 native——直接切会报错（`workflow.md` 已有本地修改），要加 `--force`：
+
+```sh
+sunshine workflow --template native
+# 错误：.sunshine/workflow.md 已有本地修改，请加 --force 覆盖，或用 --create-new 写 .sunshine/workflow.md.new
+sunshine workflow --template native --force
+#   ✓ 已把 .sunshine/workflow.md 换成 "native"
+```
+
+切回后 `workflow.md` 与 `.template-hashes.json` 均恢复到基线。
 
 ### 12.5 修复反复出现的 bug：先找上次的会话
 
@@ -1064,7 +1393,19 @@ func Price(qty int, vip bool) int {
 
 下面是接下来的会话示意（对话是示例；命令与输出是真实实跑值）：
 
-> **Claude Code：** 我先用 mem 找了上次相关的会话，找到了 11 月 10 日 05:05 的一次派发，发给 worker 的消息里就写了 401。先确认一个问题：这次是不是同一类问题——商城项目派 codex worker，连不上报 401？
+> **Claude Code：** 我先用 mem 找了上次相关的会话：
+
+```sh
+sunshine mem search 401 --global
+# 范围：全部项目  平台=all  关键词="401"
+#
+# [codex   ] 2026-11-10 05:05  01a1c3d8-457  /tmp/scenes/s5-bug  相关度=1.000  命中=1（用户=1，助手=0）  轮次=1
+#     [用户] 线上 codex worker 又连不上了，之前报过 401，帮我查一下这次的原因
+#
+# 共 1 个会话
+```
+
+> **Claude Code：** 找到了 11 月 10 日 05:05 的一次派发，发给 worker 的消息里就写了 401。先确认一个问题：这次是不是同一类问题——商城项目派 codex worker，连不上报 401？
 >
 > **你：** 是同一类问题，今天再跑还是 401。
 >
@@ -1072,33 +1413,105 @@ func Price(qty int, vip bool) int {
 >
 > **你：** 就在本机复现，codex 没登录。
 >
-> **Claude Code：** 明白了，规划是这样：先在本机复现一次当时的派发，确认还是 401；再建任务，描述里写清会话编号，修完把教训写进 spec。确认后我就开始，没问题吗？
+> **Claude Code：** 好，问完了，给你一份最终规划总结，确认后我再动手：
 >
-> **你：** 没问题，开始吧。
+> **最终规划总结**
 >
-> **Claude Code：** 我先在本机复现一次当时的派发：建了个 channel，给 worker 发了那句话，拉起 worker——worker 拉起来了，但随即在日志里报了错（本机 codex 没登录，第 10 节讲过的前提）：
+> - 目标：复现 401、定位根因、教训写进 system.md。
+> - 范围内：本机建 channel 发原话拉起 codex worker、确认 worker.log 里的 401、根因确认、写教训。
+> - 范围外：不改商城业务代码、不代用户登录 codex、不修 codex/channel 本身、不处理 401 以外的派发失败。
+> - 关键决策（均已确认）：复现只验证到 401 出现为止，登录问题留给用户本人处理。
+> - 风险/延期项：无（401 已是第三次出现，根因指向未登录）。
+> - 产物状态：PRD + 上下文清单（system.md、backend.md），零产品代码。
+>
+> 批准这份规划后，我写 PRD（描述里写清会话编号 01a1c3d8）和上下文清单，仍不碰产品代码、不启动。没问题吗？
+>
+> **你：** 批准。
+>
+> **Claude Code：** PRD 和上下文清单已落盘（`implement.jsonl`/`check.jsonl` 各 2 条，`task validate` 全部通过），零产品代码，未启动。确认一下，批准后我启动任务、开始复现。
+>
+> **你：** 批准。
+>
+> **Claude Code：** 启动任务，派 `sunshine-implement` 子代理复现。我先在本机复现一次当时的派发：建了个 channel，给 worker 发了那句话，拉起 worker——worker 拉起来了，但随即在日志里报了错（本机 codex 没登录，第 10 节讲过的前提；`ls ~/.codex/auth.json` → `No such file or directory`）：
+
+```sh
+sunshine channel create codex-401 --type chat --task .sunshine/tasks/11-13-codex-worker-401
+# 已创建 channel 'codex-401'（chat）位于 /home/hatch/.sunshine/channels/-tmp-s5-repro/codex-401
+sunshine channel spawn codex-401 --provider codex --as worker
+# {"pid": 7235, "log": "/home/hatch/.sunshine/channels/-tmp-s5-repro/codex-401/worker.log", "worker": "worker"}
+sunshine channel send codex-401 --to worker "线上 codex worker 又连不上了，之前报过 401，帮我查一下这次的原因"
+# {"by":"main","kind":"message","origin":"cli","seq":3,"text":"线上 codex worker 又连不上了，之前报过 401，帮我查一下这次的原因","to":"worker","ts":"2026-11-13T04:01:49.517881231Z"}
+```
+
+worker.log 里的 401 行（逐字，首现 2026-11-13T04:01:49.049897Z），共出现 7 次：
 
 ```text
 failed to connect to websocket: HTTP error: 401 Unauthorized, url: wss://api.openai.com/v1/responses
 ```
 
-> **Claude Code：** worker 没回任何话，但会话已经落盘了。mem 找得到这次派发：11 月 10 日 05:05 的那次，会话编号 01a1c3d8；搜 401 命中 1 次，就是发给 worker 的那句话——“线上 codex worker 又连不上了，之前报过 401，帮我查一下这次的原因”。
+根因行（逐字）：
 
-一个实测得出的边界要记住：**`mem` 搜的是对话轮次（用户/助手）里的文字，不搜错误事件**。11 月 10 日凌晨那个会话（`01a1c376`，`/tmp/h-test/chanproj`）的 worker 同样报了 401，但它的 401 只在错误事件里，对话里没有，所以搜 `401` 搜不到它——要找的是当时发给 worker 的那句话。这次能搜到，是因为发给 worker 的消息里就写了 401。
+```text
+unexpected status 401 Unauthorized: Missing bearer or basic authentication in header, url: wss://api.openai.com/v1/responses
+```
 
-找到上次的会话、确认是同一类问题之后，再建任务——描述里写清会话编号（01a1c3d8），agent 不用重新问一遍“上次是怎么回事”。任务做完，教训要写进 spec，否则下次还是一样——这是“反复出现”的真正解法：
+worker 随后自行重试 `Reconnecting... 2/5` 至 `5/5`——这正是“不要反复重派”的实证。等 worker 回复等到的是一个终态错误事件（seq 16），随后把 worker 停掉：
+
+```sh
+sunshine channel wait codex-401 --from worker --kind done,error --timeout 2m
+# {"by":"worker","kind":"error","message":"unexpected status 401 Unauthorized: Missing bearer or basic authentication in header, url: https://api.openai.com/v1/responses, cf-ray: a59ae10cfee192d0-DFW, request id: req_856bb946182d43f9a9620b912c13e4cc","origin":"worker","seq":16,"ts":"2026-11-13T04:02:06.752406346Z"}
+sunshine channel kill codex-401 --as worker
+```
+
+（注意：`kill codex-401 worker` 位置参数写法会报错 `accepts 1 arg(s), received 2`，须用 `--as worker`。）
+
+> **Claude Code：** 派 `sunshine-check` 子代理核查，全绿，无需修复：401 日志行 7 次精确命中；根因是 codex 未登录（`~/.codex/auth.json` 仍不存在）；教训位置在 system.md:17；业务代码未动（`git diff --stat -- server.js package.json` 为空）；mem 搜 401 现在是 2 个会话——新增本次复现的 `01a1d311-99c`，原来的 `01a1c3d8-457` 还在。教训已写进 spec：
 
 ```markdown
 ## 多 Agent 派发
 
-- 派发 codex worker 前先确认本机 codex 已登录；spawn 失败时先看 worker.log（401 即未登录），不要反复重派。
+- 派发 codex worker 前，先确认本机 codex 已登录（`~/.codex/auth.json` 存在；未登录时 worker 拿不到 bearer token，启动即 401）。
+- spawn 失败时先看 worker.log，不要反复重派：`failed to connect to websocket: HTTP error: 401 Unauthorized, url: wss://api.openai.com/v1/responses` 即未登录（根因：`Missing bearer or basic authentication in header`），重派只会重复报 401。
+- 复现记录：2026-11-13，商城项目派 codex worker 连不上报 401（此前 11 月 9 日、11 月 10 日凌晨已出现两次）；mem 搜 401 命中会话 01a1c3d8（2026-11-10 05:05）。
+```
+
+一个实测得出的边界要记住：**`mem` 搜的是对话轮次（用户/助手）里的文字，不搜错误事件**。11 月 10 日凌晨那个会话（`01a1c376`，`/tmp/h-test/chanproj`）的 worker 同样报了 401，但它的 401 只在错误事件里，对话里没有，所以搜 `401` 搜不到它——要找的是当时发给 worker 的那句话。这次能搜到，是因为发给 worker 的消息里就写了 401。直接 grep 会话文件证实过：`01a1c376` 的 401 只出现在 `event_msg/task_complete` 的 error 字段里，而 `01a1c3d8` 有用户原话。11 月 9 日那次也一样：`01a1bfa4-3c6` 的会话文件里确有同一 401 错误行，`01a1bfa3` 里没有。
+
+找到上次的会话、确认是同一类问题之后，再建任务——描述里写清会话编号（01a1c3d8），agent 不用重新问一遍“上次是怎么回事”。任务做完，教训要写进 spec，否则下次还是一样——这是“反复出现”的真正解法。
+
+> **Claude Code：** 3.3 回写 spec：除本教训外无其他新知识，backend.md 无需改动。提交计划只有一条，回复“行”就执行：
+>
+> ```text
+> 建议提交（按顺序）：
+>   1. docs: codex worker 401 教训写进 system.md（多 Agent 派发）
+>      - .sunshine/spec/system.md
+> 未识别的脏文件（不在任何提交里——请确认包含还是排除）：
+>   - .sunshine/.current-task（任务会话指针，归档时自动清理）
+>   - .sunshine/tasks/11-13-codex-worker-401/（任务目录，由 finish-work 的归档提交管理）
+> ```
+>
+> **你：** 行。
+>
+> **Claude Code：** 提交完了：`9a4b2bd docs: codex worker 401 教训写进 system.md（多 Agent 派发）`（1 个文件，6 行新增）。只改了 spec 文件，所以前缀用 `docs:` 而非 `fix:`。运行 `/finish-work` 归档、记日志，要现在执行吗？
+>
+> **你：** 可以。
+
+归档前先切了功能分支（`master` 也是 `base_branch`，直接归档会被拒）：`git checkout -b fix/codex-worker-401` + `task set-branch`。`finish-work` 归档了任务，记了会话日志：
+
+```sh
+git log --oneline
+# c29bd5e chore: record journal
+# 38775f6 chore(task): archive 11-13-codex-worker-401
+# 9a4b2bd docs: codex worker 401 教训写进 system.md（多 Agent 派发）
+# bfe6581 chore: sunshine init（后端）
+# 6ed4c18 chore: 商城后端初始代码
 ```
 
 任务照常归档了：
 
 ```text
 [2026-11] - 1 个任务
-  - 11-13-修复-codex-worker-401/
+  - 11-13-codex-worker-401/
 ```
 
 下次再报 401，agent 会先读 spec 查登录状态，而不是重新派一个 worker 去撞同一堵墙。
@@ -1107,7 +1520,7 @@ failed to connect to websocket: HTTP error: 401 Unauthorized, url: wss://api.ope
 
 这个场景用跑了两年的 web 商城（12.2 那个）：给它加优惠券功能。设计人员和开发人员走同一条工作流，但进场、退场的时间不一样——下面每段开头都标了谁在场。
 
-****
+---
 
 在 Claude Code 里提需求（Codex、Cursor 同理）：
 
@@ -1140,21 +1553,21 @@ doc/prototype/优惠券页.html
 需求列表是按需求分条的（真实文件内容，节选）：需求一“下单用优惠券”对应系统原型结算页——结算页输入券码，满减规则满 100 元减 10 元，券须未使用且未过期，否则提示不可用；需求二“优惠券列表”对应系统原型优惠券页——列表显示券名、门槛、面额、状态、有效期。概要设计的接口行写的是（真实内容）：
 
 ```text
-| POST /api/orders | body：items + address + couponCode | 订单（含实付 total） | 券不存在/已用/过期/不满门槛返回 400 + 错误码（COUPON_INVALID / COUPON_USED / COUPON_EXPIRED / COUPON_THRESHOLD）；MAN100JIAN10 满 100 元减 10 元（满 10000 分减 1000 分） |
-| GET /api/coupons | 无 | 全部券（券名、门槛、面额、状态、有效期） | 列表接口，不分页 |
+| POST /api/orders | { items, address, couponCode } | { code, data: order }，实付写在 data.total | 校验顺序：不存在 → 已使用 → 已过期 → 不满门槛；失败返回 400 + 错误码（COUPON_INVALID / COUPON_USED / COUPON_EXPIRED / COUPON_THRESHOLD）；MAN100JIAN10 满 100 元减 10 元（满 10000 分减 1000 分） |
+| GET /api/coupons | 无 | { code, data: coupons }，三条券 | 返回全部券，不分页 |
 ```
 
 系统原型是 `doc/prototype/` 里的一组页面 + `index.html` 导航入口：顶部是“结算 | 优惠券”的导航，结算页是券码输入框、门槛提示（满 100 元减 10 元）、提交按钮，优惠券页是一张表（券名、门槛、面额、状态、有效期），表里是三条 mock 假数据（满100减10 未使用、满200减30 已使用、新人5元券 已过期），演示时直接点着看。一个原型对应多个需求：需求一和需求二都在这一组页面里，各占一页；拆解也跟着需求走，子任务按需求拆。
 
 设计人员做设计包的顺序也是一步步来的：先把需求问清楚、写成需求列表，再写概要设计（结构、接口、验收），再派发 `sunshine-prototype` 子代理按需求列表一页一页做出原型（带 mock 假数据；派发提示里只给需求列表和概要设计的路径，子代理做完只汇报页数、mock 记录数和文件路径，主会话不直接写原型），最后拼成一份完整的系统原型——原型是设计阶段的终点，不是起点。做原型的时候发现需求有缺口，需求列表跟着改（走变更），但大方向是需求在先、原型在后。
 
-然后是需求评审——设计人员退场前最后一件事：Claude Code 把整包东西列出来请你确认——PRD、设计文档清单、拆解方案；确认后才往下走。
+然后是需求评审——设计人员退场前最后一件事：Claude Code 把整包东西列出来请你确认——PRD、设计文档清单、拆解方案；确认后才往下走。这一步就是 1.5 的需求评审，也就是本节的“最终规划总结”：
 
 > **Claude Code：** 评审一下：PRD、需求列表、概要设计、系统原型都齐了，拆成两个子任务——需求一是结算页 + POST 接口，需求二是优惠券页 + GET 接口。确认后我就建父任务、一次性拆子任务，没问题吗？
 >
 > **你：** 没问题，拆吧。
 
-****
+---
 
 开发人员进场时（尤其设计和开发不是同一个人），先在 agent 界面里打开项目，再说一句进场提示词：
 
@@ -1162,7 +1575,7 @@ doc/prototype/优惠券页.html
 
 > 设计评审通过了，子任务已经拆好。现在按 sunshine 工作流开始开发：先把父任务的子任务清单和第一个子任务的上下文列出来给我确认，确认后从第一个子任务开始，一个一个做；每个子任务先启动，做完检查、回写规范、提交、归档，再启动下一个；全部子任务归档后，父任务做最终集成复核再归档。
 
-确认后，开发就按下面“一轮一轮怎么做”的五轮走；中途关掉重开，跑 `/sunshine:continue`，它按 `task.json` 的状态分流续接。
+确认后，开发就按下面“一轮一轮怎么做”的流程走；中途关掉重开，跑 `/sunshine:continue`，它按 `task.json` 的状态分流续接。
 
 评审通过后拆解只做一次——拆解跟着需求走：一个原型对应多个需求，子任务按需求拆，拆的是整个范围，子任务清单一次定好；拆完不自动开发，两个子任务建出来都是 `planning`。父任务记好子任务映射，开发人员进场时任务已经拆好、上下文已经配好（每个子任务的上下文指向系统原型里自己的那一页）。
 
@@ -1174,9 +1587,9 @@ doc/prototype/优惠券页.html
 sunshine task list
 # 全部活动任务：
 #
-# - 11-13-商城优惠券/ (planning) [0/2 已完成] [developer]
-# - 11-13-下单用优惠券/ (planning) [developer]
-# - 11-13-优惠券列表/ (planning) [developer]
+# - 11-13-商城优惠券/ (planning) [0/2 已完成] [lin]
+# - 11-13-下单用优惠券/ (planning) [lin]
+# - 11-13-优惠券列表/ (planning) [lin]
 #
 # 总计：3 个任务
 ```
@@ -1225,35 +1638,86 @@ sunshine task start 11-13-下单用优惠券
 # ✓ 状态：planning → in_progress（降级）
 ```
 
-`start` 成功后状态就写进 `task.json`，指针写进 `.sunshine/.current-task`——会话关了重开，状态还在文件里，不在对话里（后面有接续的例子）。
+`start` 成功后状态就写进 `task.json`，指针写进 `.sunshine/.current-task`——会话关了重开，状态还在文件里，不在对话里（后面有接续的例子）。归档前先切了功能分支（`master` 也是 `base_branch`，直接归档会被拒）：`git checkout -b feat/coupon-checkout` + `task set-branch`。
 
 下面是开发时的会话示意（对话是示例；命令与输出是真实实跑值）：
 
 > **Claude Code：** 需求一开始了：主会话派 `sunshine-implement` 按系统原型结算页给 `checkout.html` 加券码输入框，给 `orders.js` 的 POST 加四道校验，改完再派 `sunshine-check` 按 `check.jsonl` 里的规范验收。
 >
-> **Claude Code：** implement 做完了：结算页多了券码输入框（`name="couponCode"`）；POST 按“不存在→已用→过期→不满门槛”顺序校验，券码不对返回 400，满 100 元减 10 元，1 件机械键盘实付 28900。check 也过了：400 分支四条、券码输入框一处、三条券都在，四档 curl 全对。spec 里我补了优惠券接口和结算页两条约定。提交一次？（一个提交：结算页 + 券接口 + spec 约定）
+> **Claude Code：** implement 做完了：结算页多了券码输入框（`name="couponCode"`）；POST 按“不存在→已用→过期→不满门槛”顺序校验，券码不对返回 400，满 100 元减 10 元，1 件机械键盘实付 28900。check 也过了：四档 curl 全对。spec 里我补了优惠券接口和结算页两条约定。提交计划如下，回复“行”就执行：
 >
-> **你：** 提交吧，归档这个子任务。
+> ```text
+> 建议提交（按顺序）：
+>   1. 需求一：下单用优惠券，结算页 + 券接口
+>      - src/db.js / src/routes/orders.js / public/checkout.html
+>      - .sunshine/spec/backend.md / .sunshine/spec/frontend.md
+> 未识别的脏文件（不在提交里）：.claude/、.cursor/（init 脚手架）、.sunshine/ 其余（骨架+任务目录，由 archive/add-session 管理）、doc/（设计包，属父任务规划产物）
+> ```
 >
-> **Claude Code：** 好，提交完 `task finish` 清指针、`task archive` 归档。父任务现在 1/2 已完成。
+> **你：** 行。
+>
+> **Claude Code：** 提交完了：`057abbd 需求一：下单用优惠券，结算页 + 券接口`（5 个文件，75 行新增，2 行删除）。运行 `/finish-work` 归档、记日志，要现在执行吗？
+>
+> **你：** 可以。
 
-关键输出（真实跑出来的）：grep 三处是 `4`、`1`、`3`（400 分支四条、券码输入框一处、三条券）；curl 四档：券码 NOPE 是 `{"code":"COUPON_INVALID","data":null}`、HTTP 400，1 件机械键盘是 200、订单 id 是 1、实付 28900，1 件无线鼠标是 `{"code":"COUPON_THRESHOLD","data":null}`、HTTP 400，2 件无线鼠标是 200、订单 id 是 2、实付 16800；提交是 `7634b3b 需求一：下单用优惠券，结算页 + 券接口`；归档是 `b67ebfc chore(task): archive 11-13-下单用优惠券`；归档后父任务显示 1/2 已完成。
+关键输出（真实跑出来的）：curl 四档——券码 NOPE 是 `{"code":"COUPON_INVALID"}`、HTTP 400；1 件机械键盘是 200、订单 id 是 1、实付 28900；1 件无线鼠标是 `{"code":"COUPON_THRESHOLD"}`、HTTP 400；2 件无线鼠标是 200、订单 id 是 2、实付 16800：
+
+```sh
+curl -s -X POST localhost:3000/api/orders -H 'Content-Type: application/json' -d '{"items":[{"id":1,"qty":1}],"address":"测试地址","couponCode":"NOPE"}' -w "\nHTTP %{http_code}\n"
+# {"code":"COUPON_INVALID"}
+# HTTP 400
+
+curl -s -X POST localhost:3000/api/orders -H 'Content-Type: application/json' -d '{"items":[{"id":2,"qty":1}],"address":"测试地址","couponCode":"MAN100JIAN10"}' -w "\nHTTP %{http_code}\n"
+# {"code":"OK","data":{"id":1,"items":[{"id":2,"name":"机械键盘","price":29900,"qty":1}],"address":"测试地址","couponCode":"MAN100JIAN10","total":28900,"status":"待付款"}}
+# HTTP 200
+
+curl -s -X POST localhost:3000/api/orders -H 'Content-Type: application/json' -d '{"items":[{"id":1,"qty":1}],"address":"测试地址","couponCode":"MAN100JIAN10"}' -w "\nHTTP %{http_code}\n"
+# {"code":"COUPON_THRESHOLD"}
+# HTTP 400
+
+curl -s -X POST localhost:3000/api/orders -H 'Content-Type: application/json' -d '{"items":[{"id":1,"qty":2}],"address":"测试地址","couponCode":"MAN100JIAN10"}' -w "\nHTTP %{http_code}\n"
+# {"code":"OK","data":{"id":2,"items":[{"id":1,"name":"无线鼠标","price":8900,"qty":2}],"address":"测试地址","couponCode":"MAN100JIAN10","total":16800,"status":"待付款"}}
+# HTTP 200
+```
+
+`finish-work` 归档了需求一，记了会话日志：
+
+```sh
+git log --oneline
+# e4ac2b2 chore: record journal
+# be797d4 chore(task): archive 11-13-下单用优惠券
+# 057abbd 需求一：下单用优惠券，结算页 + 券接口
+# 0fae77b 商城优惠券演示起点：重建 s2-old 商城
+```
+
+归档后父任务显示 1/2 已完成。
 
 一个子任务就是这样一轮一轮走的，每轮读什么、产出什么都在文件里，不靠对话记着：
 
-1. **实现（2.1）**：读 `implement.jsonl` 里的文件（系统原型结算页、概要设计）+ 自己的 `prd.md`，派 `sunshine-implement` 改代码。产出：改好的 `checkout.html` 和 `orders.js`（`db.js` 里加了券表）。
-2. **检查（2.2）**：读 `check.jsonl` 里的文件（前端规范、后端接口契约），派 `sunshine-check` 验收。产出：grep / curl 的验收结果。
-3. **回写规范（3.3）**：`sunshine-update-spec` 把新约定写进 `spec/`（优惠券接口、结算页）。产出：更新后的 `frontend.md`、`backend.md`。
-4. **提交（3.4）**：一个提交（代码 + spec 约定）。产出：提交 `7634b3b`。
-5. **收尾**：`task finish` 清指针，`task archive` 把任务目录搬进 `archive/2026-11/`、状态改成 `completed`。产出：归档后的任务目录 + 父任务 1/2 已完成。
+1. **批准**：1.5 评审通过后，子任务自己的 1.1 填实 PRD、1.4 配好上下文，批准后才 `task start`。
+2. **实现（2.1）**：读 `implement.jsonl` 里的文件（系统原型结算页、概要设计）+ 自己的 `prd.md`，派 `sunshine-implement` 改代码。产出：改好的 `checkout.html` 和 `orders.js`（`db.js` 里加了券表）。
+3. **检查（2.2）**：读 `check.jsonl` 里的文件（前端规范、后端接口契约），派 `sunshine-check` 验收。产出：curl 的验收结果。
+4. **回写规范（3.3）**：`sunshine-update-spec` 把新约定写进 `spec/`（`backend.md:17` 优惠券接口、`frontend.md:18` 优惠券）。产出：更新后的 `frontend.md`、`backend.md`。
+5. **提交（3.4）**：起草提交计划、展示一次、请一次确认，确认后提交（一个提交：代码 + spec 约定）。产出：提交 `057abbd`。
+6. **收尾（3.5 + finish-work）**：提醒用户可以运行 `/finish-work`，用户确认后执行：归档任务、记录会话日志。产出：归档提交 `be797d4` + 日志提交 `e4ac2b2` + 父任务 1/2 已完成。
 
-需求一归档后，需求二才启动——走同样的五轮（对话略，命令与输出是真实实跑值）：
+需求一归档后，需求二才启动——走同样的流程（对话略，命令与输出是真实实跑值）：
 
 > **Claude Code：** 需求二开始了：派 `sunshine-implement` 按系统原型优惠券页写 `public/优惠券页.html`，加 `GET /api/coupons` 接口，改完派 `sunshine-check` 验收。
 >
-> **Claude Code：** implement 做完了：优惠券页拉 GET 渲染表格；GET 返回全部三条券。check 也过了：fetch 在、表格在，GET 返回 3 条券。spec 里我补了券列表和 GET 接口两条约定。提交一次？
+> **Claude Code：** implement 做完了：优惠券页拉 GET 渲染表格；GET 返回全部三条券。check 发现一个问题并直接修了：初版优惠券页是写死三条券的静态表格，与 3.3 刚写的规范“数据调 GET /api/coupons，不写死 mock”不符；已改成 `fetch("/api/coupons")` 渲染（含 Loading、空态、错误态），复验页 200、接口仍返回三条券。3.3 判断：backend.md 优惠券接口节与 frontend.md 优惠券节已覆盖 GET /api/coupons 与调接口渲染，无新增内容，未改 spec。提交计划如下，回复“行”就执行：
 >
-> **你：** 提交吧，归档这个子任务。
+> ```text
+> 建议提交（按顺序）：
+>   1. 需求二：优惠券列表，优惠券页 + GET 接口
+>      - src/routes/coupons.js、src/server.js、public/优惠券页.html
+> ```
+>
+> **你：** 行。
+>
+> **Claude Code：** 提交完了：`d44083b 需求二：优惠券列表，优惠券页 + GET 接口`（3 个文件，62 行新增）。运行 `/finish-work` 归档、记日志，要现在执行吗？
+>
+> **你：** 可以。
 
 关键输出（真实跑出来的）：
 
@@ -1262,15 +1726,13 @@ curl -s localhost:3000/api/coupons
 # {"code":"OK","data":[{"code":"MAN100JIAN10","name":"满100减10","threshold":10000,"amount":1000,"status":"未使用","expires":"2026-12-31"},{"code":"MAN200JIAN30","name":"满200减30","threshold":20000,"amount":3000,"status":"已使用","expires":"2026-12-31"},{"code":"NEW5","name":"新人5元券","threshold":0,"amount":500,"status":"已过期","expires":"2026-10-01"}]}
 ```
 
-提交是 `51920ca 需求二：优惠券列表，优惠券页 + GET 接口`；归档是 `e15f11c chore(task): archive 11-13-优惠券列表`；归档后父任务显示 2/2 已完成。
+`finish-work` 归档了需求二（`b0044a9`），记了会话日志（`eb9b771`）；归档后父任务显示 2/2 已完成。
 
-最后父任务做最终集成复核——读概要设计里的验收标准、两个子任务的检查结果和接口约定，不重读整个原型，一次过一遍，再归档：
+最后父任务做最终集成复核——读概要设计里的验收标准、两个子任务的检查结果和接口约定，不重读整个原型，一次过一遍，再归档。复核时起服务一次跑五档，全绿：NOPE `{"code":"COUPON_INVALID"}` HTTP 400；1 件键盘 `total:28900` HTTP 200；1 件鼠标 `{"code":"COUPON_THRESHOLD"}` HTTP 400；2 件鼠标 `total:16800` HTTP 200；GET /api/coupons 三条券（threshold 10000）HTTP 200。两处共用同一份 coupons 数据。
 
-> **Claude Code：** 集成复核：验收标准都过了——结算页券码输入框在，券校验四档（无效券 400、不满门槛 400、满减两档 200）和 GET 列表三条券都过了；两个子任务的检查结果和接口约定也都对得上。归档父任务？
+> **Claude Code：** 集成复核过了：验收标准都过了，两个子任务的检查结果和接口约定也都对得上。运行 `/finish-work` 归档父任务、记日志，要现在执行吗？
 >
-> **你：** 归档吧。
-
-****
+> **你：** 可以。
 
 ```sh
 sunshine task list
@@ -1331,26 +1793,28 @@ sunshine task context
 
 项目做完归档后，业务方说满减门槛从 100 元改成 200 元。按工作流 1.5 的需求变更规则走：已经归档的三个任务不 reopen，变更走一个新任务；但设计包是设计人员的交付物，改设计包要设计人员先返场——返场不是一句话，是实打实改三处地方、评审只审改动的部分，交接有凭据。
 
-****
+---
 
 > **你：** 需求变了：满减门槛从 100 元改成 200 元。按 sunshine 工作流走：设计人员先返场改设计包，评审通过后再动手。
 >
-> **Claude Code：** 波及面是需求一一个地方：需求二已归档且不受影响（列表页不拦门槛），不 reopen；需求一也已归档，不 reopen。规划是这样：设计人员先返场，改三处地方——需求列表里需求一那条、概要设计接口行、系统原型结算页里的门槛提示；改完评审只审这三处，评审通过后设计人员退场；再建新任务「满减门槛改成 200」，PRD 里记一笔 `[变更 2026-11-13]`，`db.js` 的门槛改成 20000 分，spec 同步改，curl 验 178 元和 299 元两档。确认后我就开始，没问题吗？
+> **Claude Code：** 波及面是需求一一个地方：需求二已归档且不受影响（列表页不拦门槛），不 reopen；需求一也已归档，不 reopen。1.1 只问 delta 一个问题：门槛改成多少？答：200 元。规划是这样：设计人员先返场，改三处地方——需求列表里需求一那条、概要设计接口行、系统原型结算页里的门槛提示；改完评审只审这三处，评审通过后设计人员退场；再建新任务「满减门槛改成 200」，PRD 里记一笔 `[变更 2026-11-13]`，`db.js` 的门槛改成 20000 分，spec 同步改，curl 验 178 元和 299 元两档。确认后我就开始，没问题吗？
 >
 > **你：** 没问题，开始吧。
 
 设计人员返场改的是这三处（真实文件内容，改后都是 200 元）：
 
 ```text
-doc/design/需求列表.md:17
-| R-001 | 下单用优惠券 | 结算页 | 结算页输入券码，满减规则：满 200 元减 10 元，订单总额达到 20000 分才减面额；券须未使用且未过期，否则提示不可用 | P0 | 券码 MAN100JIAN10：满 200 元减 10 元；已用/过期/不满门槛下单失败并提示 |
+doc/design/需求列表.md:23
+| R-001 | 下单用优惠券 | 结算页输入券码，满 200 元减 10 元；券须未使用且未过期，否则下单失败并提示原因 | P0 | 券码 NOPE 下单返回 400 COUPON_INVALID；1 件机械键盘用券实付 28900 分；1 件无线鼠标用券返回 400 COUPON_THRESHOLD；2 件无线鼠标用券返回 400 COUPON_THRESHOLD |
 
-doc/design/概要设计.md:34
-| POST /api/orders | body：items + address + couponCode | 订单（含实付 total） | 券不存在/已用/过期/不满门槛返回 400 + 错误码（COUPON_INVALID / COUPON_USED / COUPON_EXPIRED / COUPON_THRESHOLD）；MAN100JIAN10 满 200 元减 10 元（满 20000 分减 1000 分） |
+doc/design/概要设计.md:41
+| POST /api/orders | { items, address, couponCode } | { code, data: order }，实付写在 data.total | 校验顺序：不存在 → 已使用 → 已过期 → 不满门槛；失败返回 400 + 错误码（COUPON_INVALID / COUPON_USED / COUPON_EXPIRED / COUPON_THRESHOLD）；MAN100JIAN10 满 200 元减 10 元（满 20000 分减 1000 分） |
 
-doc/prototype/结算页.html:27
+doc/prototype/结算页.html:39
 <p class="hint">满 200 元减 10 元</p>
 ```
+
+（另外同步了同一文件里的验收标准、待确认事项、变更记录和概要设计数据节，否则同一文件内自相矛盾；grep 核对：三处均为 200，设计文档内残留的“100”只剩变更记录里的历史说明与券名。）
 
 原型那处只是一行门槛提示，小改在主会话里 grep 定向改，不重新派发 `sunshine-prototype`；只有结构性大改才重新派发。
 
@@ -1370,7 +1834,7 @@ doc/prototype/结算页.html:27
 
 波及面是这样定的：对照两样东西——父任务 `task.json` 里的 `children` 清单（子任务映射）和 `doc/` 设计包（需求列表、概要设计、原型页）。变更碰到哪个子任务的 PRD、设计、接口或原型页，那个子任务就被波及。定下来之后按四类处理：
 
-- **已归档**：不 reopen。新建一个返工子任务挂父任务下，走完整流程，描述里写清原任务与变更原因。
+- **已归档**：不 reopen。新建任务走完整流程，描述里写清原任务与变更原因。注意：已归档的父任务下挂不了子任务（`task create --parent` 会报“父任务无法解析”），所以返工任务建成独立任务，PRD 里写清它对应哪个已归档的父任务。
 - **进行中**：先停下手头的活，回炉完再继续，状态不用改。
 - **还没做（planning）**：直接改，范围用 `task set-scope` 改，上下文用 `task add-context` 加。
 - **没被波及**：不停，继续做。
@@ -1397,11 +1861,54 @@ check.jsonl
 
 PRD 里还记了一笔（真实内容）：`[变更 2026-11-13] MAN100JIAN10 的满减门槛由 100 元改成 200 元（threshold 10000 分→20000 分）；设计已改三处：需求列表需求一、概要设计接口行、结算页门槛提示；改代码后实测：2 件无线鼠标不满门槛、1 件机械键盘仍可用`
 
-****
+---
 
-开发人员进场，按新任务的上下文动手：`db.js` 的门槛改成 20000 分，spec 同步改，curl 验两档。
+开发人员进场，按新任务的上下文动手。建任务时先撞了一次墙：`task create "满减门槛改成 200" --parent 11-13-商城优惠券` 报错“父任务无法解析：11-13-商城优惠券”——父任务已归档，不在 `.sunshine/tasks` 下。按工作流“已归档不 reopen，新建任务走完整流程”，改成独立建任务：`11-13-满减门槛改成-200`。启动前切功能分支（`feat/coupon-threshold-200` + `set-branch`），再走完整流程：批准 → implement 子代理 → check 子代理 → 回写规范 → 提交计划 → 提交 → finish-work 归档。
 
-关键输出（真实跑出来的）：2 件无线鼠标返回 `{"code":"COUPON_THRESHOLD","data":null}`（改前是 200、实付 16800），1 件机械键盘返回 200、实付 28900；提交是 `06a179c 变更：满减门槛改成 200 元（100→200）`；归档后一共 4 个任务。旧的三个任务原样留在归档里，变更单独一个任务、有完整的记录——下次再有人问“门槛为什么是 200 元”，`prd.md` 里的 `[变更 2026-11-13]` 就是答案。
+implement 改了三处：`db.js` 的 threshold 10000→20000（grep :12 核对）；`backend.md` 同步改——grep 证实变更前 backend.md 从未写明具体门槛值（无 10000/100 元字样），所谓“同步改”实际是在优惠券接口节补一行：`满减门槛（2026-11-13 由 100 元改为 200 元）：MAN100JIAN10 threshold 20000 分，amount 1000 分；不满 200 元用该券返回 400 COUPON_THRESHOLD。`；`public/checkout.html:12` 门槛提示也同步改成满 200 元（不改它页面就与新门槛撒谎）。
+
+关键输出（真实跑出来的）：2 件无线鼠标返回 `{"code":"COUPON_THRESHOLD"}`（改前是 200、实付 16800），1 件机械键盘返回 200、实付 28900：
+
+```sh
+curl -s -X POST localhost:3000/api/orders -H 'Content-Type: application/json' -d '{"items":[{"id":1,"qty":2}],"address":"","couponCode":"MAN100JIAN10"}' -w "\nHTTP %{http_code}\n"
+# {"code":"COUPON_THRESHOLD"}
+# HTTP 400
+
+curl -s -X POST localhost:3000/api/orders -H 'Content-Type: application/json' -d '{"items":[{"id":2,"qty":1}],"address":"","couponCode":"MAN100JIAN10"}' -w "\nHTTP %{http_code}\n"
+# {"code":"OK","data":{"id":1,"items":[{"id":2,"name":"机械键盘","price":29900,"qty":1}],"address":"","couponCode":"MAN100JIAN10","total":28900,"status":"待付款"}}
+# HTTP 200
+```
+
+GET /api/coupons 再验：MAN100JIAN10 的 threshold 已是 20000。提交是 `759af17 变更：满减门槛改成 200 元（100→200）`（3 个文件，3 行新增，2 行删除）；`finish-work` 归档（`3d18edf`）+ 记日志（`42afb6f`）后一共 4 个任务：
+
+```sh
+sunshine task list-archive
+# 已归档任务：
+#
+# [2026-11] - 4 个任务
+# - 11-13-下单用优惠券/
+# - 11-13-优惠券列表/
+# - 11-13-商城优惠券/
+# - 11-13-满减门槛改成-200/
+
+git log --oneline
+# 42afb6f chore: record journal
+# 3d18edf chore(task): archive 11-13-满减门槛改成-200
+# 759af17 变更：满减门槛改成 200 元（100→200）
+# 1618fe9 chore: record journal
+# 444e009 chore(task): archive 11-13-商城优惠券
+# eb9b771 chore: record journal
+# b0044a9 chore(task): archive 11-13-优惠券列表
+# d44083b 需求二：优惠券列表，优惠券页 + GET 接口
+# e4ac2b2 chore: record journal
+# be797d4 chore(task): archive 11-13-下单用优惠券
+# 057abbd 需求一：下单用优惠券，结算页 + 券接口
+# 0fae77b 商城优惠券演示起点：重建 s2-old 商城
+```
+
+旧的三个任务原样留在归档里，变更单独一个任务、有完整的记录——下次再有人问“门槛为什么是 200 元”，`prd.md` 里的 `[变更 2026-11-13]` 就是答案。
+
+还有一处名不副实要记下来：变更后 MAN100JIAN10 的 name 仍是“满100减10”，threshold 已是 20000；这次没要求改名，概要设计数据节里注明了，代码与 GET 输出未改。
 
 **全流程闭环一览**
 
@@ -1415,9 +1922,9 @@ PRD 里还记了一笔（真实内容）：`[变更 2026-11-13] MAN100JIAN10 的
 
 后端另外算：这个商城的后端已经有了（Express，12.2 那个），不用选型；优惠券的后端改动（券校验、券列表接口）直接写进需求一、需求二的 prd。量大（要选语言、建表、接缓存）才先拆一个“后端基础：技术选型与脚手架”子任务排在最前面，选型项（语言、框架、数据库、缓存）以 `[待定]` 标在它的 prd 里，它的 1.1 先问答定选型再动手，归档后需求子任务再启动。
 
-6. **开发**（开发人员进场）：逐个激活子任务，每个子任务五轮（实现 → 检查 → 回写规范 → 提交 → 归档），每轮读自己的上下文清单。交接物：改好的代码 + 更新后的 spec + 提交。
+6. **开发**（开发人员进场）：逐个激活子任务，每个子任务走完整流程（批准 → implement 子代理 → check 子代理 → 回写规范 → 提交计划 → 提交 → finish-work 归档），每步读自己的上下文清单。交接物：改好的代码 + 更新后的 spec + 提交 + 归档记录 + 会话日志。
 7. **集成复核与归档**（父任务）：子任务全归档后，父任务读验收标准、两个子任务的检查结果和接口约定一次复核（不重读整个原型），再归档。交接物：归档的任务目录。
-8. **需求变更**（设计人员返场）：改设计包 → 只审变更部分 → 交接（改好的设计包 + 评审确认 + 新任务的上下文清单 + PRD 里的 `[变更]` 记录）→ 开发人员进场走新任务。已归档的任务不 reopen。
+8. **需求变更**（设计人员返场）：改设计包 → 只审变更部分 → 交接（改好的设计包 + 评审确认 + 新任务的上下文清单 + PRD 里的 `[变更]` 记录）→ 开发人员进场走新任务。已归档的任务不 reopen；新任务是独立任务（已归档的父任务下挂不了子任务）。
 9. **关闭重开后接上**：状态全在文件里（task.json 的 status、`.current-task` 指针、jsonl、prd.md、spec），新会话跑 `/sunshine:continue`，按 status 分流到对应的步骤。
 
 ## 附录：命令速查
