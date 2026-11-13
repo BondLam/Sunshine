@@ -892,9 +892,7 @@ Sections 1–11 cover the main flow; this section walks through six real scenari
 | 5. Fixing a bug that keeps coming back | The same class of problem appears again and again | `mem` finds the last session first, then a task, then the lesson goes into spec |
 | 6. Design-first product work | Design comes before development | Design documents land in `doc/`; split into sub-tasks, then developers take them one by one |
 
-This section was verified with **v0.3.0** (the current Release; `sunshine version` prints `Sunshine 版本 0.3.0`). The demo directories all live under `/tmp/scenes/` (`s1-new`, `s2-old`, `s3-cross`, `s4-refactor`, `s5-bug`, `s6-design`) — delete them and nothing in any real project is affected. The `11-10` prefix in task directory names is the month-day of the day the commands were run (2026-11-10); section 12.6 was run on 2026-11-11, so its task directories start with `11-11`. Command outputs are real excerpts from runs made for this tutorial (`……` marks omitted lines, not rewritten ones); prompts shown to the agent are labeled as example prompts, not records of a real session. Each of the six scenarios includes an example session with Claude Code (the conversation is an example; the commands and outputs are real values from runs) — you talk, answer, and confirm in the conversation; the commands are the agent's job, running under the hood. The CLI itself is Chinese-only, so commands and sample outputs below are kept in the original Chinese; the explanations around them are in English.
-
-### 12.1 Starting a new project from zero: a duty-roster tool
+### 12.1 Starting a new project from zero: a web store
 
 An empty directory, nothing in it — the cleanest starting point. Create an empty directory, put it in git, and leave the rest to Claude Code: `init`, creating the task, lining up context, starting it — all of it runs underneath, and you type no commands. An empty directory has no detectable type, so it defaults to full-stack and all three specs (system.md, frontend.md, backend.md) are generated — a new project starts with a default set of specs, and the team adjusts them later, which beats starting with nothing.
 
@@ -902,51 +900,81 @@ Open the project in Claude Code and state the first requirement in plain languag
 
 Example prompt (an example, not a record of a real session):
 
-> I'm starting a duty-roster tool from scratch: generate this week's roster from a CSV, first column date, second column the person on duty. Please follow the Sunshine workflow: ask me first to pin down the missing product logic (date formats, output form) and technical decisions (language, how to run it); once confirmed, create the first task, write the PRD, then implement.
+> I'm starting a web store from scratch: first the product list — the home page shows the product name, price, and stock. Please follow the Sunshine workflow: ask me first to pin down the unclear product logic and technical decisions; once confirmed, create the first task, write the PRD, then implement.
 
 Here is how the session continues (the conversation is an example; the commands and outputs are real values from runs):
 
-> **Claude Code:** Three quick questions first: 1. What date format is in the CSV — `11-10`, or `2026-11-10`? 2. Where should the roster go — printed to the terminal, or written to a file? 3. What language, and how do I run it?
+> **Claude Code:** One question first — it decides how this is built: where does the product data live — hard-coded for now, or read from a file, or a database?
 >
-> **You:** Dates are month-day, like `11-10`; printing to the terminal is fine; Go, a command-line tool, run with `go run ./cmd/duty 值班表.csv`.
+> **You:** Hard-code it for now, three products is enough for the demo.
 >
-> **Claude Code:** Got it. Here's the plan: create the task "值班表小工具第一版" and write a PRD that says generate this week's roster from the CSV (first column date, second column person on duty) and print it to the terminal; acceptance is running `go run ./cmd/duty 值班表.csv` and seeing lines like `11-10：张三`. Once you confirm, I'll create the task, write the PRD, and start implementing. OK?
+> **Claude Code:** Good, the rest goes the same way, one question at a time: which fields the list shows, what currency the prices are in — then I'll sum up. Got it. Here's the plan: create the task "商品列表" (Product list), with a PRD that says the home page shows the product list (name, price, stock), three products hard-coded for now; done means the service runs and `curl /api/products` returns the three products. Once you confirm, I'll create the task, write the PRD, and start implementing. OK?
 >
 > **You:** OK, go ahead.
 >
-> **Claude Code:** The task is created, the context is lined up, the task is started. Now I'll implement it: a small tool that reads the CSV and prints the roster. Let me show you the run.
+> **Claude Code:** The task is created, the context is lined up, the task is started. Now I'll implement it: a small service, the product list at `/api/products`, and the home page shows the same list. Let me show you the run.
 
 Here is the real run result:
 
-```text
-11-10：张三
-11-11：李四
-11-12：王五
+```sh
+curl -s localhost:18080/api/products
+# [{"id":1,"name":"无线鼠标","price":89,"stock":120},{"id":2,"name":"机械键盘","price":299,"stock":45},{"id":3,"name":"27寸显示器","price":1299,"stock":20}]
 ```
+
+Open the home page in a browser and the three products are there too: 无线鼠标 89 元 (wireless mouse, ¥89), 机械键盘 299 元 (mechanical keyboard, ¥299), 27寸显示器 1299 元 (27" monitor, ¥1299).
 
 > **Claude Code:** Done — the task is archived:
 
 ```text
 [2026-11] - 1 个任务
-  - 11-10-值班表小工具第一版/
+  - 11-13-商品列表/
 ```
 
-After the first task, the project has three things: code that runs, an archived task record, and specs generated from the default templates. From the second task on, the agent has something to work from.
+Then the second requirement:
+
+> **You:** Next, the second requirement: add to cart.
+>
+> **Claude Code:** One question first: where does the cart live — in memory for now, or a file, or a database?
+>
+> **You:** In memory, enough for the demo.
+>
+> **Claude Code:** Good, then what adding returns, and how the total is calculated — then I'll sum up. Got it: create the task "加入购物车" (Add to cart); clicking "加入购物车" (Add to cart) puts the product in the cart, and `GET /api/cart` shows the items and the total; done means adding two products totals 388. Once you confirm, I'll create the task and start implementing. OK?
+>
+> **You:** OK, go ahead.
+>
+> **Claude Code:** The task is created, the context is lined up, the task is started. Now I'll implement it: `POST /api/cart` to add, `GET /api/cart` to view the cart, and an "加入购物车" (Add to cart) button after each product on the list page. Let me show you the run.
+
+Here is the real run result: add a wireless mouse, then a mechanical keyboard, and the cart holds both, totalling 388:
+
+```sh
+curl -s localhost:18080/api/cart
+# {"items":[{"id":1,"name":"无线鼠标","price":89,"qty":1},{"id":2,"name":"机械键盘","price":299,"qty":1}],"total":388}
+```
+
+> **Claude Code:** Done — the task is archived:
+
+```text
+[2026-11] - 2 个任务
+  - 11-13-加入购物车/
+  - 11-13-商品列表/
+```
+
+Two requirements done, and the project now has: a running store service, two archived task records, and the specs from the default templates.
 
 ### 12.2 Adopting an existing project: land the conventions in spec first
 
-The repo exists, but the conventions live mostly in people's heads — the most common adoption case. The demo is a refund API that has run for two years (`express` is the only dependency in `package.json`, one file `src/server.js`), with the team's conventions written in `README.md` and nowhere else:
+The repo exists, but the conventions live mostly in people's heads — the most common adoption case. The demo is a web store that has run for two years (`express` is the only dependency in `package.json`; the code is split three ways: `src/server.js` is the entry point, `src/routes/` holds the product and order endpoints, `src/db.js` handles data access), with the team's conventions written in `README.md` and nowhere else:
 
 ```markdown
-# refund-api
+# webstore
 
 团队约定（一直靠人记，没落进任何文档）：
 - 接口统一返回 { code, data }，code 是大写下划线错误码。
-- 所有写操作必须记审计日志。
+- 价格统一用“分”存库，展示时除以 100。
 - 端口固定 3000，改端口要全组同步。
 ```
 
-(In English: "Team conventions (always remembered by people, never written into any document): APIs return { code, data } with code an UPPER_SNAKE error code. Every write must write an audit log. The port is fixed at 3000; changing it needs the whole team to sync.")
+(In English: "Team conventions (always remembered by people, never written into any document): APIs return { code, data } with code an UPPER_SNAKE error code. Prices are stored in cents and divided by 100 for display. The port is fixed at 3000; changing it needs the whole team to sync.")
 
 Run `init` right in this directory — `init` only adds files, it never changes existing code. Claude Code runs `init` underneath and recognizes a backend project (only `express`), so only `system.md` and `backend.md` are generated; existing files are untouched, and git shows only the new Sunshine directories:
 
@@ -964,21 +992,21 @@ Example prompt (an example, not a record of a real session):
 
 Here is how the session continues (the conversation is an example; the commands and outputs are real values from runs):
 
-> **Claude Code:** I can see all three conventions: APIs return `{ code, data }`, every write logs an audit trail, and the port is fixed at 3000. Quick check on where they go — the first two into `backend.md`, but the port: `system.md` or `backend.md`?
+> **Claude Code:** I can see all three conventions: APIs return `{ code, data }`, prices are stored in cents, and the port is fixed at 3000. Quick check on where they go — the first two into `backend.md`, but the port: `system.md` or `backend.md`?
 >
 > **You:** The first two into `backend.md`. The port is a team-wide rule — put it in `system.md`.
 >
-> **Claude Code:** Got it. Here's the plan: create the task "把现有约定落进规范", write a PRD that says land the three remembered conventions from the README into spec; acceptance is the audit-log convention appearing once in backend.md. Once you confirm, I'll create the task, write the PRD, and write the conventions in. OK?
+> **Claude Code:** Got it. Here's the plan: create the task "把现有约定落进规范", write a PRD that says land the three remembered conventions from the README into spec; acceptance is all three conventions landed in spec. Once you confirm, I'll create the task, write the PRD, and write the conventions in. OK?
 >
 > **You:** OK, go ahead.
 >
 > **Claude Code:** The task is created and the conventions are written in. Here is what actually landed:
 
 ```markdown
-## 退款接口（团队已有约定）
+## 商品与订单接口（团队已有约定）
 
 - 接口统一返回 `{ code, data }`，code 是大写下划线错误码。
-- 所有写操作必须记审计日志。
+- 价格统一用“分”存库，展示时除以 100。
 ```
 
 ```markdown
@@ -987,39 +1015,63 @@ Here is how the session continues (the conversation is an example; the commands 
 - 服务端口固定 3000，改端口要全组同步。
 ```
 
-> **Claude Code:** Let me verify what landed for you: the audit-log convention appears once in backend.md. The task ran its normal course and is archived.
+> **Claude Code:** Those two blocks are what landed. The task ran its normal course and is archived:
+
+```text
+[2026-11] - 1 个任务
+  - 11-13-把现有约定落进规范/
+```
 
 From now on the conventions no longer live only in senior engineers' heads: the agent on a new task reads the spec, and the conventions survive people leaving. The acceptance bar for adopting an existing project is one line — **after `init`, `git status` shows no modified old files, and spec has one more convention that used to live only in memory**.
 
 ### 12.3 Delivering a product feature: one task across product, API, data, and UI
 
-When one task spans four layers, the usual failure is changing one layer and missing another — Sunshine's answer is one task whose context list names the files in all four layers at once, so acceptance checks against the same list. The demo is a refund app (`src/Refund.vue` is the UI, `src/server.js` the API, `data/refunds.json` the data), and the task is making the refund reason mandatory.
+When one task spans four layers, the usual failure is changing one layer and missing another — Sunshine's answer is one task: what changes in all four layers goes into the same PRD, the change order goes through a channel, and acceptance checks against the same API contract. The demo is the same web store that has run for two years, and the task is making the delivery address mandatory at checkout: the checkout page (UI) gets an address field, the order endpoint (API) returns 400 without one, and the order record (data) gains an address field.
 
 State the requirement to Claude Code (same for Codex and Cursor):
 
 Example prompt (an example, not a record of a real session):
 
-> I need to deliver a product feature: make the refund reason mandatory, one task across the product, API, data, and UI layers (the UI is src/Refund.vue, the API is src/server.js, the data is data/refunds.json). Please follow the Sunshine workflow: ask me first to pin down the unclear validation rules (the reason options, the error code when the field is missing) and the order to change the four layers; once confirmed, create the task, write the PRD, then implement.
+> I need to deliver a product feature: the delivery address is mandatory at checkout, one task across the product, API, data, and UI layers (the UI is public/checkout.html, the API is src/routes/orders.js, the data is src/db.js). Please follow the Sunshine workflow: ask me first to pin down the unclear validation rules (the error code when the address is missing) and the order to change the four layers; once confirmed, create the task, write the PRD, then implement.
 
 Here is how the session continues (the conversation is an example; the commands and outputs are real values from runs):
 
-> **Claude Code:** Three quick questions first: 1. What are the reason options in the dropdown? 2. What does the backend return when `reason` is missing — 400 plus which error code? 3. In what order do the four layers change?
+> **Claude Code:** One question first — it decides how this is built: what does the backend return when the address is missing — a 400 with an error code, or a 200 with an error message?
 >
-> **You:** Three reasons: quality issue, wrong size, other — picking "other" shows a text box; missing `reason` returns 400 with `REASON_REQUIRED`; API first, then UI, data fields follow.
+> **You:** 400, with the error code ADDRESS_REQUIRED.
 >
-> **Claude Code:** Got it. Here's the plan: create the task "退款原因必填校验（全链路）", write a PRD that says change all four layers together; line up the context by layer — `src/Refund.vue`, `src/server.js`, `data/refunds.json` into `implement`, `.sunshine/spec/backend.md` into `check`; the change order goes through a channel. Once you confirm, I'll create the task, line up the context, and start it. OK?
+> **Claude Code:** Good, the rest goes the same way, one question at a time: one text box for the address or split by province/city/district, and in what order the four layers change — then I'll sum up. Got it. Here's the plan: create the task "下单必填收货地址" (Delivery address mandatory at checkout), with a PRD that says change all four layers together — an address field on the checkout page, POST /orders without an address returns 400 (ADDRESS_REQUIRED), and the order record gains an address field; the context list holds the API contract (backend.md), and the agent reads the code files itself during implementation; the change order is API first, then UI, through the channel. Once you confirm, I'll create the task, line up the context, and start it. OK?
 >
 > **You:** OK, go ahead.
 >
-> **Claude Code:** The task is created and the context is lined up by layer: the UI, API, and data files for implementation, the backend API contract for acceptance. The four layers change API first, then UI, and I put the order in the channel — two messages: API first — POST /refunds with a missing reason returns 400 with `REASON_REQUIRED`; once the API is done, the UI — a three-option reason dropdown, with "other" showing a text box.
+> **Claude Code:** The task is created and the context is lined up. The four layers change API first, then UI, and I put the order in the channel — two messages: API first — POST /orders with a missing address returns 400 with `ADDRESS_REQUIRED`; once the API is done, the UI — an address field on the checkout page, and the order can't be submitted without it.
 >
 > **Claude Code:** The channel is bound to the task, so the task path shows in the messages; these two are numbered coordination messages, not casual notes. Waiting for a worker's reply and getting a timeout is normal when no worker answers — this section only coordinates as far as sending the messages, and spawning a real worker needs a logged-in claude / codex on this machine (section 10). At the end the workflow goes back to native and the task is archived as usual.
+
+Here is the real run result: ordering without an address returns 400, ordering with one succeeds, and the order carries the address:
+
+```sh
+curl -s -X POST localhost:3000/api/orders -H 'Content-Type: application/json' -d '{"items":[{"id":1,"qty":1}]}' -w "\nHTTP %{http_code}\n"
+# {"code":"ADDRESS_REQUIRED","data":null}
+# HTTP 400
+
+curl -s -X POST localhost:3000/api/orders -H 'Content-Type: application/json' -d '{"items":[{"id":1,"qty":1}],"address":"北京市朝阳区建国路 1 号"}' -w "\nHTTP %{http_code}\n"
+# {"code":"OK","data":{"id":1,"items":[{"id":1,"qty":1}],"address":"北京市朝阳区建国路 1 号","status":"待付款"}}
+# HTTP 200
+```
+
+The checkout page has the address field too, and the task ran its normal course and is archived:
+
+```text
+[2026-11] - 1 个任务
+  - 11-13-下单必填收货地址/
+```
 
 The acceptance bar for a cross-layer task is in the same list: the files in all four layers done, and the one spec for acceptance verified line by line — whichever layer is missed shows up on the list.
 
 ### 12.4 Refactoring a legacy module: pin the behavior first, then change the code
 
-The code runs, but it is no longer safe to change — the first step of a refactor is not to change anything, but to pin down what the code currently does. The demo module is a price function with all the discount rules hard-coded in `if`s:
+The code runs, but it is no longer safe to change — the first step of a refactor is not to change anything, but to pin down what the code currently does. The demo module is the store's price function — the cart and order totals both go through it — with all the discount rules hard-coded in `if`s:
 
 ```go
 // 老模块：能跑，但折扣规则全写死在 if 里，改一次怕一次。
@@ -1041,13 +1093,17 @@ State the requirement to Claude Code (same for Codex and Cursor):
 
 Example prompt (an example, not a record of a real session):
 
-> I need to refactor a legacy module: the price function Price, with all the discount rules hard-coded in `if`s — the code runs, but it is no longer safe to change. Please follow the Sunshine workflow (the TDD template this time): ask me first to confirm the behavior to pin down (the expected prices for each quantity tier and VIP) and the boundaries of the refactor; once confirmed, create the task, write the PRD, then follow TDD: write characterization tests to pin the current behavior first, then refactor.
+> I need to refactor a legacy module: the store's price function Price, with all the discount rules hard-coded in `if`s — the cart and order totals go through it, and the code runs, but it is no longer safe to change. Please follow the Sunshine workflow (the TDD template this time): ask me first to confirm the behavior to pin down (the expected prices for each quantity tier and VIP) and the boundaries of the refactor; once confirmed, create the task, write the PRD, then follow TDD: write characterization tests to pin the current behavior first, then refactor.
 
 Here is how the session continues (the conversation is an example; the commands and outputs are real values from runs):
 
-> **Claude Code:** Two quick questions first: 1. Which cases should I pin down — the expected prices for each quantity tier, VIP and non-VIP? 2. Where does the refactor stop — only pull the discount rules out, with `Price`'s signature and return value unchanged, right?
+> **Claude Code:** One question first: which cases should I pin down — the expected prices for each quantity tier, VIP and non-VIP?
 >
-> **You:** Pin three cases: 1 item non-VIP 100, 10 items non-VIP 900, 10 items VIP 855; only pull the discount rules out, `Price`'s signature stays, behavior must not change.
+> **You:** Pin three cases: 1 item non-VIP 100, 10 items non-VIP 900, 10 items VIP 855.
+>
+> **Claude Code:** Good, one more: where does the refactor stop — only pull the discount rules out, with `Price`'s signature and return value unchanged, right?
+>
+> **You:** Right, only the discount rules; the signature stays, and behavior must not change.
 >
 > **Claude Code:** Got it. Here's the plan: switch to the TDD template first, create the task "重构价格计算"; write characterization tests to pin those three cases (all green is the baseline), then pull the discount rules into constants and two small functions with `Price` only composing them, and run the same tests again — still all green. Once you confirm, I'll start. OK?
 >
@@ -1097,7 +1153,7 @@ func Price(qty int, vip bool) int {
 
 (In English: "Discount rules change here and nowhere else; Price only composes them.")
 
-Run the same tests once more after the refactor — still all green (`ok shop 0.002s`). The behavior did not change, so the refactor stands. The red light in the TDD workflow is for new behavior; a pure refactor runs the other way around: **write characterization tests to pin the behavior (green), then refactor (still green)**. Wrap up by writing the new convention into spec, so the next change starts from the test table:
+Run the same tests once more after the refactor — still all green (`ok shop 0.003s`). The behavior did not change, so the refactor stands. The red light in the TDD workflow is for new behavior; a pure refactor runs the other way around: **write characterization tests to pin the behavior (green), then refactor (still green)**. Wrap up by writing the new convention into spec, so the next change starts from the test table:
 
 ```markdown
 ## 价格计算
@@ -1107,23 +1163,32 @@ Run the same tests once more after the refactor — still all green (`ok shop 0.
 
 (In English: "Price calculation: discount rules live in the constants and applyBulk / applyVIP in calc.go; Price only composes them. Change a rule by changing the case table in calc_test.go first.")
 
-Archive the task as usual and switch the workflow back to native.
+Archive the task as usual and switch the workflow back to native:
+
+```text
+[2026-11] - 1 个任务
+  - 11-13-重构价格计算/
+```
 
 ### 12.5 Fixing a bug that keeps coming back: find the last session first
 
-When the same class of problem appears again and again, the most expensive part is investigating it from zero every time. The bug in this section really happened: a codex worker failing to connect with a 401 — once on November 9, again in the early hours of November 10, and once more today.
+When the same class of problem appears again and again, the most expensive part is investigating it from zero every time. The bug in this section really happened: the store project's codex worker failing to connect with a 401 — once on November 9, again in the early hours of November 10, and once more today.
 
 State the requirement to Claude Code (same for Codex and Cursor):
 
 Example prompt (an example, not a record of a real session):
 
-> I need to fix a bug that keeps coming back: a codex worker failing to connect with a 401 — once on November 9, again in the early hours of November 10, and once more today. Please follow the Sunshine workflow: use mem to find the last related session first, then ask me to confirm whether this is the same class of problem and what the reproduction steps are; once confirmed, create the task, write the PRD, and write the lesson into the spec after the fix.
+> I need to fix a bug that keeps coming back: the store project's codex worker failing to connect with a 401 — once on November 9, again in the early hours of November 10, and once more today. Please follow the Sunshine workflow: use mem to find the last related session first, then ask me to confirm whether this is the same class of problem and what the reproduction steps are; once confirmed, create the task, write the PRD, and write the lesson into the spec after the fix.
 
 Here is how the session continues (the conversation is an example; the commands and outputs are real values from runs):
 
-> **Claude Code:** I checked `mem` first: the last related session is the dispatch from November 10, 05:05, whose message to the worker already mentions 401. Two quick questions: 1. Is this the same class of problem — a codex worker failing to connect with a 401? 2. How do I reproduce it — on this machine, or online?
+> **Claude Code:** I checked `mem` first: the last related session is the dispatch from November 10, 05:05, whose message to the worker already mentions 401. One question first: is this the same class of problem — the store project's codex worker failing to connect with a 401?
 >
-> **You:** Same class — still 401 today; reproduce it on this machine, codex isn't logged in.
+> **You:** Same class — still 401 today.
+>
+> **Claude Code:** Good, one more: how do I reproduce it — on this machine, or online?
+>
+> **You:** Reproduce it on this machine, codex isn't logged in.
 >
 > **Claude Code:** Got it. Here's the plan: reproduce the dispatch once on this machine to confirm it's still 401; then create the task with the session id in the description, and write the lesson into spec after the fix. Once you confirm, I'll start. OK?
 >
@@ -1132,7 +1197,7 @@ Here is how the session continues (the conversation is an example; the commands 
 > **Claude Code:** Reproducing the dispatch once on this machine: a channel is created, the same message goes to the worker, and the worker starts — then fails in its log (codex is not logged in on this machine, the same precondition section 10 states):
 
 ```text
-unexpected status 401 Unauthorized: Missing bearer <redacted> basic authentication in header, url: https://api.openai.com/v1/responses
+failed to connect to websocket: HTTP error: 401 Unauthorized, url: wss://api.openai.com/v1/responses
 ```
 
 > **Claude Code:** The worker never answered, but the session is on disk. `mem` finds this dispatch: the one from November 10, 05:05, session 01a1c3d8; searching 401 hits once — the sentence sent to the worker: "线上 codex worker 又连不上了，之前报过 401，帮我查一下这次的原因" (the codex worker online can't connect again — it reported 401 before; help me check the cause this time).
@@ -1149,11 +1214,18 @@ Once the last session confirms it is the same class of problem, create the task 
 
 (In English: "Multi-agent dispatch: before spawning a codex worker, confirm codex is logged in on this machine; when a spawn fails, read worker.log first (401 means not logged in) instead of spawning again and again.")
 
-Archive the task as usual. Next time a 401 shows up, the agent reads the spec and checks the login first, instead of spawning another worker into the same wall.
+Archive the task as usual:
+
+```text
+[2026-11] - 1 个任务
+  - 11-13-修复-codex-worker-401/
+```
+
+Next time a 401 shows up, the agent reads the spec and checks the login first, instead of spawning another worker into the same wall.
 
 ### 12.6 Design-first product work: requirements → design documents → split → code
 
-This scenario uses a brand-new project: a team leave-request tool, built from zero. Designers and developers share one workflow, but they enter and exit at different times — each part below says who is on stage.
+This scenario uses the web store from two years back (the one in 12.2): adding a coupon feature to it. Designers and developers share one workflow, but they enter and exit at different times — each part below says who is on stage.
 
 **[Designer enters]**
 
@@ -1161,15 +1233,15 @@ State the requirement to Claude Code (same for Codex and Cursor):
 
 Example prompt (an example, not a record of a real session):
 
-> I want to build a brand-new team leave-request tool. Let's do design first — follow the Sunshine workflow: ask me what is unclear about the rules and the prototype details first; once I confirm, create a task, write the PRD, and land the requirements list (one item per requirement, each pointing at its page in the system prototype), the outline design, and one system prototype carrying mock data in doc/; after the review passes, split it into sub-tasks per requirement and then implement.
+> I want to add a coupon feature to the store. Let's do design first — follow the Sunshine workflow: ask me what is unclear about the rules and the prototype details first; once I confirm, create a task, write the PRD, and land the requirements list (one item per requirement, each pointing at its page in the system prototype), the outline design, and one system prototype carrying mock data in doc/; after the review passes, split it into sub-tasks per requirement and then implement.
 
 Here is the session (the conversation is an example; the commands and outputs are real values from runs):
 
-> **Claude Code:** One question first — it decides how the split goes: is leave-requesting two requirements, submit and approve, or one?
+> **Claude Code:** One question first — it decides how the split goes: is the coupon work two requirements, using a coupon at checkout and the coupon list, or one?
 >
-> **You:** Two: requirement one is submitting a leave request, requirement two is approving one.
+> **You:** Two: requirement one is using a coupon at checkout, requirement two is the coupon list.
 
-The rest goes the same way, one question at a time: the leave types, whether the reason is mandatory, the annual-leave cap — rules first, then the prototype details (one page per requirement, what the approval list page shows, what a missing `reason` returns, how many mock rows), each with options; you answer one, it records one, and the answers go straight into the requirements list and the outline design. Once the questions are done, it sums up:
+The rest goes the same way, one question at a time: the discount rule, what happens with a bad coupon code, how expired and used coupons count — rules first, then the prototype details (one page per requirement, what the coupon list page shows, what a bad coupon code returns, how many mock rows), each with options; you answer one, it records one, and the answers go straight into the requirements list and the outline design. Once the questions are done, it sums up:
 
 > **Claude Code:** Got it. Here's the plan: create the task, write the PRD for both requirements; land the requirements list (one item per requirement, each pointing at its page in the system prototype), the outline design, and the system prototype (one file per page under `doc/prototype/`, plus an `index.html` navigation entry) in `doc/`; after the review passes, split it into two sub-tasks per requirement and then implement. Once you confirm, I'll create the task, write the PRD, and land the design documents. OK?
 >
@@ -1181,27 +1253,26 @@ Once the questions are answered, the design package lands in the project's `doc/
 doc/design/需求列表.md
 doc/design/概要设计.md
 doc/prototype/index.html
-doc/prototype/申请页.html
-doc/prototype/审批列表页.html
+doc/prototype/结算页.html
+doc/prototype/优惠券页.html
 ```
 
-The requirements list is one item per requirement (real file content, excerpt): requirement one "提交请假申请" (submit a leave request) points at the request page in the system prototype — the type dropdown （年假 / 病假 / 事假） is mandatory, the reason is mandatory, annual leave is at most 10 days per request, over the cap it goes to approval; requirement two "审批请假申请" (approve a leave request) points at the approval list page in the system prototype — the list shows applicant, type, start and end dates, days, and status, with a 通过 (approve) and 驳回 (reject) button on each row. The outline design's interface lines read (real content):
+The requirements list is one item per requirement (real file content, excerpt): requirement one "下单用优惠券" (use a coupon at checkout) points at the checkout page in the system prototype — the checkout page takes a coupon code, the discount rule is 10 yuan off on orders over 100 yuan, and a coupon must be unused and unexpired or it is refused; requirement two "优惠券列表" (the coupon list) points at the coupon page in the system prototype — the list shows coupon name, threshold, amount, status, and expiry. The outline design's interface lines read (real content):
 
-```markdown
-- `POST /api/v1/leaves`：缺 `reason` 返回 400，错误体 `{"error": "reason 必填"}`。
-- 年假单次最长 10 天，超限返回 `NEED_APPROVAL`。
-- `GET /api/v1/leaves`：返回全部记录。
+```text
+| POST /api/orders | body：items + address + couponCode | 订单（含实付 total） | 券不存在/已用/过期/不满门槛返回 400 + 错误码（COUPON_INVALID / COUPON_USED / COUPON_EXPIRED / COUPON_THRESHOLD）；MAN100JIAN10 满 100 元减 10 元（满 10000 分减 1000 分） |
+| GET /api/coupons | 无 | 全部券（券名、门槛、面额、状态、有效期） | 列表接口，不分页 |
 ```
 
-(In English: "`POST /api/v1/leaves`: a missing `reason` returns 400 with `{"error": "reason 必填"}`. Annual leave is at most 10 days per request; over the cap it returns `NEED_APPROVAL`. `GET /api/v1/leaves` returns all records.")
+(In English: "`POST /api/orders`: body has items, address, and couponCode; a missing, used, expired, or below-threshold coupon returns 400 with `COUPON_INVALID` / `COUPON_USED` / `COUPON_EXPIRED` / `COUPON_THRESHOLD`; MAN100JIAN10 is 10 yuan off on orders over 100 yuan (10,000 points off 1,000 points), and a successful order returns the amount actually paid. `GET /api/coupons` returns all coupons — name, threshold, amount, status, expiry — with no pagination.")
 
-The system prototype is a set of pages under `doc/prototype/`, plus an `index.html` navigation entry: a "申请 | 审批列表" (Request | Approval list) nav at the top, a request page with a type dropdown (mandatory), start and end dates, a reason text field (mandatory), and a submit button, and an approval list page as a table (applicant, type, start and end dates, days, status) carrying three mock rows （张三 pending, 李四 approved, 王五 pending), each with a 通过 (approve) and 驳回 (reject) button — the demo is clickable. One prototype serves multiple requirements: requirements one and two both live in this set of pages, one page each; and the split follows the requirements — the sub-tasks split per requirement.
+The system prototype is a set of pages under `doc/prototype/`, plus an `index.html` navigation entry: a "结算 | 优惠券" (Checkout | Coupons) nav at the top, a checkout page with a coupon code input, a threshold note (10 yuan off over 100 yuan), and a submit button, and a coupon page as a table (coupon name, threshold, amount, status, expiry) carrying three mock rows （满100减10 unused, 满200减30 used, 新人5元券 expired) — the demo is clickable. One prototype serves multiple requirements: requirements one and two both live in this set of pages, one page each; and the split follows the requirements — the sub-tasks split per requirement.
 
 The designer builds the design package step by step too: clarify the requirements and write them into the requirements list first, then the outline design (structure, interfaces, acceptance), then dispatch `sunshine-prototype` to build the prototype — one page per requirement in the list, with mock data (the dispatch prompt gives only the requirements list and the outline design; the sub-agent reports back just the page count, the mock record count, and the file path, and the main session never writes the prototype itself) — and the complete system prototype is the end of the design phase, not the start. If building the prototype exposes a gap in the requirements, the requirements list is updated with it (through the change path), but the overall direction stays requirements first, prototype last.
 
 Then comes the requirements review — the designer's last act before exiting: Claude Code lays out the whole package for you to confirm — the PRD, the design document list, and the split plan; nothing moves on until you confirm.
 
-> **Claude Code:** For review: the PRD, the requirements list, the outline design, and the system prototype are all ready, and the split is two sub-tasks — requirement one is the request page plus the POST API, requirement two is the approval list page plus the GET API. Once you confirm, I'll create the parent task and split it in one go. OK?
+> **Claude Code:** For review: the PRD, the requirements list, the outline design, and the system prototype are all ready, and the split is two sub-tasks — requirement one is the checkout page plus the POST API, requirement two is the coupon page plus the GET API. Once you confirm, I'll create the parent task and split it in one go. OK?
 >
 > **You:** OK, split it.
 
@@ -1219,15 +1290,15 @@ The split happens once, after the review passes — and it follows the requireme
 
 One requirement is one sub-task by default (the sub-task owns its page plus its interface, with the acceptance criteria together, so it's easy to verify). But when a requirement's frontend and backend are both large, or done by different people, or the backend API serves several pages, it splits further into a frontend sub-task and a backend sub-task — mechanically, a sub-task with its own sub-tasks (`task create --parent`), the parent's `children` listing both, each in planning. The handoff between the two is the interface contract in the outline design: the backend implements the API per the contract, the frontend builds the page per the contract plus the mock data in the prototype, so the frontend doesn't wait for the backend; the parent's final integration review verifies frontend and backend together.
 
-Here is the real nested output (a separate minimal demo, only to verify that a sub-task can hold sub-tasks):
+Here is the real task list (the split is nested as soon as it lands):
 
 ```sh
 sunshine task list
 # 全部活动任务：
 #
-#   - 11-11-接续演示任务/ (in_progress) [0/2 已完成] [演示者] <- 当前任务
-#     - 11-11-需求示例-前端/ (planning) [演示者]
-#     - 11-11-需求示例-后端/ (planning) [演示者]
+#   - 11-13-商城优惠券/ (planning) [0/2 已完成] [developer]
+#     - 11-13-下单用优惠券/ (planning) [developer]
+#     - 11-13-优惠券列表/ (planning) [developer]
 #
 # 总计：3 个任务
 ```
@@ -1237,17 +1308,17 @@ sunshine task list
 The split is not just a line in the conversation — it lands on disk as real files (real directory tree; a task directory looks the same before and after archiving, except archiving moves it under `archive/2026-11/`):
 
 ```text
-.sunshine/tasks/11-11-请假申请小工具/
+.sunshine/tasks/11-13-商城优惠券/
   task.json        # parent task: children lists the two sub-tasks
   prd.md           # the parent task's PRD
   implement.jsonl  # empty — the parent implements nothing
   check.jsonl      # empty
-.sunshine/tasks/11-11-需求一-提交请假申请/
+.sunshine/tasks/11-13-下单用优惠券/
   task.json        # sub-task: parent points back at the parent, status is planning
   prd.md           # the sub-task's PRD (a skeleton; the agent fills it in at 1.1)
-  implement.jsonl  # what to read when implementing: the request page in the system prototype + the outline design
+  implement.jsonl  # what to read when implementing: the checkout page in the system prototype + the outline design
   check.jsonl      # what to check against: the frontend spec + the backend API contract
-.sunshine/tasks/11-11-需求二-审批请假申请/
+.sunshine/tasks/11-13-优惠券列表/
   ...（the same four files）
 ```
 
@@ -1255,12 +1326,12 @@ Requirement one's context lists (real content) — this is what developers read 
 
 ```json
 implement.jsonl
-{"file":"doc/prototype/申请页.html","reason":"系统原型：申请页"}
-{"file":"doc/design/概要设计.md","reason":"概要设计：接口与验收"}
+{"file":"doc/prototype/结算页.html","reason":"结算页原型：券码输入框"}
+{"file":"doc/design/概要设计.md","reason":"接口与流程"}
 
 check.jsonl
-{"file":".sunshine/spec/frontend.md","reason":"前端规范：申请页"}
-{"file":".sunshine/spec/backend.md","reason":"接口契约：POST"}
+{"file":".sunshine/spec/frontend.md","reason":"结算页规范"}
+{"file":".sunshine/spec/backend.md","reason":"优惠券接口规范"}
 ```
 
 The prototype is one file per page, so each sub-task reads its own page file directly — no line ranges to work out; `lines` is only for other long single files (such as a long spec), see 1.4.
@@ -1272,7 +1343,7 @@ The sub-task's `prd.md` is a skeleton that the agent fills in at the sub-task's 
 Requirement one starts first. What Claude Code runs underneath (you don't type it), key output only:
 
 ```sh
-sunshine task start 11-11-需求一-提交请假申请
+sunshine task start 11-13-下单用优惠券
 # ✓ 状态：planning → in_progress（降级）
 ```
 
@@ -1280,44 +1351,44 @@ Once `start` succeeds, the status is written into `task.json` and the pointer in
 
 Here is the session while it develops (the conversation is an example; the commands and outputs are real values from runs):
 
-> **Claude Code:** Requirement one is starting: the main session dispatches `sunshine-implement` to change `LeaveForm.vue` against the request page in the system prototype and add two validations to the POST in `server.js`, then dispatches `sunshine-check` to verify against the spec in `check.jsonl`.
+> **Claude Code:** Requirement one is starting: the main session dispatches `sunshine-implement` to add a coupon code input to `checkout.html` against the checkout page in the system prototype and add four checks to the POST in `orders.js`, then dispatches `sunshine-check` to verify against the spec in `check.jsonl`.
 >
-> **Claude Code:** Implement is done: the request page has a three-item type dropdown （年假 / 病假 / 事假） with `required`, the reason is mandatory, and the form blocks the submit without one; a POST with a missing `reason` returns 400, over 10 days returns `NEED_APPROVAL`, a normal submit returns 200. Check passed too: all three options are there, `required` is there, the submit guard is there, a missing reason is 400, 11 days is `NEED_APPROVAL`, 2 days is 200 with `reason` and `days` in the record. I added a leave-form and a leave-API convention to the spec. Commit once? (One commit: request page plus POST API plus spec conventions.)
+> **Claude Code:** Implement is done: the checkout page has a coupon code input (`name="couponCode"`); the POST checks in order — missing, used, expired, below threshold — returning 400 for a bad coupon, and 10 yuan off over 100 yuan, so one mechanical keyboard comes to 28,900 points. Check passed too: four 400 branches, one coupon code input, all three coupons in place, and all four curl checks pass. I added a coupon-API and a checkout-page convention to the spec. Commit once? (One commit: checkout page plus coupon API plus spec conventions.)
 >
 > **You:** Commit it, and archive this sub-task.
 >
 > **Claude Code:** Done — `task finish` clears the pointer and `task archive` archives it after the commit. The parent is now 1/2 done.
 
-Key output (real runs): the three grep checks read `3`, `2`, `1` (three type options, two `required` spots, one submit guard); the three curl checks: a missing reason is `{"error":"reason 必填"}`, HTTP 400, 11 days is `{"code":"NEED_APPROVAL","data":null}`, 2 days is 200 with record `id` 2 and `days` 2; the commit is `31e6c36 需求一：提交请假申请，申请页 + POST 接口` (requirement one: submit a leave request, request page plus POST API); after the archive the parent shows 1/2 done.
+Key output (real runs): the three grep checks read `4`, `1`, `3` (four 400 branches, one coupon code input, three coupons); the four curl checks: a bad code `NOPE` is `{"code":"COUPON_INVALID","data":null}`, HTTP 400, one mechanical keyboard is 200 with order `id` 1 and 28,900 points paid, one wireless mouse is `{"code":"COUPON_THRESHOLD","data":null}`, HTTP 400, two wireless mice are 200 with order `id` 2 and 16,800 points paid; the commit is `7634b3b 需求一：下单用优惠券，结算页 + 券接口` (requirement one: use a coupon at checkout, checkout page plus coupon API); the archive is `b67ebfc chore(task): archive 11-13-下单用优惠券`; after the archive the parent shows 1/2 done.
 
 One sub-task goes round by round like this — what each round reads and what it produces is in the files, never in the conversation:
 
-1. **Implement (2.1)**: read the files in `implement.jsonl` (the request page in the system prototype, the outline design) plus your own `prd.md`, and dispatch `sunshine-implement` to change the code. Produces: the changed `LeaveForm.vue` and `server.js`.
+1. **Implement (2.1)**: read the files in `implement.jsonl` (the checkout page in the system prototype, the outline design) plus your own `prd.md`, and dispatch `sunshine-implement` to change the code. Produces: the changed `checkout.html` and `orders.js` (plus the coupon table in `db.js`).
 2. **Check (2.2)**: read the files in `check.jsonl` (the frontend spec, the backend API contract) and dispatch `sunshine-check` to verify. Produces: the grep / curl verification results.
-3. **Write back the spec (3.3)**: `sunshine-update-spec` writes the new conventions into `spec/` (leave form, leave API). Produces: the updated `frontend.md` and `backend.md`.
-4. **Commit (3.4)**: one commit (code plus spec conventions). Produces: commit `31e6c36`.
+3. **Write back the spec (3.3)**: `sunshine-update-spec` writes the new conventions into `spec/` (coupon API, checkout page). Produces: the updated `frontend.md` and `backend.md`.
+4. **Commit (3.4)**: one commit (code plus spec conventions). Produces: commit `7634b3b`.
 5. **Wrap up**: `task finish` clears the pointer, `task archive` moves the task directory into `archive/2026-11/` and sets the status to `completed`. Produces: the archived task directory, and the parent at 1/2 done.
 
 Only after requirement one is archived does requirement two start — the same five rounds (dialogue skipped; the commands and outputs are real values from runs):
 
-> **Claude Code:** Requirement two is starting: dispatching `sunshine-implement` to change `LeaveList.vue` against the approval list page in the system prototype — the GET API already exists — then `sunshine-check` to verify.
+> **Claude Code:** Requirement two is starting: dispatching `sunshine-implement` to write `public/优惠券页.html` against the coupon page in the system prototype and add the `GET /api/coupons` API, then `sunshine-check` to verify.
 >
-> **Claude Code:** Implement is done: the approval list page is a six-column table with a 通过 (approve) and 驳回 (reject) button on each row; GET returns all records. Check passed too: six header columns are there, the approve button is there, GET returns 2 records, and the second one carries `reason` and `days`. I added an approval-list and a GET-API convention to the spec. Commit once?
+> **Claude Code:** Implement is done: the coupon page fetches the GET API and renders the table; GET returns all three coupons. Check passed too: the fetch is there, the table is there, GET returns 3 coupons. I added a coupon-list and a GET-API convention to the spec. Commit once?
 >
 > **You:** Commit it, and archive this sub-task.
 
 Key output (real runs):
 
 ```sh
-curl -s localhost:3000/api/v1/leaves
-# {"code":"OK","data":[{"id":1,"type":"年假","start":"2026-11-10","end":"2026-11-11","reason":"休息","status":"待审批"},{"id":2,"applicant":"演示者","type":"年假","start":"2026-11-10","end":"2026-11-11","days":2,"reason":"休息","status":"待审批"}]}
+curl -s localhost:3000/api/coupons
+# {"code":"OK","data":[{"code":"MAN100JIAN10","name":"满100减10","threshold":10000,"amount":1000,"status":"未使用","expires":"2026-12-31"},{"code":"MAN200JIAN30","name":"满200减30","threshold":20000,"amount":3000,"status":"已使用","expires":"2026-12-31"},{"code":"NEW5","name":"新人5元券","threshold":0,"amount":500,"status":"已过期","expires":"2026-10-01"}]}
 ```
 
-The commit is `b3893e2 需求二：审批请假申请，审批列表页 + GET 接口` (requirement two: approve a leave request, approval list page plus GET API); after the archive the parent shows 2/2 done.
+The commit is `51920ca 需求二：优惠券列表，优惠券页 + GET 接口` (requirement two: the coupon list, coupon page plus GET API); the archive is `e15f11c chore(task): archive 11-13-优惠券列表`; after the archive the parent shows 2/2 done.
 
 Finally the parent gets its final integration review — checked once against the acceptance criteria in the outline design, the two sub-tasks' check results, and the interface contract, without re-reading the whole prototype — and then it is archived:
 
-> **Claude Code:** Integration review: the acceptance criteria all passed — the request page's three types and mandatory reason, all three API checks (400, `NEED_APPROVAL`, 200) and the GET list, and the records carry `reason` and `days`; the two sub-tasks' check results and the interface contract line up too. Archive the parent?
+> **Claude Code:** Integration review: the acceptance criteria all passed — the checkout page's coupon code input, all four coupon checks (a bad code 400, a below-threshold order 400, two discounted orders at 200), and the GET list with three coupons; the two sub-tasks' check results and the interface contract line up too. Archive the parent?
 >
 > **You:** Archive it.
 
@@ -1335,9 +1406,9 @@ sunshine task list-archive
 # 已归档任务：
 #
 # [2026-11] - 3 个任务
-#   - 11-11-请假申请小工具/
-#   - 11-11-需求一-提交请假申请/
-#   - 11-11-需求二-审批请假申请/
+#   - 11-13-下单用优惠券/
+#   - 11-13-优惠券列表/
+#   - 11-13-商城优惠券/
 ```
 
 The designer enters with only a requirement and exits leaving a complete design package; developers enter with the work already split per requirement and the context already curated, and exit with 0 active tasks and 3 archived.
@@ -1346,15 +1417,15 @@ The designer enters with only a requirement and exits leaving a complete design 
 
 Close Claude Code and reopen it, and the conversation is gone — but the state is all in the files: the `status` in `task.json`, the pointer in `.sunshine/.current-task`, the `implement.jsonl` / `check.jsonl`, the `prd.md`, the `spec/`. The new session doesn't have to remember anything; it just runs `/sunshine:continue` — which first runs `sunshine task context` to see the current task, then routes by `status` to the matching step (2.1 implement, 2.2 check, 3.3 write back the spec, 3.4 commit).
 
-Here is a real resumption (a separate minimal demo, only to verify the mechanism; a fresh shell with nothing shared from the previous session, reading files only):
+Here is a real resumption (taken while requirement one was mid-flight, reading files only):
 
 ```sh
 sunshine task current
-# .sunshine/tasks/11-11-接续演示任务
+# .sunshine/tasks/11-13-下单用优惠券
 
 sunshine task context
 # ## 当前任务
-# 路径：.sunshine/tasks/11-11-接续演示任务
+# 路径：.sunshine/tasks/11-13-下单用优惠券
 # 状态：in_progress
 # ……
 ```
@@ -1362,14 +1433,14 @@ sunshine task context
 `.sunshine/.current-task` holds a single line — the task path:
 
 ```text
-.sunshine/tasks/11-11-接续演示任务
+.sunshine/tasks/11-13-下单用优惠券
 ```
 
 Here is what resumption looks like in the session (the conversation is an example; the commands and outputs are real values from runs):
 
-> **You:** (Next day, reopening Claude Code) Keep working on the leave-request tool.
+> **You:** (Next day, reopening Claude Code) Keep working on the store coupons.
 >
-> **Claude Code:** Let me check the current task first: `task context` says the current task is requirement one, status `in_progress`, implementation not started yet. I'll read the request page in the system prototype and the outline design from the context list and start at 2.1 implementing. OK?
+> **Claude Code:** Let me check the current task first: `task context` says the current task is requirement one, status `in_progress`. I'll read the checkout page in the system prototype and the outline design from the context list and keep going from 2.1 implementing. OK?
 >
 > **You:** OK, go on.
 
@@ -1378,38 +1449,38 @@ Two things worth knowing, both hit for real:
 - `task start` has a guard: an empty `check.jsonl` fails outright (`错误：check.jsonl 没有已整理条目`), so curate the context with `add-context` before `start`, or pass `--allow-empty-context`.
 - The pointer lives in `.sunshine/.current-task`: `task finish` clears it, and `task archive` moves the task directory into the archive. An archived task is off the active list and can never be resumed — which is why a change goes through a new task.
 
-**Requirement change: the cap moves from 10 days to 5 — the designer returns**
+**Requirement change: the threshold moves from 100 yuan to 200 — the designer returns**
 
-After the project is done and archived, the business asks for the annual-leave cap to move from 10 days to 5 days per request. Follow the requirement-change rule in workflow 1.5: the three archived tasks stay archived — no reopening; the change gets a new task. But the design package is the designer's deliverable, so changing it means the designer returns first — and the return is real work, not one line: three concrete edits, a review of only the changed part, and a handoff with receipts.
+After the project is done and archived, the business asks for the discount threshold to move from 100 yuan to 200 yuan. Follow the requirement-change rule in workflow 1.5: the three archived tasks stay archived — no reopening; the change gets a new task. But the design package is the designer's deliverable, so changing it means the designer returns first — and the return is real work, not one line: three concrete edits, a review of only the changed part, and a handoff with receipts.
 
 **[Designer returns]**
 
-> **You:** The requirement changed: the annual-leave cap moves from 10 days to 5 days per request. Follow the Sunshine workflow: the designer returns to change the design package first, and implementation only starts after the review passes.
+> **You:** The requirement changed: the discount threshold moves from 100 yuan to 200 yuan. Follow the Sunshine workflow: the designer returns to change the design package first, and implementation only starts after the review passes.
 >
-> **Claude Code:** The blast radius is requirement one only: requirement two is archived and unaffected (the list page doesn't cap the number of days) — no reopening; requirement one is archived too — no reopening either. Here's the plan: the designer returns first and changes three places — the requirement-one line in the requirements list, the interface line in the outline design, and the cap note on the request page in the system prototype; the review then covers only those three places, and the designer exits after it passes; then a new task "年假上限改成 5 天" records `[变更 2026-11-11]` in its PRD, the check in `server.js` moves to 5 days, the spec updates the same way, and curl verifies the 6-day and 5-day cases. Once you confirm, I'll start. OK?
+> **Claude Code:** The blast radius is requirement one only: requirement two is archived and unaffected (the list page doesn't gate on the threshold) — no reopening; requirement one is archived too — no reopening either. Here's the plan: the designer returns first and changes three places — the requirement-one line in the requirements list, the interface line in the outline design, and the threshold note on the checkout page in the system prototype; the review then covers only those three places, and the designer exits after it passes; then a new task "满减门槛改成 200" records `[变更 2026-11-13]` in its PRD, the threshold in `db.js` moves to 20,000 points, the spec updates the same way, and curl verifies the 178-yuan and 299-yuan cases. Once you confirm, I'll start. OK?
 >
 > **You:** OK, go ahead.
 
-Here are the three places the designer changed on the return (real file content, all 5 days after the change):
+Here are the three places the designer changed on the return (real file content, all 200 yuan after the change):
 
 ```text
-doc/design/需求列表.md:9
-- 年假单次最长 5 天，超限提交后返回 NEED_APPROVAL（走审批）。
+doc/design/需求列表.md:17
+| R-001 | 下单用优惠券 | 结算页 | 结算页输入券码，满减规则：满 200 元减 10 元，订单总额达到 20000 分才减面额；券须未使用且未过期，否则提示不可用 | P0 | 券码 MAN100JIAN10：满 200 元减 10 元；已用/过期/不满门槛下单失败并提示 |
 
-doc/design/概要设计.md:16
-- 年假单次最长 5 天，超限返回 `NEED_APPROVAL`。
+doc/design/概要设计.md:34
+| POST /api/orders | body：items + address + couponCode | 订单（含实付 total） | 券不存在/已用/过期/不满门槛返回 400 + 错误码（COUPON_INVALID / COUPON_USED / COUPON_EXPIRED / COUPON_THRESHOLD）；MAN100JIAN10 满 200 元减 10 元（满 20000 分减 1000 分） |
 
-doc/prototype/申请页.html:15
-<p>年假单次最长 5 天，超限走审批。</p>
+doc/prototype/结算页.html:27
+<p class="hint">满 200 元减 10 元</p>
 ```
 
-(In English: the requirements list line — "Annual leave is at most 5 days per request; over the cap it returns NEED_APPROVAL for approval." The outline design line — "Annual leave is at most 5 days per request; over the cap it returns `NEED_APPROVAL`." The prototype line — "Annual leave is at most 5 days per request; over the cap it goes to approval.")
+(In English: the requirements list line — "Checkout takes a coupon code; the discount rule is 10 yuan off on orders over 200 yuan, and the order total must reach 20,000 points before the amount comes off; a coupon must be unused and unexpired or it is refused. Coupon MAN100JIAN10: 10 yuan off over 200 yuan; a used, expired, or below-threshold coupon fails the order with a notice." The outline design line — the POST interface line, with "MAN100JIAN10 is 10 yuan off on orders over 200 yuan (20,000 points off 1,000 points)". The prototype line — "10 yuan off on orders over 200 yuan.")
 
-The prototype edit is a single line (the cap note); a change this small is made in the main session with a targeted grep, not a fresh `sunshine-prototype` dispatch — only structural changes get re-dispatched.
+The prototype edit is a single line (the threshold note); a change this small is made in the main session with a targeted grep, not a fresh `sunshine-prototype` dispatch — only structural changes get re-dispatched.
 
 Then comes the requirements review — this time only the changed part is reviewed, not the whole design package again:
 
-> **Claude Code:** For review, only the three changed places: the cap moved from 10 days to 5 in the requirements list, the outline design, and the system prototype, and nothing else changed a word; requirement two is unaffected. Once you confirm, the designer exits, I'll create the new task and curate its context, and developers enter. OK?
+> **Claude Code:** For review, only the three changed places: the threshold moved from 100 yuan to 200 in the requirements list, the outline design, and the system prototype, and nothing else changed a word; requirement two is unaffected. Once you confirm, the designer exits, I'll create the new task and curate its context, and developers enter. OK?
 >
 > **You:** OK.
 
@@ -1437,24 +1508,24 @@ The review passes, and the designer exits. What developers receive on entry is n
 
 1. **The updated design package**: the three places above. The files in `doc/` are the contract; development follows them.
 2. **The review confirmation**: the confirmation of only the changed part. Nothing moves on until it is given.
-3. **The new task's context lists**: the `implement.jsonl` and `check.jsonl` of the new task "年假上限改成 5 天". Developers entering read only the files on these two lists — they don't re-read the whole design package:
+3. **The new task's context lists**: the `implement.jsonl` and `check.jsonl` of the new task "满减门槛改成 200". Developers entering read only the files on these two lists — they don't re-read the whole design package:
 
 ```json
 implement.jsonl
-{"file":"src/server.js","reason":"后端：上限 10 天改成 5 天"}
-{"file":"doc/design/概要设计.md","reason":"概要设计：上限已改成 5 天"}
+{"file":"doc/design/需求列表.md","reason":"变更后的需求一"}
+{"file":"doc/design/概要设计.md","reason":"变更后的接口行"}
 
 check.jsonl
-{"file":".sunshine/spec/backend.md","reason":"接口契约"}
+{"file":".sunshine/spec/backend.md","reason":"优惠券接口规范"}
 ```
 
-The PRD records it too (real content): `[变更 2026-11-11] 年假单次最长从 10 天改成 5 天（业务方要求）。设计人员已返场：需求列表、概要设计、系统原型都改成 5 天并评审通过。只影响需求一的后端校验：需求二已归档且不受影响，不 reopen；需求一已归档，不 reopen，变更走本任务。` (In English: "[Change 2026-11-11] The annual-leave cap moves from 10 days to 5 days per request (business request). The designer has returned: the requirements list, the outline design, and the system prototype all moved to 5 days and passed review. It affects only requirement one's backend check: requirement two is archived and unaffected — no reopening; requirement one is archived too — no reopening; the change goes through this task.")
+The PRD records it too (real content): `[变更 2026-11-13] MAN100JIAN10 的满减门槛由 100 元改成 200 元（threshold 10000 分→20000 分）；设计已改三处：需求列表需求一、概要设计接口行、结算页门槛提示；改代码后实测：2 件无线鼠标不满门槛、1 件机械键盘仍可用` (In English: "[Change 2026-11-13] MAN100JIAN10's discount threshold moves from 100 yuan to 200 yuan (threshold 10,000 points → 20,000 points); the design changed in three places: requirement one in the requirements list, the interface line in the outline design, and the threshold note on the checkout page; after the code change, two wireless mice are below the threshold and one mechanical keyboard still works.")
 
 **[Designer exits, developers enter]**
 
-Developers enter and implement against the new task's context: the check in `server.js` moves to 5 days, the spec updates the same way, and curl verifies both cases.
+Developers enter and implement against the new task's context: the threshold in `db.js` moves to 20,000 points, the spec updates the same way, and curl verifies both cases.
 
-Key output (real runs): 6 days returns `{"code":"NEED_APPROVAL","data":null}`, 5 days returns 200 with record `id` 3 and `days` 5; the commit is `add1c30 变更：年假上限改成 5 天（10→5）` (change: annual-leave cap moves to 5 days, 10 → 5); after the archive there are 4 tasks in total. The three old tasks sit untouched in the archive, and the change is its own task with a complete record — next time someone asks why the cap is 5 days, the `[变更 2026-11-11]` line in `prd.md` is the answer.
+Key output (real runs): two wireless mice return `{"code":"COUPON_THRESHOLD","data":null}` (before the change it was 200 with 16,800 points paid), one mechanical keyboard returns 200 with 28,900 points paid; the commit is `06a179c 变更：满减门槛改成 200 元（100→200）` (change: the discount threshold moves to 200 yuan, 100 → 200); after the archive there are 4 tasks in total. The three old tasks sit untouched in the archive, and the change is its own task with a complete record — next time someone asks why the threshold is 200 yuan, the `[变更 2026-11-13]` line in `prd.md` is the answer.
 
 **The full loop at a glance**
 
@@ -1466,7 +1537,7 @@ The whole scenario runs as one closed loop, with every entry, exit, and handoff 
 4. **The requirements review** (you confirm): review the whole package (the design package plus the split plan); the designer exits after it passes. Handoff: the approved design package.
 5. **The split** (the agent): split the whole scope in one pass, per requirement (one requirement is one sub-task by default; split frontend and backend into two sub-tasks when both are large, with the interface contract in the outline design as the handoff); the split starts nothing. Handoff: the task directories (`task.json` parent/children, `prd.md`, `implement.jsonl`, `check.jsonl`).
 
-The backend is split separately: this tool's backend is a single `server.js`, small enough that the selection needs no sub-task of its own — the open items go straight into requirement one's PRD. Only when the backend is large (pick a language, model the database, wire up a cache) does it first split out a "Backend foundation: tech selection and scaffolding" sub-task ahead of the rest, with the selection items (language, framework, database, cache) marked `[待定]` (to be decided) in its PRD; its 1.1 asks the questions and pins the selection down before it builds, and the requirement sub-tasks only start after it archives.
+The backend is split separately: this store's backend already exists (Express, the one from 12.2), so there is no selection to make; the coupon backend work (the coupon checks, the coupon list API) goes straight into requirement one and two's PRDs. Only when the backend is large (pick a language, model the database, wire up a cache) does it first split out a "Backend foundation: tech selection and scaffolding" sub-task ahead of the rest, with the selection items (language, framework, database, cache) marked `[待定]` (to be decided) in its PRD; its 1.1 asks the questions and pins the selection down before it builds, and the requirement sub-tasks only start after it archives.
 
 6. **Development** (developers enter): activate the sub-tasks one by one, five rounds each (implement → check → write back the spec → commit → archive), each round reading only its own context list. Handoff: the changed code, the updated spec, the commit.
 7. **Integration review and archive** (the parent task): once all sub-tasks are archived, the parent reviews once against the acceptance criteria, the two sub-tasks' check results, and the interface contract (without re-reading the whole prototype), then archives. Handoff: the archived task directories.
