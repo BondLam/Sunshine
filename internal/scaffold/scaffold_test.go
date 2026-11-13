@@ -8,8 +8,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/BondLam/Sunshine/internal/projecttype"
-	"github.com/BondLam/Sunshine/templates"
+	"github.com/linrong007/Sunshine/internal/projecttype"
+	"github.com/linrong007/Sunshine/templates"
 )
 
 func TestInitSpecTypeSkipsMismatchedSpec(t *testing.T) {

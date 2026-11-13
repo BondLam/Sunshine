@@ -4,7 +4,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/BondLam/Sunshine/internal/platforms"
+	"github.com/linrong007/Sunshine/internal/platforms"
 )
 
 // 清单孤儿键自愈（对照 utils/manifest-prune.ts）。

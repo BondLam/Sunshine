@@ -2,7 +2,7 @@
 # Sunshine 一键安装脚本
 #
 # 用法（装最新版）：
-#   curl -fsSL https://raw.githubusercontent.com/BondLam/Sunshine/main/install.sh | sh
+#   curl -fsSL https://raw.githubusercontent.com/linrong007/Sunshine/main/install.sh | sh
 #
 # 装指定版本（二选一）：
 #   curl -fsSL .../install.sh | sh -s -- v0.3.1
@@ -12,10 +12,10 @@
 #   SUNSHINE_INSTALL_DIR="$HOME/bin" sh install.sh
 #
 # 只支持 macOS / Linux（x86_64 与 arm64）。Windows 请到 Release 页下载 zip：
-#   https://github.com/BondLam/Sunshine/releases
+#   https://github.com/linrong007/Sunshine/releases
 set -eu
 
-REPO="BondLam/Sunshine"
+REPO="linrong007/Sunshine"
 PROG="sunshine"
 
 die() { printf '%s\n' "install.sh: $*" >&2; exit 1; }
@@ -30,7 +30,7 @@ case "$VERSION" in
   -h|--help)
     cat <<'EOF'
 用法：sh install.sh [版本]
-  curl -fsSL https://raw.githubusercontent.com/BondLam/Sunshine/main/install.sh | sh
+  curl -fsSL https://raw.githubusercontent.com/linrong007/Sunshine/main/install.sh | sh
   curl -fsSL .../install.sh | sh -s -- v0.3.1
   SUNSHINE_VERSION=v0.3.1 sh install.sh
   SUNSHINE_INSTALL_DIR="$HOME/bin" sh install.sh

@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/BondLam/Sunshine/internal/config"
+	"github.com/linrong007/Sunshine/internal/config"
 )
 
 func TestPreserveExistingRegistryConfig(t *testing.T) {

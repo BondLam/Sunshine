@@ -14,7 +14,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/BondLam/Sunshine/internal/hook"
+	"github.com/linrong007/Sunshine/internal/hook"
 )
 
 // AddSessionOptions 是 add-session 的参数（对应 add_session.py 的 flags）。

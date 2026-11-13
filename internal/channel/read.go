@@ -3,7 +3,7 @@ package channel
 import (
 	"fmt"
 
-	"github.com/BondLam/Sunshine/internal/channel/store"
+	"github.com/linrong007/Sunshine/internal/channel/store"
 )
 
 // ReadEvents 读 channel 事件；分页参数透传给 store

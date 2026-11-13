@@ -3,7 +3,7 @@ package cli
 import (
 	"os"
 
-	"github.com/BondLam/Sunshine/internal/lifecycle"
+	"github.com/linrong007/Sunshine/internal/lifecycle"
 	"github.com/spf13/cobra"
 )
 

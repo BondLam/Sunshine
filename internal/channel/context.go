@@ -3,7 +3,7 @@ package channel
 import (
 	"fmt"
 
-	"github.com/BondLam/Sunshine/internal/channel/store"
+	"github.com/linrong007/Sunshine/internal/channel/store"
 )
 
 // appendContextEvent 追加一条 context 事件。

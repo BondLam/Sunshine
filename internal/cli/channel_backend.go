@@ -22,8 +22,8 @@ import (
 	"os"
 	"time"
 
-	"github.com/BondLam/Sunshine/internal/channel/adapters"
-	"github.com/BondLam/Sunshine/internal/channel/supervisor"
+	"github.com/linrong007/Sunshine/internal/channel/adapters"
+	"github.com/linrong007/Sunshine/internal/channel/supervisor"
 )
 
 // ---------------------------------------------------------------------------

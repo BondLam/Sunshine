@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/BondLam/Sunshine/internal/channel/store"
+	"github.com/linrong007/Sunshine/internal/channel/store"
 )
 
 // recordingSink 记录 runtime 发出的事件与持久化的 id，供断言。

@@ -4,7 +4,7 @@ package adapters
 import (
 	"context"
 
-	"github.com/BondLam/Sunshine/internal/mem"
+	"github.com/linrong007/Sunshine/internal/mem"
 )
 
 // ClaudeAdapter 读 Claude Code 会话（~/.claude/projects，JSONL）。

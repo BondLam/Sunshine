@@ -9,7 +9,7 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/BondLam/Sunshine/internal/channel/store"
+	"github.com/linrong007/Sunshine/internal/channel/store"
 )
 
 // CreateChannel 建一个新 channel。已存在且未传 Force 时报错；

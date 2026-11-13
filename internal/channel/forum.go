@@ -12,7 +12,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/BondLam/Sunshine/internal/channel/store"
+	"github.com/linrong007/Sunshine/internal/channel/store"
 )
 
 // ThreadAction 是 post 支持的六种动作（rename 另走 RenameThread）。

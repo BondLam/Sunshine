@@ -9,7 +9,7 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/BondLam/Sunshine/internal/mem"
+	"github.com/linrong007/Sunshine/internal/mem"
 )
 
 // 本文件是 OpenCode 与 ZCode 共用的 message / part 存储读取逻辑

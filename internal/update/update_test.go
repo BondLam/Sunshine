@@ -9,8 +9,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/BondLam/Sunshine/internal/migrate"
-	"github.com/BondLam/Sunshine/internal/scaffold"
+	"github.com/linrong007/Sunshine/internal/migrate"
+	"github.com/linrong007/Sunshine/internal/scaffold"
 )
 
 func TestRunDryRunDoesNotWrite(t *testing.T) {

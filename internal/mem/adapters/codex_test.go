@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/BondLam/Sunshine/internal/mem"
+	"github.com/linrong007/Sunshine/internal/mem"
 )
 
 func codexFixture(t *testing.T, home string) string {

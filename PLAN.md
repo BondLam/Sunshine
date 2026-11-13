@@ -2600,9 +2600,9 @@ pre-commit install       # 在仓库根目录执行一次
 - 12.5 改 web 商城（实跑验证，按用户定的方案：401 那条留着，项目换成商城）：bug 是商城项目派 codex worker 报 401；对话一次问一个（先问是不是同一类问题，再问复现条件）；复现在沙箱重跑了一遍（`/tmp/s5-repro`：建 channel、发原话、拉起 worker，worker.log 里是 `failed to connect to websocket: HTTP error: 401 Unauthorized, url: wss://api.openai.com/v1/responses`，与旧文的 `unexpected status 401 ... /v1/responses` 是同因不同端点）；`mem search 401` 在沙箱重跑命中 01a1c3d8（1 次，原话）；任务描述里写清会话编号，教训写进 system.md，归档后 `[2026-11] - 1 个任务`。
 - 12.6 改 web 商城（实跑验证，两轮演示）：请假小工具改成商城优惠券（需求一 下单用优惠券、需求二 优惠券列表）；设计包、原型 mock 三条券、两轮开发、满减门槛 100→200 变更全部重跑。第一轮验证了券设计（四档 curl 全对）但漏了两步（每子任务先提交代码、回写 spec），且 /tmp 被清、演示目录消失；第二轮从零重建商城（s2-old 已被清，按行为规格重写），补上两步：功能提交 7634b3b / 51920ca / 06a179c，spec 回写（backend 优惠券接口节、frontend 优惠券节），归档 b67ebfc / e15f11c / 69da5c3 / eb0b8c3。实值：券码 NOPE → 400 COUPON_INVALID、1 件机械键盘实付 28900、1 件无线鼠标 400 COUPON_THRESHOLD、2 件无线鼠标实付 16800；变更后 2 件鼠标 400、1 件键盘仍 200 实付 28900；GET /api/coupons 三条券；父任务 [0/2]→[1/2]→[2/2]，归档 3→4 个任务。六个场景至此全部改完。注意：变更任务的 implement.jsonl 这次是设计文档（需求列表 + 概要设计），不再是旧文的 src/server.js——12.6 变更任务的 jsonl 与 1.4 对不上问题已顺带修掉（§4 的仍在）；概要设计.md:36 结算页行仍写“满 100 元减 10 元”，变更三处没含它，属演示残留；init --help 文案过期（称产品设计不生成前后端规范，实际生成三份 spec）；首次 archive 未自动提交是因演示仓库缺 git identity（手动按同格式补提交 b67ebfc，后两次自动提交正常）；变更后订单 id 又是 1（服务重起内存订单清零），教程里只引实付金额不引订单号。
 
-## GitHub 用户名改动（2026-11-13，未改代码）
+## GitHub 用户名改动（2026-11-13，已改代码，随 v0.5.7 发布）
 
-用户把 GitHub 用户名由 BondLam 改为 **linrong007**（https://github.com/linrong007），仓库现为 https://github.com/linrong007/Sunshine。代码与文档里的 BondLam 还没改：Go 模块路径 `github.com/BondLam/Sunshine`、仓库地址、install.sh、`.goreleaser.yaml`、README 链接仍是 BondLam；改名是一次全仓操作（上次 141 个文件），等用户定夺再动手。新提交的 git 身份改用 linrong007（已记 AGENTS.md）。
+用户把 GitHub 用户名由 BondLam 改为 **linrong007**（https://github.com/linrong007），仓库现为 https://github.com/linrong007/Sunshine。2026-11-13 用户点选全仓改名：代码与文档里的 BondLam 已全部改成 linrong007（Go 模块路径 `github.com/linrong007/Sunshine`、仓库地址、install.sh、`.goreleaser.yaml`、README 链接等，共 142 个文件；PLAN.md 里发版记录与 2026-11-09 定址等历史记录保留原样）。改名提交随 v0.5.7 一起发版（tag v0.5.7 移到改名提交后重新触发 Release 工作流）。新提交的 git 身份改用 linrong007（已记 AGENTS.md）。
 
 ## 教程流程统一（2026-11-13）：六个场景按真实流程重写（只改教程，不发版，已推送远端 c1ce0dc）
 

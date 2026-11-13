@@ -3,7 +3,7 @@ package channel
 import (
 	"fmt"
 
-	"github.com/BondLam/Sunshine/internal/channel/store"
+	"github.com/linrong007/Sunshine/internal/channel/store"
 )
 
 // SetChannelTitle 设置 channel 的显示标题。标题为空时报错，

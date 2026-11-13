@@ -7,7 +7,7 @@ import (
 	"testing"
 
 	"github.com/AlecAivazis/survey/v2/terminal"
-	"github.com/BondLam/Sunshine/internal/projecttype"
+	"github.com/linrong007/Sunshine/internal/projecttype"
 )
 
 // TestIsInitCancelled 覆盖取消的两种来源：Ctrl+C 中断与选“退出”。

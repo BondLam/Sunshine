@@ -6,7 +6,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/BondLam/Sunshine/internal/channel/store"
+	"github.com/linrong007/Sunshine/internal/channel/store"
 )
 
 // ChannelAddress 是定位一个 channel 的寻址参数。

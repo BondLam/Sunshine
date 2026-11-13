@@ -12,12 +12,12 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"github.com/BondLam/Sunshine/internal/channel/store"
-	"github.com/BondLam/Sunshine/internal/mem"
-	"github.com/BondLam/Sunshine/internal/mem/adapters"
-	"github.com/BondLam/Sunshine/internal/migrate"
-	"github.com/BondLam/Sunshine/internal/task"
-	"github.com/BondLam/Sunshine/internal/update"
+	"github.com/linrong007/Sunshine/internal/channel/store"
+	"github.com/linrong007/Sunshine/internal/mem"
+	"github.com/linrong007/Sunshine/internal/mem/adapters"
+	"github.com/linrong007/Sunshine/internal/migrate"
+	"github.com/linrong007/Sunshine/internal/task"
+	"github.com/linrong007/Sunshine/internal/update"
 )
 
 // ---------------------------------------------------------------------------

@@ -15,7 +15,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/BondLam/Sunshine/internal/hook"
+	"github.com/linrong007/Sunshine/internal/hook"
 )
 
 const (

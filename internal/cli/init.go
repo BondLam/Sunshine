@@ -10,10 +10,10 @@ import (
 
 	"github.com/AlecAivazis/survey/v2"
 	"github.com/AlecAivazis/survey/v2/terminal"
-	"github.com/BondLam/Sunshine/internal/platforms"
-	"github.com/BondLam/Sunshine/internal/projecttype"
-	"github.com/BondLam/Sunshine/internal/registry"
-	"github.com/BondLam/Sunshine/internal/scaffold"
+	"github.com/linrong007/Sunshine/internal/platforms"
+	"github.com/linrong007/Sunshine/internal/projecttype"
+	"github.com/linrong007/Sunshine/internal/registry"
+	"github.com/linrong007/Sunshine/internal/scaffold"
 	"github.com/spf13/cobra"
 	"golang.org/x/term"
 )

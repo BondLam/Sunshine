@@ -4,8 +4,8 @@ import (
 	"context"
 	"errors"
 
-	"github.com/BondLam/Sunshine/internal/update"
-	"github.com/BondLam/Sunshine/internal/upgrade"
+	"github.com/linrong007/Sunshine/internal/update"
+	"github.com/linrong007/Sunshine/internal/upgrade"
 	"github.com/spf13/cobra"
 )
 

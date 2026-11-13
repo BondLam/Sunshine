@@ -32,7 +32,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/BondLam/Sunshine/internal/platforms"
+	"github.com/linrong007/Sunshine/internal/platforms"
 	"golang.org/x/term"
 )
 

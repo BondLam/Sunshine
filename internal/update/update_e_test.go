@@ -5,8 +5,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/BondLam/Sunshine/internal/platforms"
-	"github.com/BondLam/Sunshine/internal/scaffold"
+	"github.com/linrong007/Sunshine/internal/platforms"
+	"github.com/linrong007/Sunshine/internal/scaffold"
 )
 
 // E 路：copilot-instructions.md 的 update 托管块合并。

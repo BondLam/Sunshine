@@ -7,8 +7,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/BondLam/Sunshine/internal/channel"
-	"github.com/BondLam/Sunshine/internal/channel/store"
+	"github.com/linrong007/Sunshine/internal/channel"
+	"github.com/linrong007/Sunshine/internal/channel/store"
 	"github.com/spf13/cobra"
 )
 

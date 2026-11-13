@@ -8,8 +8,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/BondLam/Sunshine/internal/channel/adapters"
-	"github.com/BondLam/Sunshine/internal/channel/store"
+	"github.com/linrong007/Sunshine/internal/channel/adapters"
+	"github.com/linrong007/Sunshine/internal/channel/store"
 )
 
 // testSetup 建一个隔离的 channel 存储根与项目桶，返回频道引用。

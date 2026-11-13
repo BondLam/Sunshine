@@ -12,10 +12,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/BondLam/Sunshine/internal/channel/store"
-	"github.com/BondLam/Sunshine/internal/hook"
-	"github.com/BondLam/Sunshine/internal/task"
-	"github.com/BondLam/Sunshine/internal/workflow"
+	"github.com/linrong007/Sunshine/internal/channel/store"
+	"github.com/linrong007/Sunshine/internal/hook"
+	"github.com/linrong007/Sunshine/internal/task"
+	"github.com/linrong007/Sunshine/internal/workflow"
 )
 
 // testProject 是 serve 测试用的临时项目夹。

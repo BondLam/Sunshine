@@ -4,7 +4,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/BondLam/Sunshine/internal/platforms"
+	"github.com/linrong007/Sunshine/internal/platforms"
 )
 
 // legacyCodexMarkers 是旧版 Codex 安装在清单里的标记文件

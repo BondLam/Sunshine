@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/BondLam/Sunshine/internal/channel/store"
+	"github.com/linrong007/Sunshine/internal/channel/store"
 )
 
 // forumFixture 在临时存储根里建一个 forum 频道（与一个 chat 频道），

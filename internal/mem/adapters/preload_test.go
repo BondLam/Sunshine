@@ -10,7 +10,7 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/BondLam/Sunshine/internal/mem"
+	"github.com/linrong007/Sunshine/internal/mem"
 )
 
 func TestPreloadMsgPartStore_OpenCode(t *testing.T) {

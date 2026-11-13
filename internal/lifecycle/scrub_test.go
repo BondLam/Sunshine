@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/BondLam/Sunshine/templates"
+	"github.com/linrong007/Sunshine/templates"
 )
 
 func TestScrubHooksJSONNested(t *testing.T) {

@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/BondLam/Sunshine/internal/mem"
+	"github.com/linrong007/Sunshine/internal/mem"
 )
 
 func TestRegistryAll(t *testing.T) {

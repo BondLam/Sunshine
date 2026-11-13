@@ -872,7 +872,7 @@ When a new version exists (output from the default local build, whose version is
 ```text
 正在升级 Sunshine：0.1.0 → 0.2.1（通道 latest）
 资产：sunshine_0.2.1_linux_amd64.tar.gz
-下载地址：https://github.com/BondLam/Sunshine/releases/download/v0.2.1/sunshine_0.2.1_linux_amd64.tar.gz
+下载地址：https://github.com/linrong007/Sunshine/releases/download/v0.2.1/sunshine_0.2.1_linux_amd64.tar.gz
 备份：将把当前二进制备份为 /tmp/rewrite-en/sunshine.bak
 [试运行] 未做任何修改。
 ```

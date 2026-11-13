@@ -7,8 +7,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/BondLam/Sunshine/internal/channel/adapters"
-	"github.com/BondLam/Sunshine/internal/channel/store"
+	"github.com/linrong007/Sunshine/internal/channel/adapters"
+	"github.com/linrong007/Sunshine/internal/channel/store"
 )
 
 // runInboxWatcher 是收件箱监听：轮询 events.jsonl，

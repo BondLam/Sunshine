@@ -9,8 +9,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/BondLam/Sunshine/internal/channel/store"
-	"github.com/BondLam/Sunshine/internal/config"
+	"github.com/linrong007/Sunshine/internal/channel/store"
+	"github.com/linrong007/Sunshine/internal/config"
 )
 
 // WorkerGuardConfig 是 worker 守卫的有效策略。

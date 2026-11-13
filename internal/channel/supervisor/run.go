@@ -12,8 +12,8 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/BondLam/Sunshine/internal/channel/adapters"
-	"github.com/BondLam/Sunshine/internal/channel/store"
+	"github.com/linrong007/Sunshine/internal/channel/adapters"
+	"github.com/linrong007/Sunshine/internal/channel/store"
 )
 
 // SupervisorConfig 是 supervisor 子进程的配置（JSON 文件，

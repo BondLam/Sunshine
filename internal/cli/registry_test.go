@@ -3,7 +3,7 @@ package cli
 import (
 	"testing"
 
-	"github.com/BondLam/Sunshine/internal/registry"
+	"github.com/linrong007/Sunshine/internal/registry"
 )
 
 func TestResolveRegistryStrategy(t *testing.T) {

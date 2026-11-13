@@ -7,8 +7,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/BondLam/Sunshine/internal/platforms"
-	"github.com/BondLam/Sunshine/internal/scaffold"
+	"github.com/linrong007/Sunshine/internal/platforms"
+	"github.com/linrong007/Sunshine/internal/scaffold"
 	"github.com/spf13/cobra"
 )
 

@@ -3,7 +3,7 @@ package update
 import (
 	"os"
 
-	"github.com/BondLam/Sunshine/internal/migrate"
+	"github.com/linrong007/Sunshine/internal/migrate"
 	"golang.org/x/term"
 )
 

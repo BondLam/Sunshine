@@ -1,4 +1,4 @@
-module github.com/BondLam/Sunshine
+module github.com/linrong007/Sunshine
 
 go 1.27
 

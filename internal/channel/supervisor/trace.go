@@ -7,7 +7,7 @@ import (
 	"io"
 	"os"
 
-	"github.com/BondLam/Sunshine/internal/channel/adapters"
+	"github.com/linrong007/Sunshine/internal/channel/adapters"
 )
 
 // RunParseTrace 是内部开发用解析命令 `sunshine channel __parse-trace` 的实现

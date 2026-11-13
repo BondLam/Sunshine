@@ -7,8 +7,8 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/BondLam/Sunshine/internal/registry"
-	"github.com/BondLam/Sunshine/templates"
+	"github.com/linrong007/Sunshine/internal/registry"
+	"github.com/linrong007/Sunshine/templates"
 )
 
 // InstallRegistry 从 registry 安装模板（marketplace 模式或直接下载模式），

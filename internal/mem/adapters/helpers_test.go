@@ -9,7 +9,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/BondLam/Sunshine/internal/mem"
+	"github.com/linrong007/Sunshine/internal/mem"
 	_ "modernc.org/sqlite"
 )
 

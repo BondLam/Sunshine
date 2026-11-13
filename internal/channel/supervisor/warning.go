@@ -5,7 +5,7 @@ import (
 	"io"
 	"time"
 
-	"github.com/BondLam/Sunshine/internal/channel/store"
+	"github.com/linrong007/Sunshine/internal/channel/store"
 )
 
 // DefaultWarnBeforeMs 是默认的超时前预警提前量：5 分钟（与上游一致）。

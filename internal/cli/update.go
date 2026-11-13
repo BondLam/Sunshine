@@ -5,7 +5,7 @@ import (
 	"os"
 
 	"github.com/AlecAivazis/survey/v2"
-	"github.com/BondLam/Sunshine/internal/update"
+	"github.com/linrong007/Sunshine/internal/update"
 	"github.com/spf13/cobra"
 )
 

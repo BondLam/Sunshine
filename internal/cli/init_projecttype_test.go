@@ -11,7 +11,7 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/BondLam/Sunshine/internal/projecttype"
+	"github.com/linrong007/Sunshine/internal/projecttype"
 )
 
 // stubProjectTypePrompt 用测试替身替换类型提问，返回恢复函数。

@@ -7,9 +7,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/BondLam/Sunshine/internal/migrate"
-	"github.com/BondLam/Sunshine/internal/platforms"
-	"github.com/BondLam/Sunshine/internal/scaffold"
+	"github.com/linrong007/Sunshine/internal/migrate"
+	"github.com/linrong007/Sunshine/internal/platforms"
+	"github.com/linrong007/Sunshine/internal/scaffold"
 )
 
 // ---------- 0.2.0 内嵌清单的 CLI 级回归 ----------

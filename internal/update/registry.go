@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/BondLam/Sunshine/internal/config"
-	"github.com/BondLam/Sunshine/internal/registry"
+	"github.com/linrong007/Sunshine/internal/config"
+	"github.com/linrong007/Sunshine/internal/registry"
 )
 
 // RegistryRefresher 是模板市场（B 组，internal/registry）向 update

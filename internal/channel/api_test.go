@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/BondLam/Sunshine/internal/channel/store"
+	"github.com/linrong007/Sunshine/internal/channel/store"
 )
 
 // errTestSpawn 与 errTestInterrupt 是注入 runtime 失败用的测试错误。
