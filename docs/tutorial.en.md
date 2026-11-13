@@ -1640,7 +1640,7 @@ Next time a 401 shows up, the agent reads the spec and checks the login first, i
 
 ### 12.6 Design-first product work: requirements → design documents → split → code
 
-This scenario uses the web store from two years back (the one in 12.2): adding a coupon feature to it. Designers and developers share one workflow, but they enter and exit at different times — each part below says who is on stage.
+This scenario starts from zero: a brand-new web store project, done design-first. The difference from 12.1 is the mode — 12.1 is a new project built by direct development; this one is a new project designed first and coded second: questions first, design documents on disk, a review that passes, a split, and only then hands on keyboards one sub-task at a time. Designers and developers share one workflow, but they enter and exit at different times — each part below says who is on stage.
 
 **[Designer enters]**
 
@@ -1648,412 +1648,374 @@ State the requirement to Claude Code (same for Codex and Cursor):
 
 Example prompt (an example, not a record of a real session):
 
-> I want to add a coupon feature to the store. Let's do design first — follow the Sunshine workflow: ask me what is unclear about the rules and the prototype details first; once I confirm, create a task, write the PRD, and land the requirements list (one item per requirement, each pointing at its page in the system prototype), the outline design, and one system prototype carrying mock data in doc/; after the review passes, split it into sub-tasks per requirement and then implement.
+> I want to build a web store with coupons from zero, design-first: settle the requirements and the design first, and only start coding after the review passes. The store needs a product list, adding to cart, checkout, using a coupon at checkout for a discount, and a coupon list page showing each coupon's threshold, amount, status, and expiry. The tech stack isn't decided yet — help me pin down the requirements first.
 
 Here is the session (the conversation is an example; the commands and outputs are real values from runs):
 
-> **Claude Code:** One question first — it decides how the split goes: is the coupon work two requirements, using a coupon at checkout and the coupon list, or one?
+> **Claude Code:** One question first — it decides how the split goes: which requirements? A, all five (product list, adding to cart, checkout, using a coupon at checkout, coupon list); B, only using a coupon and the coupon list.
 >
-> **You:** Two: requirement one is using a coupon at checkout, requirement two is the coupon list.
+> **You:** A, all five.
 
-The rest goes the same way, one question at a time: the discount rule, what happens with a bad coupon code, how expired and used coupons count — rules first, then the prototype details (one page per requirement, what the coupon list page shows, what a bad coupon code returns, how many mock rows), each with options; you answer one, it records one, and the answers go straight into the requirements list and the outline design. Once the questions are done, it sums up:
-
-> **Claude Code:** Got it. Here's the plan: create the task, write the PRD for both requirements; land the requirements list (one item per requirement, each pointing at its page in the system prototype), the outline design, and the system prototype (one file per page under `doc/prototype/`, plus an `index.html` navigation entry) in `doc/`; after the review passes, split it into two sub-tasks per requirement and then implement. Once you confirm, I'll create the task, write the PRD, and land the design documents. OK?
+> **Claude Code:** Do we fix the tech stack now, or leave it to the backend-foundation sub-task? A, fix it now: Node.js + Express + in-memory; B, only set constraints and leave the choice to that sub-task's 1.1 questions.
 >
-> **You:** OK, go ahead.
+> **You:** B, constraints only: prices stored in "fen", all APIs return `{code, data}`, port 3000. The choice belongs to the backend-foundation sub-task by workflow.
+
+> **Claude Code:** Shall we fix the data — three products and three coupons? A, use the given data; B, add more products or coupons.
+>
+> **You:** A, as given: wireless mouse 8900 fen / stock 120, mechanical keyboard 29900 fen / stock 45, 27-inch monitor 129900 fen / stock 20; coupons MAN100JIAN10 (10000 off 1000, unused, 2026-12-31), MAN200JIAN30 (20000 off 3000, used), NEW5 (new-user 5-yuan coupon, expired, 2026-10-01).
+
+> **Claude Code:** Coupon validation order and error codes? A, not found → used → expired → below threshold, with COUPON_INVALID / COUPON_USED / COUPON_EXPIRED / COUPON_THRESHOLD; B, only usable versus not usable.
+>
+> **You:** A, the four-step order.
+
+> **Claude Code:** Is the shipping address required at checkout? A, required — missing address returns 400 ADDRESS_REQUIRED; B, optional.
+>
+> **You:** A, required.
+
+> **Claude Code:** How is a coupon used at checkout? A, type the code and submit it with the order, the backend validates and deducts; B, claim the coupon first, then order.
+>
+> **You:** A, submit the code with the order.
+
+> **Claude Code:** What does the coupon list show? A, coupon name, threshold, amount, status, expiry; B, only name and amount.
+>
+> **You:** A, all five fields.
+
+> **Claude Code:** What is explicitly out of scope? A, no payments, no login, no coupon issuing / claiming / redemption backend, no automatic expiry cleanup, no database, no cache; B, build all of it.
+>
+> **You:** A, all of that is out.
+
+All eight dimensions (users and scenarios, feature boundaries, data, performance, security, compatibility, acceptance, out of scope) are covered by now: performance is a single-machine demo with no special concurrency needs, security is exact-match coupon codes, compatibility is prices in fen and APIs in `{code, data}` — those three were settled in the answers, so no separate questions. No blocking open questions, so on to design.
 
 Once the questions are answered, the design package lands in the project's `doc/`, not `.sunshine` — the designer finishes all deliverables first, and development only starts after the review passes:
 
 ```text
-doc/design/需求列表.md
-doc/design/概要设计.md
-doc/prototype/index.html
-doc/prototype/结算页.html
-doc/prototype/优惠券页.html
+doc/design/需求列表.md        # 54 lines: R-001–R-005 (lines 23–27), open items (lines 39–48), change log (lines 50–54)
+doc/design/概要设计.md        # 85 lines: goals and scope, module split, key flows, interfaces, data, tech selection, acceptance criteria, risks
+doc/prototype/index.html       # 42 lines: navigation entry listing the 4 pages and their requirements
+doc/prototype/mock.js          # 12 lines: shared mock, 3 products and 3 coupons
+doc/prototype/商品列表页.html  # 60 lines: R-001
+doc/prototype/购物车页.html    # 56 lines: R-002
+doc/prototype/结算页.html      # 60 lines: R-003 + R-004 (coupon code input + the "满 100 元减 10 元" threshold hint on line 36)
+doc/prototype/优惠券页.html    # 44 lines: R-005
 ```
 
-The requirements list is one item per requirement (real file content, excerpt): requirement one "下单用优惠券" (use a coupon at checkout) points at the checkout page in the system prototype — the checkout page takes a coupon code, the discount rule is 10 yuan off on orders over 100 yuan, and a coupon must be unused and unexpired or it is refused; requirement two "优惠券列表" (the coupon list) points at the coupon page in the system prototype — the list shows coupon name, threshold, amount, status, and expiry. The outline design's interface lines read (real content):
+Five requirements map to four prototype pages — R-003 checkout and R-004 using a coupon share the checkout page (R-004 is the coupon-code area on that page); every other requirement gets its own page. The prototype was built by dispatching a `sunshine-prototype` sub-agent (it reads only the requirements list and the outline design, and reports only page count, mock rows, and paths); the template `doc/prototype/示例页.html` that `init` ships is a placeholder, not a real page, so it was deleted and `index.html` rewritten for the real pages.
+
+The requirements list is one item per requirement, each pointing at its page in the system prototype (real file content, excerpt):
 
 ```text
-| POST /api/orders | { items, address, couponCode } | { code, data: order }，实付写在 data.total | 校验顺序：不存在 → 已使用 → 已过期 → 不满门槛；失败返回 400 + 错误码（COUPON_INVALID / COUPON_USED / COUPON_EXPIRED / COUPON_THRESHOLD）；MAN100JIAN10 满 100 元减 10 元（满 10000 分减 1000 分） |
+| R-001 | 商品列表 | 商品列表页展示全部商品：名称、价格（元）、库存；GET /api/products 返回三件商品 | P0 | GET /api/products 返回三件商品：无线鼠标 8900 分 / 库存 120、机械键盘 29900 分 / 库存 45、27寸显示器 129900 分 / 库存 20 |
+| R-002 | 加入购物车 | 商品列表页点“加入购物车”，购物车页展示已加商品、数量、合计；购物车放浏览器 localStorage，不设后端接口 | P0 | 购物车页能展示已加商品与合计；刷新后购物车还在 |
+| R-003 | 下单结算 | 结算页填收货地址提交订单；收货地址必填，缺地址返回 400 ADDRESS_REQUIRED；带地址下单成功 | P0 | 缺地址下单返回 400 ADDRESS_REQUIRED；带地址下单成功，返回订单 id、items、address、status“待付款” |
+| R-004 | 下单用优惠券 | 结算页输入券码，满 100 元减 10 元；券须未使用且未过期、且满足门槛，否则下单失败并提示原因 | P0 | 券码 NOPE 下单返回 400 COUPON_INVALID；MAN200JIAN30 返回 400 COUPON_USED；NEW5 返回 400 COUPON_EXPIRED；1 件机械键盘用 MAN100JIAN10 实付 28900 分；2 件无线鼠标用 MAN100JIAN10 实付 16800 分；1 件无线鼠标用 MAN100JIAN10 返回 400 COUPON_THRESHOLD |
+| R-005 | 优惠券列表 | 优惠券页展示全部券：券名、门槛、面额、状态、有效期；GET /api/coupons 返回三条券 | P0 | GET /api/coupons 返回三条券：MAN100JIAN10 满100减10 未使用、MAN200JIAN30 满200减30 已使用、NEW5 新人5元券 已过期 |
+```
+
+The outline design's interface lines (real content):
+
+```text
+| GET /api/products | 无 | { code, data: products }，三件商品 | 返回全部商品，不分页 |
+| POST /api/orders | { items, address, couponCode } | { code, data: order }，实付写在 data.total | 缺地址返回 400 ADDRESS_REQUIRED；券校验顺序：不存在 → 已使用 → 已过期 → 不满门槛；失败返回 400 + 错误码 COUPON_INVALID / COUPON_USED / COUPON_EXPIRED / COUPON_THRESHOLD |
 | GET /api/coupons | 无 | { code, data: coupons }，三条券 | 返回全部券，不分页 |
 ```
 
-(In English: "`POST /api/orders`: body has items, address, and couponCode; a missing, used, expired, or below-threshold coupon returns 400 with `COUPON_INVALID` / `COUPON_USED` / `COUPON_EXPIRED` / `COUPON_THRESHOLD`; MAN100JIAN10 is 10 yuan off on orders over 100 yuan (10,000 points off 1,000 points), and a successful order returns the amount actually paid. `GET /api/coupons` returns all coupons — name, threshold, amount, status, expiry — with no pagination.")
+The tech-selection section (outline design, lines 62–71) only writes constraints and open items and never forces a decision: constraints are prices in fen, APIs in `{code, data}`, port 3000; language, framework, database, and cache are all marked `[待定]`, left for the backend-foundation sub-task's 1.1 questions. That is the v0.5.5 rule — when the backend foundation is big enough for its own sub-task, its selection items are marked `[待定]` in its PRD and its 1.1 answers them before any scaffolding.
 
-The system prototype is a set of pages under `doc/prototype/`, plus an `index.html` navigation entry: a "结算 | 优惠券" (Checkout | Coupons) nav at the top, a checkout page with a coupon code input, a threshold note (10 yuan off over 100 yuan), and a submit button, and a coupon page as a table (coupon name, threshold, amount, status, expiry) carrying three mock rows （满100减10 unused, 满200减30 used, 新人5元券 expired) — the demo is clickable. One prototype serves multiple requirements: requirements one and two both live in this set of pages, one page each; and the split follows the requirements — the sub-tasks split per requirement.
+---
 
-The designer builds the design package step by step too: clarify the requirements and write them into the requirements list first, then the outline design (structure, interfaces, acceptance), then dispatch `sunshine-prototype` to build the prototype — one page per requirement in the list, with mock data (the dispatch prompt gives only the requirements list and the outline design; the sub-agent reports back just the page count, the mock record count, and the file path, and the main session never writes the prototype itself) — and the complete system prototype is the end of the design phase, not the start. If building the prototype exposes a gap in the requirements, the requirements list is updated with it (through the change path), but the overall direction stays requirements first, prototype last.
+**[Design review: designer and developer both on stage]**
 
-Then comes the requirements review — the designer's last act before exiting: Claude Code lays out the whole package for you to confirm — the PRD, the design document list, and the split plan; nothing moves on until you confirm. This step is the 1.5 requirements review, which is this section's "final planning summary":
+The design package is reviewed before any split. The review is the 1.5 final planning summary — the whole planning package laid out for confirmation, and only then does anything `task start`:
 
-> **Claude Code:** For review: the PRD, the requirements list, the outline design, and the system prototype are all ready, and the split is two sub-tasks — requirement one is the checkout page plus the POST API, requirement two is the coupon page plus the GET API. Once you confirm, I'll create the parent task and split it in one go. OK?
->
-> **You:** OK, split it.
-
-**[Designer exits, developers enter]**
-
-When developers enter (especially when design and development are done by different people), open the project in the agent UI first, then say one entry prompt:
-
-Example prompt (an example, not a real conversation record):
-
-> The design review passed and the subtasks are split. Now let's start development following the sunshine workflow: first list the parent task's subtasks and the first subtask's context for me to confirm; after I confirm, start from the first subtask and work through them one by one; start each subtask, then check it, write the specs back, commit, and archive it before starting the next one; once all subtasks are archived, run the final integration review on the parent task and archive it.
-
-After confirmation, development follows the flow below; if the session closes and reopens midway, run `/sunshine:continue` — it routes by the `task.json` status.
-
-The split happens once, after the review passes — and it follows the requirements: one prototype serves multiple requirements, so the sub-tasks split per requirement, covering the whole scope, with the sub-task list settled in one pass; the split itself starts nothing, and both sub-tasks are created in `planning`. The parent task records the sub-task map, and developers enter with the work already split and the context already curated (each sub-task's context points at its own page in the system prototype).
-
-One requirement is one sub-task by default (the sub-task owns its page plus its interface, with the acceptance criteria together, so it's easy to verify). But when a requirement's frontend and backend are both large, or done by different people, or the backend API serves several pages, it splits further into a frontend sub-task and a backend sub-task — mechanically, a sub-task with its own sub-tasks (`task create --parent`), the parent's `children` listing both, each in planning. The handoff between the two is the interface contract in the outline design: the backend implements the API per the contract, the frontend builds the page per the contract plus the mock data in the prototype, so the frontend doesn't wait for the backend; the parent's final integration review verifies frontend and backend together.
-
-Here is the real task list (the split is nested as soon as it lands):
-
-```sh
-sunshine task list
-# 全部活动任务：
-#
-#   - 11-13-商城优惠券/ (planning) [0/2 已完成] [lin]
-#     - 11-13-下单用优惠券/ (planning) [lin]
-#     - 11-13-优惠券列表/ (planning) [lin]
-#
-# 总计：3 个任务
-```
-
-**What the split produces: what lands on disk**
-
-The split is not just a line in the conversation — it lands on disk as real files (real directory tree; a task directory looks the same before and after archiving, except archiving moves it under `archive/2026-11/`):
-
-```text
-.sunshine/tasks/11-13-商城优惠券/
-  task.json        # parent task: children lists the two sub-tasks
-  prd.md           # the parent task's PRD
-  implement.jsonl  # empty — the parent implements nothing
-  check.jsonl      # empty
-.sunshine/tasks/11-13-下单用优惠券/
-  task.json        # sub-task: parent points back at the parent, status is planning
-  prd.md           # the sub-task's PRD (a skeleton; the agent fills it in at 1.1)
-  implement.jsonl  # what to read when implementing: the checkout page in the system prototype + the outline design
-  check.jsonl      # what to check against: the frontend spec + the backend API contract
-.sunshine/tasks/11-13-优惠券列表/
-  ...（the same four files）
-```
-
-Requirement one's context lists (real content) — this is what developers read on entry:
-
-```json
-implement.jsonl
-{"file":"doc/prototype/结算页.html","reason":"结算页原型：券码输入框"}
-{"file":"doc/design/概要设计.md","reason":"接口与流程"}
-
-check.jsonl
-{"file":".sunshine/spec/frontend.md","reason":"结算页规范"}
-{"file":".sunshine/spec/backend.md","reason":"优惠券接口规范"}
-```
-
-The prototype is one file per page, so each sub-task reads its own page file directly — no line ranges to work out; `lines` is only for other long single files (such as a long spec), see 1.4.
-
-The sub-task's `prd.md` is a skeleton that the agent fills in at the sub-task's own 1.1; complex tasks also add a `design.md` (technical design) and an `implement.md` (execution plan) before `start` — that is what the `prd.md` template itself says. In this demo the requirements live in the `doc/` design package, and the sub-tasks' context lists point at it.
-
-**Developers enter: round by round**
-
-Requirement one starts first. What Claude Code runs underneath (you don't type it), key output only:
-
-```sh
-sunshine task start 11-13-下单用优惠券
-# ✓ 状态：planning → in_progress（降级）
-```
-
-Once `start` succeeds, the status is written into `task.json` and the pointer into `.sunshine/.current-task` — close the session and reopen it, and the state is still in the files, not in the conversation (there is a resumption example below). Before archiving, cut a feature branch first (`master` is also the `base_branch`, so archiving directly would be refused): `git checkout -b feat/coupon-checkout` + `task set-branch`.
-
-Here is the session while it develops (the conversation is an example; the commands and outputs are real values from runs):
-
-> **Claude Code:** Requirement one is starting: the main session dispatches `sunshine-implement` to add a coupon code input to `checkout.html` against the checkout page in the system prototype and add four checks to the POST in `orders.js`, then dispatches `sunshine-check` to verify against the spec in `check.jsonl`.
->
-> **Claude Code:** Implement is done: the checkout page has a coupon code input (`name="couponCode"`); the POST checks in order — missing, used, expired, below threshold — returning 400 for a bad coupon, and 10 yuan off over 100 yuan, so one mechanical keyboard comes to 28,900 points. Check passed too: all four curl checks pass. I added a coupon-API and a checkout-page convention to the spec. Here's the commit plan — reply "OK" and I'll run it:
->
-> ```text
-> Suggested commits (in order):
->   1. 需求一：下单用优惠券，结算页 + 券接口
->      - src/db.js / src/routes/orders.js / public/checkout.html
->      - .sunshine/spec/backend.md / .sunshine/spec/frontend.md
-> Unrecognized dirty files (in no commit): .claude/, .cursor/ (init scaffolding), the rest of .sunshine/ (skeleton plus task directories, managed by archive/add-session), doc/ (the design package, a planning artifact of the parent task)
-> ```
->
-> **You:** OK.
->
-> **Claude Code:** Commit done: `057abbd 需求一：下单用优惠券，结算页 + 券接口` (5 files, 75 lines added, 2 deleted). Run `/finish-work` to archive and record the log — shall I run it now?
->
-> **You:** Go ahead.
-
-Key output (real runs): the four curl checks — a bad code `NOPE` is `{"code":"COUPON_INVALID"}`, HTTP 400; one mechanical keyboard is 200 with order `id` 1 and 28,900 points paid; one wireless mouse is `{"code":"COUPON_THRESHOLD"}`, HTTP 400; two wireless mice are 200 with order `id` 2 and 16,800 points paid:
-
-```sh
-curl -s -X POST localhost:3000/api/orders -H 'Content-Type: application/json' -d '{"items":[{"id":1,"qty":1}],"address":"测试地址","couponCode":"NOPE"}' -w "\nHTTP %{http_code}\n"
-# {"code":"COUPON_INVALID"}
-# HTTP 400
-
-curl -s -X POST localhost:3000/api/orders -H 'Content-Type: application/json' -d '{"items":[{"id":2,"qty":1}],"address":"测试地址","couponCode":"MAN100JIAN10"}' -w "\nHTTP %{http_code}\n"
-# {"code":"OK","data":{"id":1,"items":[{"id":2,"name":"机械键盘","price":29900,"qty":1}],"address":"测试地址","couponCode":"MAN100JIAN10","total":28900,"status":"待付款"}}
-# HTTP 200
-
-curl -s -X POST localhost:3000/api/orders -H 'Content-Type: application/json' -d '{"items":[{"id":1,"qty":1}],"address":"测试地址","couponCode":"MAN100JIAN10"}' -w "\nHTTP %{http_code}\n"
-# {"code":"COUPON_THRESHOLD"}
-# HTTP 400
-
-curl -s -X POST localhost:3000/api/orders -H 'Content-Type: application/json' -d '{"items":[{"id":1,"qty":2}],"address":"测试地址","couponCode":"MAN100JIAN10"}' -w "\nHTTP %{http_code}\n"
-# {"code":"OK","data":{"id":2,"items":[{"id":1,"name":"无线鼠标","price":8900,"qty":2}],"address":"测试地址","couponCode":"MAN100JIAN10","total":16800,"status":"待付款"}}
-# HTTP 200
-```
-
-`finish-work` archived requirement one and recorded the session log:
-
-```sh
-git log --oneline
-# e4ac2b2 chore: record journal
-# be797d4 chore(task): archive 11-13-下单用优惠券
-# 057abbd 需求一：下单用优惠券，结算页 + 券接口
-# 0fae77b 商城优惠券演示起点：重建 s2-old 商城
-```
-
-After the archive the parent shows 1/2 done.
-
-One sub-task goes round by round like this — what each round reads and what it produces is in the files, never in the conversation:
-
-1. **Approve**: after the 1.5 review passes, the sub-task's own 1.1 fills in the PRD and 1.4 curates the context; only after approval does `task start` run.
-2. **Implement (2.1)**: read the files in `implement.jsonl` (the checkout page in the system prototype, the outline design) plus your own `prd.md`, and dispatch `sunshine-implement` to change the code. Produces: the changed `checkout.html` and `orders.js` (plus the coupon table in `db.js`).
-3. **Check (2.2)**: read the files in `check.jsonl` (the frontend spec, the backend API contract) and dispatch `sunshine-check` to verify. Produces: the curl verification results.
-4. **Write back the spec (3.3)**: `sunshine-update-spec` writes the new conventions into `spec/` (`backend.md:17` for the coupon API, `frontend.md:18` for coupons). Produces: the updated `frontend.md` and `backend.md`.
-5. **Commit (3.4)**: draft the commit plan, show it once, ask for one confirmation, then commit (one commit: code plus spec conventions). Produces: commit `057abbd`.
-6. **Wrap up (3.5 + finish-work)**: remind the user they can run `/finish-work`; once they confirm, run it: archive the task and record the session log. Produces: archive commit `be797d4`, journal commit `e4ac2b2`, and the parent at 1/2 done.
-
-Only after requirement one is archived does requirement two start — the same flow (dialogue skipped; the commands and outputs are real values from runs):
-
-> **Claude Code:** Requirement two is starting: dispatching `sunshine-implement` to write `public/优惠券页.html` against the coupon page in the system prototype and add the `GET /api/coupons` API, then `sunshine-check` to verify.
->
-> **Claude Code:** Implement is done: the coupon page fetches the GET API and renders the table; GET returns all three coupons. Check found one problem and fixed it directly: the first coupon page was a static table with the three coupons hard-coded, which contradicts the spec just written in 3.3 — "fetch the data from GET /api/coupons, don't hard-code the mock"; it now renders with `fetch("/api/coupons")` (with Loading, empty, and error states), re-verified with the page at 200 and the API still returning three coupons. Step 3.3 judgment: the coupon-API section in backend.md and the coupon section in frontend.md already cover GET /api/coupons and API-driven rendering — no new content, spec untouched. Here's the commit plan — reply "OK" and I'll run it:
->
-> ```text
-> Suggested commits (in order):
->   1. 需求二：优惠券列表，优惠券页 + GET 接口
->      - src/routes/coupons.js, src/server.js, public/优惠券页.html
-> ```
->
-> **You:** OK.
->
-> **Claude Code:** Commit done: `d44083b 需求二：优惠券列表，优惠券页 + GET 接口` (3 files, 62 lines added). Run `/finish-work` to archive and record the log — shall I run it now?
->
-> **You:** Go ahead.
-
-Key output (real runs):
-
-```sh
-curl -s localhost:3000/api/coupons
-# {"code":"OK","data":[{"code":"MAN100JIAN10","name":"满100减10","threshold":10000,"amount":1000,"status":"未使用","expires":"2026-12-31"},{"code":"MAN200JIAN30","name":"满200减30","threshold":20000,"amount":3000,"status":"已使用","expires":"2026-12-31"},{"code":"NEW5","name":"新人5元券","threshold":0,"amount":500,"status":"已过期","expires":"2026-10-01"}]}
-```
-
-`finish-work` archived requirement two (`b0044a9`) and recorded the session log (`eb9b771`); after the archive the parent shows 2/2 done.
-
-Finally the parent gets its final integration review — checked once against the acceptance criteria in the outline design, the two sub-tasks' check results, and the interface contract, without re-reading the whole prototype — and then it is archived. The review ran five checks in one service run, all green: NOPE `{"code":"COUPON_INVALID"}` HTTP 400; one keyboard `total:28900` HTTP 200; one mouse `{"code":"COUPON_THRESHOLD"}` HTTP 400; two mice `total:16800` HTTP 200; GET /api/coupons with three coupons (threshold 10000) HTTP 200. Both places share the same coupons data.
-
-> **Claude Code:** The integration review passed: the acceptance criteria all passed, and the two sub-tasks' check results and the interface contract line up too. Run `/finish-work` to archive the parent task and record the log — shall I run it now?
->
-> **You:** Go ahead.
-
-**[Developers exit]**
-
-```sh
-sunshine task list
-# 全部活动任务：
-#
-#   （没有活动任务）
-#
-# 总计：0 个任务
-
-sunshine task list-archive
-# 已归档任务：
-#
-# [2026-11] - 3 个任务
-#   - 11-13-下单用优惠券/
-#   - 11-13-优惠券列表/
-#   - 11-13-商城优惠券/
-```
-
-The designer enters with only a requirement and exits leaving a complete design package; developers enter with the work already split per requirement and the context already curated, and exit with 0 active tasks and 3 archived.
-
-**Picking the work back up after closing and reopening**
-
-Close Claude Code and reopen it, and the conversation is gone — but the state is all in the files: the `status` in `task.json`, the pointer in `.sunshine/.current-task`, the `implement.jsonl` / `check.jsonl`, the `prd.md`, the `spec/`. The new session doesn't have to remember anything; it just runs `/sunshine:continue` — which first runs `sunshine task context` to see the current task, then routes by `status` to the matching step (2.1 implement, 2.2 check, 3.3 write back the spec, 3.4 commit).
-
-Here is a real resumption (taken while requirement one was mid-flight, reading files only):
-
-```sh
-sunshine task current
-# .sunshine/tasks/11-13-下单用优惠券
-
-sunshine task context
-# ## 当前任务
-# 路径：.sunshine/tasks/11-13-下单用优惠券
-# 状态：in_progress
-# ……
-```
-
-`.sunshine/.current-task` holds a single line — the task path:
-
-```text
-.sunshine/tasks/11-13-下单用优惠券
-```
-
-Here is what resumption looks like in the session (the conversation is an example; the commands and outputs are real values from runs):
-
-> **You:** (Next day, reopening Claude Code) Keep working on the store coupons.
->
-> **Claude Code:** Let me check the current task first: `task context` says the current task is requirement one, status `in_progress`. I'll read the checkout page in the system prototype and the outline design from the context list and keep going from 2.1 implementing. OK?
->
-> **You:** OK, go on.
-
-Two things worth knowing, both hit for real:
-
-- `task start` has a guard: an empty `check.jsonl` fails outright (`错误：check.jsonl 没有已整理条目`), so curate the context with `add-context` before `start`, or pass `--allow-empty-context`.
-- The pointer lives in `.sunshine/.current-task`: `task finish` clears it, and `task archive` moves the task directory into the archive. An archived task is off the active list and can never be resumed — which is why a change goes through a new task.
-
-**Requirement change: the threshold moves from 100 yuan to 200 — the designer returns**
-
-After the project is done and archived, the business asks for the discount threshold to move from 100 yuan to 200 yuan. Follow the requirement-change rule in workflow 1.5: the three archived tasks stay archived — no reopening; the change gets a new task. But the design package is the designer's deliverable, so changing it means the designer returns first — and the return is real work, not one line: three concrete edits, a review of only the changed part, and a handoff with receipts.
-
-**[Designer returns]**
-
-> **You:** The requirement changed: the discount threshold moves from 100 yuan to 200 yuan. Follow the Sunshine workflow: the designer returns to change the design package first, and implementation only starts after the review passes.
->
-> **Claude Code:** The blast radius is requirement one only: requirement two is archived and unaffected (the list page doesn't gate on the threshold) — no reopening; requirement one is archived too — no reopening either. 1.1 asks just the delta — one question: what does the threshold move to? Answer: 200 yuan. Here's the plan: the designer returns first and changes three places — the requirement-one line in the requirements list, the interface line in the outline design, and the threshold note on the checkout page in the system prototype; the review then covers only those three places, and the designer exits after it passes; then a new task "满减门槛改成 200" records `[变更 2026-11-13]` in its PRD, the threshold in `db.js` moves to 20,000 points, the spec updates the same way, and curl verifies the 178-yuan and 299-yuan cases. Once you confirm, I'll start. OK?
+> **Claude Code:** Final planning summary for confirmation: the goal is a coupon-carrying web store built from zero, design-first; the scope is all five requirements R-001–R-005; out of scope are payments, login, coupon issuing / claiming / redemption, automatic expiry cleanup, database, and cache; the key decisions are leaving the stack to the backend-foundation sub-task, keeping the cart in localStorage, requiring the address, and the four-step coupon validation order; the deliverables are prd.md, the requirements list, the outline design, a 4-page prototype plus mock, and 6 sub-tasks already created and validated, in order backend foundation → product list → adding to cart → checkout → using a coupon → coupon list. Once you confirm, I'll start them one by one. OK?
 >
 > **You:** OK, go ahead.
 
-Here are the three places the designer changed on the return (real file content, all 200 yuan after the change):
+---
+
+**[Split: 1.2 runs once]**
+
+The split runs once, right after the review passes, creating all 6 sub-tasks in one pass; it starts nothing, and every sub-task is created in `planning`. The parent task is only created, never started (it has no implementation work of its own), and the split follows what is actually in `doc/`:
+
+```sh
+sunshine task list
+# 全部活动任务：
+#
+#   - 11-13-商城/ (planning) [0/6 已完成] [lin]
+#     - 11-13-后端基础/ (planning) [lin]
+#     - 11-13-商品列表/ (planning) [lin]
+#     - 11-13-加入购物车/ (planning) [lin]
+#     - 11-13-下单结算/ (planning) [lin]
+#     - 11-13-下单用优惠券/ (planning) [lin]
+#     - 11-13-优惠券列表/ (planning) [lin]
+#
+# 总计：7 个任务
+```
+
+The backend-foundation sub-task goes first, and its 1.1 answers the `[待定]` items one question at a time:
+
+> **Claude Code:** Which language? A, Node.js; B, Go.
+>
+> **You:** A, Node.js — the store demo is light, and one language front and back.
+>
+> **Claude Code:** Which framework? A, Express; B, plain http.
+>
+> **You:** A, Express.
+>
+> **Claude Code:** Database? A, no database, in-memory; B, SQLite.
+>
+> **You:** A, in-memory — three products and three coupons, the demo needs no persistence.
+>
+> **Claude Code:** Cache? A, none; B, an in-memory cache layer.
+>
+> **You:** A, none — in-memory data is already the fastest layer.
+
+The four answers go into that sub-task's prd.md and design.md, the `[待定]` items clear to zero, and once the stack is settled it stays settled for the sub-tasks after it. Each requirement sub-task's 1.1 only confirms its scope briefly (its own requirement plus acceptance criteria in its prd.md) — no second full brainstorm — then straight to 1.4.
+
+Every sub-task's implement.jsonl and check.jsonl hold only specs, research, and `doc/` design products, never code files (the sub-agent reads the code itself while implementing; nothing needs to be pre-registered); each file needs at least one real entry before `start`, and `task validate` must pass. Dependencies go in the PRDs: the requirement sub-tasks start only after the backend foundation is archived; R-004 depends on R-003's order API; R-005 depends on R-004's coupons data.
+
+---
+
+**[Developers enter]**
+
+Activation is one sub-task at a time: a sub-task runs the whole implement → check → write-back → commit → archive sequence before the next one starts. Here is the record for each sub-task (the conversation is an example; the commands and outputs are real values from runs).
+
+### Backend foundation: tech selection and scaffolding
+
+The backend-foundation sub-task goes first. Its implement.jsonl has 3 entries (backend spec, outline-design tech selection lines 62–71, requirements-list R-001 line 23) and its check.jsonl has 2, and `task validate` passes before `start`. 2.1 implements `package.json` (express ^4.18.2), `src/server.js` (express.json, static directory public, listening on 3000), and `src/db.js` (three products plus an empty orders array); `npm install` pulls express 4.22.3, 68 packages, and writes `package-lock.json`.
+
+2.2 checks: `node --check` passes; the server prints `商城跑在 http://localhost:3000`. There are no `/api` routes yet, so curl verifies the scaffold itself runs:
+
+```sh
+curl -s -i http://localhost:3000/
+# HTTP/1.1 404 Not Found (expected: no static files, no routes yet)
+curl -s http://localhost:3000/api/products
+# Cannot GET /api/products (expected: the route is not mounted yet)
+```
+
+3.3 writes back to spec, and there is an update: `.sunshine/spec/backend.md` gains a "本项目技术选型" section (lines 17–20: Node.js, Express, no database, in-memory, no cache; prices in fen, APIs in `{code, data}`, port 3000); `.sunshine/spec/frontend.md` changes its stack section to "原生 HTML + JS，无框架；页面在 `public/`；不引入 Tailwind".
+
+The 3.4 submit plan is shown once and confirmed once ("reply 'ok' / '行' to run"), then committed in order. The first sub-task's plan has two commits — the planning products first, then its own work:
+
+> **Claude Code:** Submit plan for one-time confirmation: (1) `docs: 商城设计先行规划产物（需求列表、概要设计、原型、父子任务）` (doc/ + all 7 task files + `.gitignore`); (2) `feat: 后端基础：Node.js + Express 脚手架与商品内存数据` (package.json, package-lock.json, src/server.js, src/db.js, both spec files). `node_modules/` is in `.gitignore` and stays out. Reply 'ok' / '行' to run.
+>
+> **You:** 行.
+
+Work commit `1e3fc51` (planning commit `9ad44e3`) → archive commit `0866131` → journal commit `a1b867a` (session 1). One aside: the `.gitignore` (containing only `node_modules/`) was created here — `init` writes no root `.gitignore`, or `node_modules/` would have entered the work tree.
+
+### Product list
+
+Implement.jsonl and check.jsonl have 5 entries each (backend spec, frontend spec, requirements-list R-001 line 23, outline-design interface section lines 41–51, product-list prototype page), and `task validate` passes. 2.1 implements `src/routes/products.js` (GET /api/products), mounts the products route in `src/server.js`, and writes `public/商品列表页.html` (renders from the real API, price divided by 100; the "加入购物车" button already carries the localStorage write).
+
+2.2 checks:
+
+```sh
+curl -s http://localhost:3000/api/products
+# {"code":"OK","data":[{"id":1,"name":"无线鼠标","price":8900,"stock":120},{"id":2,"name":"机械键盘","price":29900,"stock":45},{"id":3,"name":"27寸显示器","price":129900,"stock":20}]}
+curl -s -o /dev/null -w "%{http_code}" http://localhost:3000/商品列表页.html
+# 200 (the page carries the fetch("/api/products") render logic)
+```
+
+3.3 writes back to spec: the judgment runs, and the answer is "nothing to update" (the API follows the existing backend spec, no new pattern or decision). Work commit `4134922` → archive commit `7e4d47b` → journal commit `df6838b` (session 2).
+
+### Adding to cart
+
+Implement.jsonl and check.jsonl have 4 entries each (frontend spec, requirements-list R-002 line 24, outline-design interface section lines 41–51, cart prototype page), and `task validate` passes. 2.1 implements `public/购物车页.html` (fetches GET /api/products for prices, reads localStorage to render the added items, quantities, and total, shows an empty state, and links "去结算" to checkout.html).
+
+2.2 checks: the cart has no backend API — adding to cart is browser localStorage behavior, and curl cannot click a button. So this round verifies reachability plus the key logic by grep plus a node calculation against db.js:
+
+```sh
+curl -s -o /dev/null -w "%{http_code} %{size_download} bytes" http://localhost:3000/购物车页.html
+# 200, 2595 bytes (the page contains localStorage in 3 places, /api/products once, 去结算 once)
+node -e "console.log('合计 = ' + (29900 + 8900 * 2) + ' 分 = ' + (29900 + 8900 * 2) / 100 + ' 元')"
+# 合计 = 47700 分 = 477 元 (1 mechanical keyboard + 2 wireless mice)
+```
+
+3.3 writes back to spec: the judgment runs, and the answer is "nothing to update". Work commit `60f7b93` → archive commit `b05f8df` → journal commit `fdf8ca8` (session 3).
+
+### Checkout
+
+Implement.jsonl and check.jsonl have 5 entries each (backend spec, frontend spec, requirements-list R-003 line 25, outline-design interface section lines 41–51, checkout prototype page), and `task validate` passes. 2.1 implements `src/routes/orders.js` (POST /api/orders, validates the address first and then totals; the ADDRESS_REQUIRED branch is lines 10–12), mounts the orders route in `src/server.js`, and writes `public/checkout.html` (the address input is required and submits to the real API; there is no coupon input yet — R-004 adds it).
+
+2.2 checks:
+
+```sh
+curl -s -X POST http://localhost:3000/api/orders -H "Content-Type: application/json" -d '{"items":[{"id":2,"qty":1}]}'
+# {"code":"ADDRESS_REQUIRED"}, HTTP 400 (no address)
+curl -s -X POST http://localhost:3000/api/orders -H "Content-Type: application/json" -d '{"items":[{"id":2,"qty":1}],"address":""}'
+# {"code":"ADDRESS_REQUIRED"}, HTTP 400 (an empty address counts as missing)
+curl -s -X POST http://localhost:3000/api/orders -H "Content-Type: application/json" -d '{"items":[{"id":2,"qty":1}],"address":"北京市海淀区"}'
+# {"code":"OK","data":{"id":1,"items":[{"id":2,"name":"机械键盘","price":29900,"qty":1}],"address":"北京市海淀区","couponCode":null,"total":29900,"status":"待付款"}}, HTTP 200
+```
+
+3.3 writes back to spec: the judgment runs, and the answer is "nothing to update" (ADDRESS_REQUIRED is this task's contract, already in design.md and the outline-design interface line, so it needs no place in the general spec). Work commit `a88a79e` → archive commit `5d9ce45` → journal commit `9f34611` (session 4).
+
+### Using a coupon at checkout
+
+Implement.jsonl and check.jsonl have 4 entries each (backend spec, requirements-list R-004 line 26, outline-design interface section lines 41–51, checkout prototype page), and `task validate` passes. 2.1 implements the coupons in-memory table in `src/db.js` (three coupons, lines 12–14), adds `checkCoupon` to `src/routes/orders.js` (lines 43–52, order: not found → used → expired → below threshold; a pass deducts the amount), and adds the coupon input to `public/checkout.html` (`name="couponCode"`, line 33) plus the "满 100 元减 10 元" threshold hint (line 35).
+
+2.2 checks, all six cases (the address is `北京市海淀区` throughout):
+
+```sh
+curl -s -X POST http://localhost:3000/api/orders -H "Content-Type: application/json" -d '{"items":[{"id":2,"qty":1}],"address":"北京市海淀区","couponCode":"NOPE"}'
+# {"code":"COUPON_INVALID"}, HTTP 400 (the code does not exist)
+curl -s -X POST http://localhost:3000/api/orders -H "Content-Type: application/json" -d '{"items":[{"id":2,"qty":1}],"address":"北京市海淀区","couponCode":"MAN200JIAN30"}'
+# {"code":"COUPON_USED"}, HTTP 400 (already used)
+curl -s -X POST http://localhost:3000/api/orders -H "Content-Type: application/json" -d '{"items":[{"id":2,"qty":1}],"address":"北京市海淀区","couponCode":"NEW5"}'
+# {"code":"COUPON_EXPIRED"}, HTTP 400 (expired)
+curl -s -X POST http://localhost:3000/api/orders -H "Content-Type: application/json" -d '{"items":[{"id":2,"qty":1}],"address":"北京市海淀区","couponCode":"MAN100JIAN10"}'
+# {"code":"OK","data":{"id":1,"items":[{"id":2,"name":"机械键盘","price":29900,"qty":1}],"address":"北京市海淀区","couponCode":"MAN100JIAN10","total":28900,"status":"待付款"}}, HTTP 200 (1 keyboard, 28900 after the discount)
+curl -s -X POST http://localhost:3000/api/orders -H "Content-Type: application/json" -d '{"items":[{"id":1,"qty":2}],"address":"北京市海淀区","couponCode":"MAN100JIAN10"}'
+# {"code":"OK","data":{"id":2,"items":[{"id":1,"name":"无线鼠标","price":8900,"qty":2}],"address":"北京市海淀区","couponCode":"MAN100JIAN10","total":16800,"status":"待付款"}}, HTTP 200 (2 mice, 16800 after the discount)
+curl -s -X POST http://localhost:3000/api/orders -H "Content-Type: application/json" -d '{"items":[{"id":1,"qty":1}],"address":"北京市海淀区","couponCode":"MAN100JIAN10"}'
+# {"code":"COUPON_THRESHOLD"}, HTTP 400 (1 mouse is below the threshold)
+```
+
+3.3 writes back to spec: the judgment runs, and the answer is "nothing to update" (the validation order is a business rule, already in design.md and the outline-design interface line; backend.md's extra line is left for the change demo). Work commit `346c7d2` → archive commit `91106ee` → journal commit `220790d` (session 5). Order ids restart from 1 after each server restart (in-memory data clears on restart) — expected for a demo.
+
+### Coupon list
+
+Implement.jsonl and check.jsonl have 5 entries each (backend spec, frontend spec, requirements-list R-005 line 27, outline-design interface section lines 41–51, coupon prototype page), and `task validate` passes. 2.1 implements `src/routes/coupons.js` (GET /api/coupons), mounts the coupons route in `src/server.js`, and writes `public/优惠券页.html` (renders the three coupons from the real API).
+
+2.2 checks:
+
+```sh
+curl -s http://localhost:3000/api/coupons
+# {"code":"OK","data":[{"code":"MAN100JIAN10","name":"满100减10","threshold":10000,"amount":1000,"status":"未使用","expires":"2026-12-31"},{"code":"MAN200JIAN30","name":"满200减30","threshold":20000,"amount":3000,"status":"已使用","expires":"2026-12-31"},{"code":"NEW5","name":"新人5元券","threshold":0,"amount":500,"status":"已过期","expires":"2026-10-01"}]}
+curl -s -o /dev/null -w "%{http_code} %{size_download} bytes" http://localhost:3000/优惠券页.html
+# 200, 1859 bytes
+```
+
+The last 2.2 round is a full-scope regression: `task context --mode packages` returns "单仓项目（未配置包）" for a single-repo project, with no packages to list, so the regression covers every interface instead — GET /api/products returns three products, and POST /api/orders (1 keyboard + MAN100JIAN10, with an address) returns 28900 with status "待付款". Both pass.
+
+3.3 writes back to spec: the judgment runs, and the answer is "nothing to update". Work commit `08ff4d4` → archive commit `e71f8c2` → journal commit `99d36ab` (session 6).
+
+---
+
+**[Final integration review on the parent task]**
+
+With all six sub-tasks archived, the parent shows `[6/6 已完成]` and runs its final integration review before archiving. The review reads the acceptance criteria, each sub-task's check results, and the interface contracts — it does not re-read the whole prototype. A fresh server runs the whole set once:
+
+```sh
+curl -s http://localhost:3000/api/products
+# {"code":"OK","data":[{"id":1,"name":"无线鼠标","price":8900,"stock":120},{"id":2,"name":"机械键盘","price":29900,"stock":45},{"id":3,"name":"27寸显示器","price":129900,"stock":20}]}
+curl -s http://localhost:3000/api/coupons
+# three coupons (thresholds 10000/20000/0, as before the change)
+curl -s -X POST http://localhost:3000/api/orders -H "Content-Type: application/json" -d '{"items":[{"id":2,"qty":1}]}'
+# {"code":"ADDRESS_REQUIRED"}, HTTP 400
+curl -s -X POST http://localhost:3000/api/orders -H "Content-Type: application/json" -d '{"items":[{"id":2,"qty":1}],"address":"北京市海淀区","couponCode":"MAN100JIAN10"}'
+# {"code":"OK","data":{"id":1,...,"total":28900,"status":"待付款"}}, HTTP 200
+curl -s -X POST http://localhost:3000/api/orders -H "Content-Type: application/json" -d '{"items":[{"id":1,"qty":2}],"address":"北京市海淀区","couponCode":"MAN100JIAN10"}'
+# total 16800, HTTP 200
+curl -s -X POST http://localhost:3000/api/orders -H "Content-Type: application/json" -d '{"items":[{"id":1,"qty":1}],"address":"北京市海淀区","couponCode":"MAN100JIAN10"}'
+# {"code":"COUPON_THRESHOLD"}, HTTP 400
+# all four pages return HTTP 200: product list, cart, checkout.html, coupon list
+```
+
+The parent has no code commit of its own (the code lives in the sub-tasks' work commits); before archiving it runs `task set-branch 11-13-商城 feature/11-13-商城`. The finish-work step 1 (`task context --mode record`) finds no other completed-but-unarchived tasks besides the parent, so the "archive these N together? [y/N]" question has N=0 and is never asked. Archive commit `257b690` → journal commit `d120f25` (session 7; `--commit` records the planning commit `9ad44e3`, since the parent has no work commit of its own, and the journal summary says so). After archiving, `task list` shows 0 active tasks and `task list-archive` shows 7 tasks for 2026-11.
+
+---
+
+**[Change demo: the designer comes back]**
+
+After the parent is archived, the user changes their mind: the coupon threshold moves from 100 yuan to 200 yuan. How does design-first handle a change? The designer revises `doc/` and the affected prototype pages first, the parent PRD records a `[变更]`, and 1.5 reviews only the change; archived work is never reopened, in-progress work pauses and goes back, untouched work keeps running.
+
+First, create the change task. The 1.2 way would attach it under the parent — but the parent is already archived:
+
+```sh
+sunshine task create "满减门槛改成 200 元" --slug 满减门槛改成-200 --parent 11-13-商城 --no-start
+# 错误：无法在 /tmp/scenes/s6-new/.sunshine/tasks 下解析任务 "11-13-商城"
+# 错误：父任务无法解析：11-13-商城
+# 未创建任务。请传入已存在的任务目录。
+```
+
+A sub-task cannot be created under an archived parent — that is what 1.2 means: the split happens once, so either all sub-tasks are created during planning, or the parent waits until every sub-task is archived before it archives; a rework task cannot hang off an archived parent and has to stand alone. So it becomes an independent task, and its PRD records `[变更 2026-11-13]`:
+
+```sh
+sunshine task create "满减门槛改成 200 元" -d "优惠券满减门槛 100 元改为 200 元" --slug 满减门槛改成-200 --no-start
+# 任务已创建：11-13-满减门槛改成-200
+```
+
+One wording rule to be clear about: the `[变更 2026-11-13]` is not written into the archived parent's prd.md — an archive is history and is never reopened; the older demo's archived parent PRD has no such line either. The `[变更]` goes in the change task's own prd.md and in the design documents' change log.
+
+The designer revises eight places (this round has five requirements, and using a coupon is R-004):
+
+| # | File | Line | Change |
+| --- | --- | --- | --- |
+| 1 | `doc/design/需求列表.md` | 26 (the R-004 line) | "满 100 元减 10 元" → "满 200 元减 10 元"; acceptance "2 件无线鼠标用 MAN100JIAN10 实付 16800 分" → "返回 400 COUPON_THRESHOLD" |
+| 2 | `doc/design/需求列表.md` | 54 (the change-log line) | New line: `2026-11-13 ｜ R-004 满减门槛由 100 元改为 200 元（验收标准同步改：2 件无线鼠标由实付 16800 分改为 400 COUPON_THRESHOLD）｜ 用户要求` |
+| 3 | `doc/design/概要设计.md` | 29 (module split, checkout-page line) | Threshold hint "满 100 元减 10 元" → "满 200 元减 10 元" (a self-contradiction inside the same file, synced) |
+| 4 | `doc/design/概要设计.md` | 50 (interface line, checkout page) | Threshold hint "满 100 元减 10 元" → "满 200 元减 10 元" |
+| 5 | `doc/design/概要设计.md` | 59 (data section, mock-coupons line) | MAN100JIAN10 `threshold 10000` → `threshold 20000`, plus the note: "注意：券名‘满100减10’未改，门槛已改为 200 元，名不副实，见变更记录" |
+| 6 | `doc/design/概要设计.md` | 77 (acceptance-criteria line) | "2 件无线鼠标用 MAN100JIAN10 实付 16800 分" → "返回 400 COUPON_THRESHOLD" |
+| 7 | `doc/prototype/结算页.html` | 36 (threshold-hint line) | "满 100 元减 10 元" → "满 200 元减 10 元" |
+| 8 | `doc/prototype/mock.js` | 8 | MAN100JIAN10 `threshold: 10000` → `threshold: 20000` (the shared prototype mock is synced; the coupon page renders from the mock, so it follows automatically) |
+
+A grep afterwards confirms the old values ("满 100 元减 10 元", "threshold 10000") are gone from the requirement lines, the interface lines, the checkout prototype, and mock.js; "16800" remains only in the change-log line itself (which is there to record the old value), and "满100减10" remains only as the coupon name (deliberately not renamed).
+
+The change task's 1.5 reviews only the changed parts (prd.md plus the design changes above), then `task start`. Its implement.jsonl and check.jsonl have 4 entries each (backend spec, requirements-list R-004 line 26, outline-design interface section lines 41–51, checkout prototype page), and `task validate` passes. The implementation changes three places:
+
+| # | File | Line | Change |
+| --- | --- | --- | --- |
+| 1 | `src/db.js` | 12 | MAN100JIAN10 `threshold: 10000` → `threshold: 20000` |
+| 2 | `.sunshine/spec/backend.md` | 21 (new line) | `优惠券 MAN100JIAN10 门槛 20000 分（2026-11-13 由 10000 改为 20000；券名“满100减10”未改，名不副实）。` |
+| 3 | `public/checkout.html` | 35 | Threshold hint "满 100 元减 10 元" → "满 200 元减 10 元" |
+
+Post-change curl verification (the address is `北京市海淀区` throughout):
+
+```sh
+curl -s -X POST http://localhost:3000/api/orders -H "Content-Type: application/json" -d '{"items":[{"id":1,"qty":2}],"address":"北京市海淀区","couponCode":"MAN100JIAN10"}'
+# {"code":"COUPON_THRESHOLD"}, HTTP 400 (2 mice used to pay 16800; now they are below the 200-yuan threshold)
+curl -s -X POST http://localhost:3000/api/orders -H "Content-Type: application/json" -d '{"items":[{"id":2,"qty":1}],"address":"北京市海淀区","couponCode":"MAN100JIAN10"}'
+# {"code":"OK","data":{"id":1,"items":[{"id":2,"name":"机械键盘","price":29900,"qty":1}],"address":"北京市海淀区","couponCode":"MAN100JIAN10","total":28900,"status":"待付款"}}, HTTP 200 (1 keyboard still pays 28900)
+curl -s http://localhost:3000/api/coupons
+# MAN100JIAN10 {"code":"MAN100JIAN10","name":"满100减10","threshold":20000,"amount":1000,"status":"未使用","expires":"2026-12-31"} (the name is still "满100减10"; the threshold is already 20000)
+```
+
+Work commit `eec9467` (`变更：满减门槛改成 200 元（100→200）`, covering the 8 design changes, the 3 code changes, and the change task's files) → archive commit `7648b07` → journal commit `ba86c65` (session 8). After archiving, `task list-archive` shows 8 tasks for 2026-11.
+
+---
+
+The final git log (oldest first, 25 commits; every task follows "work commit → archive commit → journal commit"):
 
 ```text
-doc/design/需求列表.md:23
-| R-001 | 下单用优惠券 | 结算页输入券码，满 200 元减 10 元；券须未使用且未过期，否则下单失败并提示原因 | P0 | 券码 NOPE 下单返回 400 COUPON_INVALID；1 件机械键盘用券实付 28900 分；1 件无线鼠标用券返回 400 COUPON_THRESHOLD；2 件无线鼠标用券返回 400 COUPON_THRESHOLD |
-
-doc/design/概要设计.md:41
-| POST /api/orders | { items, address, couponCode } | { code, data: order }，实付写在 data.total | 校验顺序：不存在 → 已使用 → 已过期 → 不满门槛；失败返回 400 + 错误码（COUPON_INVALID / COUPON_USED / COUPON_EXPIRED / COUPON_THRESHOLD）；MAN100JIAN10 满 200 元减 10 元（满 20000 分减 1000 分） |
-
-doc/prototype/结算页.html:39
-<p class="hint">满 200 元减 10 元</p>
+3ba152f chore: sunshine init（产品设计）
+9ad44e3 docs: 商城设计先行规划产物（需求列表、概要设计、原型、父子任务）
+1e3fc51 feat: 后端基础：Node.js + Express 脚手架与商品内存数据
+0866131 chore(task): archive 11-13-后端基础
+a1b867a chore: record journal
+4134922 feat: 商品列表：GET /api/products 与商品列表页
+7e4d47b chore(task): archive 11-13-商品列表
+df6838b chore: record journal
+60f7b93 feat: 加入购物车：购物车页（localStorage）
+b05f8df chore(task): archive 11-13-加入购物车
+fdf8ca8 chore: record journal
+a88a79e feat: 下单结算：POST /api/orders 与结算页，地址必填
+5d9ce45 chore(task): archive 11-13-下单结算
+9f34611 chore: record journal
+346c7d2 feat: 下单用优惠券：券校验与抵扣，结算页加券码输入
+91106ee chore(task): archive 11-13-下单用优惠券
+220790d chore: record journal
+08ff4d4 feat: 优惠券列表：GET /api/coupons 与优惠券页
+e71f8c2 chore(task): archive 11-13-优惠券列表
+99d36ab chore: record journal
+257b690 chore(task): archive 11-13-商城
+d120f25 chore: record journal
+eec9467 变更：满减门槛改成 200 元（100→200）
+7648b07 chore(task): archive 11-13-满减门槛改成-200
+ba86c65 chore: record journal
 ```
 
-(In English: the requirements list line — "Checkout takes a coupon code; the discount rule is 10 yuan off on orders over 200 yuan, and a coupon must be unused and unexpired or it is refused. A bad code NOPE returns 400 COUPON_INVALID; one mechanical keyboard with a coupon pays 28,900 points; one wireless mouse with a coupon returns 400 COUPON_THRESHOLD; two wireless mice with a coupon return 400 COUPON_THRESHOLD." The outline design line — the POST interface line, with "MAN100JIAN10 is 10 yuan off on orders over 200 yuan (20,000 points off 1,000 points)". The prototype line — "10 yuan off on orders over 200 yuan.")
+The closed loop in this scenario is: empty directory → `init` → questions one at a time → the design package in `doc/` → the review (final planning summary) → one split creating 6 sub-tasks → each sub-task running implement, check, spec write-back, commit, and archive in turn → the parent's integration review and archive → a change going through the design package and closing again. Design-first has no forced deliverables list — the outline design, the requirements list, and the prototype are not hard requirements, only this scenario's design package; the designer decides the deliverables, 1.5 reviews the whole package, the split follows what is actually in `doc/`, and a task with no design documents is simply a pure coding task.
 
-(The acceptance criteria, the open items, the change log, and the data section of the outline design were synced in the same files too — otherwise the same file would contradict itself; grep confirms all three places read 200, and the only "100" left in the design documents is the history note in the change log and the coupon names.)
+A few boundaries, stated plainly:
 
-The prototype edit is a single line (the threshold note); a change this small is made in the main session with a targeted grep, not a fresh `sunshine-prototype` dispatch — only structural changes get re-dispatched.
-
-Then comes the requirements review — this time only the changed part is reviewed, not the whole design package again:
-
-> **Claude Code:** For review, only the three changed places: the threshold moved from 100 yuan to 200 in the requirements list, the outline design, and the system prototype, and nothing else changed a word; requirement two is unaffected. Once you confirm, the designer exits, I'll create the new task and curate its context, and developers enter. OK?
->
-> **You:** OK.
-
-**What to say at review: how the blast radius and the task list are decided**
-
-The example above is a change after the project was finished and archived, so the review covers only the three changed places. A mid-development change works the same way, but the review covers one more thing — how the task list is adjusted. Say this at review:
-
-Example prompt (an example, not a real conversation record):
-
-> Review this change: first list the blast radius — which sub-tasks it touches, and whether each is archived, in progress, or not started; then list how the task list changes — which get a new rework sub-task, which get their scope and context edited in place, which get detached, which stay untouched; finally list the split plan. Only start after I confirm all three.
-
-The blast radius is decided against two things — the parent task's `children` list in `task.json` (the sub-task map) and the design package in `doc/` (the requirements list, the outline design, the prototype pages). A sub-task is affected when the change touches its PRD, design, interface, or prototype page. Then handle each by category:
-
-- **Archived**: never reopen. Create a new task and run the full flow, noting the original task and the reason for the change in its description. Note: no sub-task can be created under an archived parent (`task create --parent` fails with "父任务无法解析"), so the rework task is created as an independent task, with its PRD naming the archived parent it belongs to.
-- **In progress**: pause the work, rework, then resume; the status stays as is.
-- **Not started (`planning`)**: edit it in place — scope with `task set-scope`, context with `task add-context`.
-- **Unaffected**: keep going, don't stop.
-- **Obsolete**: detach it from the parent's `children` with `task remove-subtask`.
-
-The split still follows requirements: one rework sub-task per requirement, splitting frontend and backend only when both are large. For example: requirement one is archived and requirement two is not started, and the change touches both — requirement one gets a new rework sub-task, requirement two gets its content edited in place; if requirement two is no longer needed, detach it. The adjusted list is confirmed with you at review before development resumes.
-
-**The handoff: what the developer receives**
-
-The review passes, and the designer exits. What developers receive on entry is not one line — it is three things:
-
-1. **The updated design package**: the three places above. The files in `doc/` are the contract; development follows them.
-2. **The review confirmation**: the confirmation of only the changed part. Nothing moves on until it is given.
-3. **The new task's context lists**: the `implement.jsonl` and `check.jsonl` of the new task "满减门槛改成 200". Developers entering read only the files on these two lists — they don't re-read the whole design package:
-
-```json
-implement.jsonl
-{"file":"doc/design/需求列表.md","reason":"变更后的需求一"}
-{"file":"doc/design/概要设计.md","reason":"变更后的接口行"}
-
-check.jsonl
-{"file":".sunshine/spec/backend.md","reason":"优惠券接口规范"}
-```
-
-The PRD records it too (real content): `[变更 2026-11-13] MAN100JIAN10 的满减门槛由 100 元改成 200 元（threshold 10000 分→20000 分）；设计已改三处：需求列表需求一、概要设计接口行、结算页门槛提示；改代码后实测：2 件无线鼠标不满门槛、1 件机械键盘仍可用` (In English: "[Change 2026-11-13] MAN100JIAN10's discount threshold moves from 100 yuan to 200 yuan (threshold 10,000 points → 20,000 points); the design changed in three places: requirement one in the requirements list, the interface line in the outline design, and the threshold note on the checkout page; after the code change, two wireless mice are below the threshold and one mechanical keyboard still works.")
-
-**[Designer exits, developers enter]**
-
-Developers enter and implement against the new task's context. Creating the task hit a wall first: `task create "满减门槛改成 200" --parent 11-13-商城优惠券` failed with "父任务无法解析：11-13-商城优惠券" — the parent is archived and no longer under `.sunshine/tasks`. Per the workflow — archived tasks never reopen, a new task runs the full flow — it was created as an independent task instead: `11-13-满减门槛改成-200`. A feature branch was cut before starting (`feat/coupon-threshold-200` + `set-branch`), then the full flow: approve → implement subagent → check subagent → spec write-back → commit plan → commit → finish-work archive.
-
-The implementation changed three places: the threshold in `db.js` from 10000 to 20000 (verified by grep at :12); the `backend.md` sync — grep confirmed that before the change, backend.md never stated a specific threshold value (no "10000" or "100 yuan" anywhere), so the "sync" actually added a line: `满减门槛（2026-11-13 由 100 元改为 200 元）：MAN100JIAN10 threshold 20000 分，amount 1000 分；不满 200 元用该券返回 400 COUPON_THRESHOLD。`; and the threshold note in `public/checkout.html:12`, also moved to 200 yuan (leaving it would have the page lying about the new threshold).
-
-Key output (real runs): two wireless mice return `{"code":"COUPON_THRESHOLD"}` (before the change it was 200 with 16,800 points paid), one mechanical keyboard returns 200 with 28,900 points paid:
-
-```sh
-curl -s -X POST localhost:3000/api/orders -H 'Content-Type: application/json' -d '{"items":[{"id":1,"qty":2}],"address":"","couponCode":"MAN100JIAN10"}' -w "\nHTTP %{http_code}\n"
-# {"code":"COUPON_THRESHOLD"}
-# HTTP 400
-
-curl -s -X POST localhost:3000/api/orders -H 'Content-Type: application/json' -d '{"items":[{"id":2,"qty":1}],"address":"","couponCode":"MAN100JIAN10"}' -w "\nHTTP %{http_code}\n"
-# {"code":"OK","data":{"id":1,"items":[{"id":2,"name":"机械键盘","price":29900,"qty":1}],"address":"","couponCode":"MAN100JIAN10","total":28900,"status":"待付款"}}
-# HTTP 200
-```
-
-GET /api/coupons re-verified: MAN100JIAN10's threshold is now 20000. The commit is `759af17 变更：满减门槛改成 200 元（100→200）` (3 files, 3 lines added, 2 deleted); `finish-work` archived it (`3d18edf`) and recorded the log (`42afb6f`), bringing the total to 4 tasks:
-
-```sh
-sunshine task list-archive
-# 已归档任务：
-#
-# [2026-11] - 4 个任务
-# - 11-13-下单用优惠券/
-# - 11-13-优惠券列表/
-# - 11-13-商城优惠券/
-# - 11-13-满减门槛改成-200/
-
-git log --oneline
-# 42afb6f chore: record journal
-# 3d18edf chore(task): archive 11-13-满减门槛改成-200
-# 759af17 变更：满减门槛改成 200 元（100→200）
-# 1618fe9 chore: record journal
-# 444e009 chore(task): archive 11-13-商城优惠券
-# eb9b771 chore: record journal
-# b0044a9 chore(task): archive 11-13-优惠券列表
-# d44083b 需求二：优惠券列表，优惠券页 + GET 接口
-# e4ac2b2 chore: record journal
-# be797d4 chore(task): archive 11-13-下单用优惠券
-# 057abbd 需求一：下单用优惠券，结算页 + 券接口
-# 0fae77b 商城优惠券演示起点：重建 s2-old 商城
-```
-
-The three old tasks sit untouched in the archive, and the change is its own task with a complete record — next time someone asks why the threshold is 200 yuan, the `[变更 2026-11-13]` line in `prd.md` is the answer.
-
-One mismatch of names is worth recording: after the change, MAN100JIAN10's name is still "满100减10" while its threshold is 20000; this run was not asked to rename it, the outline design's data section notes it, and the code and the GET output are unchanged.
-
-**The full loop at a glance**
-
-The whole scenario runs as one closed loop, with every entry, exit, and handoff spelled out above:
-
-1. **State the requirement** (you): state what to build in Claude Code.
-2. **Clarify the requirement** (the designer enters): the agent asks first, one question at a time — the blocking ones first (how many requirements, how the split goes), then the details; before asking it checks eight angles for gaps — who uses it, what it does, what it does not do, data, performance, security, compatibility, and how done is judged.
-3. **The design package** (the designer): write the requirements list first, then the outline design, then dispatch `sunshine-prototype` to build the system prototype — one page per requirement in the list, with mock data (the main session only takes the report, never writes the prototype itself). The prototype is the end of the design phase. Handoff: the three design documents in `doc/` (the three in this example — not a fixed list: what the design phase produces is the designer's call; the review and the split use whatever is in `doc/`, and a task with no design documents is a plain code task.).
-4. **The requirements review** (you confirm): review the whole package (the design package plus the split plan); the designer exits after it passes. Handoff: the approved design package.
-5. **The split** (the agent): split the whole scope in one pass, per requirement (one requirement is one sub-task by default; split frontend and backend into two sub-tasks when both are large, with the interface contract in the outline design as the handoff); the split starts nothing. Handoff: the task directories (`task.json` parent/children, `prd.md`, `implement.jsonl`, `check.jsonl`).
-
-The backend is split separately: this store's backend already exists (Express, the one from 12.2), so there is no selection to make; the coupon backend work (the coupon checks, the coupon list API) goes straight into requirement one and two's PRDs. Only when the backend is large (pick a language, model the database, wire up a cache) does it first split out a "Backend foundation: tech selection and scaffolding" sub-task ahead of the rest, with the selection items (language, framework, database, cache) marked `[待定]` (to be decided) in its PRD; its 1.1 asks the questions and pins the selection down before it builds, and the requirement sub-tasks only start after it archives.
-
-6. **Development** (developers enter): activate the sub-tasks one by one, each running the full flow (approve → implement subagent → check subagent → spec write-back → commit plan → commit → finish-work archive), each step reading only its own context list. Handoff: the changed code, the updated spec, the commit, the archive record, and the session log.
-7. **Integration review and archive** (the parent task): once all sub-tasks are archived, the parent reviews once against the acceptance criteria, the two sub-tasks' check results, and the interface contract (without re-reading the whole prototype), then archives. Handoff: the archived task directories.
-8. **Requirement change** (the designer returns): change the design package → review only the changed part → handoff (the updated design package, the review confirmation, the new task's context lists, the `[变更]` record in the PRD) → developers enter on a new task. Archived tasks are never reopened; the new task is an independent task (no sub-task can be created under an archived parent).
-9. **Picking the work back up**: the state lives entirely in files (`task.json` status, the `.current-task` pointer, the jsonl lists, `prd.md`, `spec/`); a new session runs `/sunshine:continue` and routes by status to the matching step.
+- The "加入购物车" button's localStorage write ships with R-001's product-list page; R-002's deliverable is the cart page itself (reading localStorage to render and total) plus the end-to-end calculation — the cart has no backend API, curl cannot click a button, so it is verified by page reachability plus key-logic grep plus a node total.
+- `task start` reports "会话身份不可用" (degraded mode) in the sandbox; all 7 starts ran degraded, and the status still flipped as usual — nothing was blocked.
+- This round, every archive auto-commit and every add-session auto-commit succeeded on the first try — the demo repo had a local git identity set in advance, so the older demo's missing-identity failure and manual top-up commit did not reproduce.
+- The `.gitattributes` left by `add-session` (the journal's `merge=union` rule) was not picked up by any of the 8 journal commits; the final `git status` still shows one leftover, `?? .gitattributes`.
+- `.sunshine/.developer` is not gitignored and entered the repo with the baseline commit `3ba152f`; `init` also writes no root `.gitignore`, and `node_modules/` was only excluded once the backend-foundation sub-task created a root `.gitignore`.
+- Real browser rendering was not verified: the sandbox has no browser, so prototype and production pages were only fetched with curl (HTTP 200 plus key-logic grep) — what the pages look like, and what clicking a button does, was never seen in a real browser.
 
 ## Appendix: command reference
 

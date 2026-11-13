@@ -1518,414 +1518,382 @@ git log --oneline
 
 ### 12.6 产品设计先行：需求 → 设计文档 → 拆解 → 开发
 
-这个场景用跑了两年的 web 商城（12.2 那个）：给它加优惠券功能。设计人员和开发人员走同一条工作流，但进场、退场的时间不一样——下面每段开头都标了谁在场。
+这个场景从零开始：一个全新的 web 商城项目，走设计先行。跟 12.1 的区别是模式不同——12.1 是新项目直接开发，这个场景是新项目先设计再开发：需求问清楚、设计文档落盘、评审通过、拆解，最后才逐个动手写代码。设计人员和开发人员走同一条工作流，但进场、退场的时间不一样——下面每段开头都标了谁在场。
 
----
+**[设计人员进场]**
 
 在 Claude Code 里提需求（Codex、Cursor 同理）：
 
 示例提示词（示例，不是真实会话记录）：
 
-> 我要给商城加优惠券功能。这次先做产品设计——请按 sunshine 工作流走：先向我提问，把不清楚的规则和原型细节问清楚；确认后，帮我创建任务、写好 PRD，再把需求列表（按需求分条，每条对应系统原型里一个页面）、概要设计和一份带 mock 假数据的系统原型落到 doc/ 里；评审通过后，按需求拆成子任务再动手实现。
+> 我想从零做一个带优惠券的 web 商城，走设计先行：先把需求和设计定下来，评审通过后再动手写代码。商城要有商品列表、加入购物车、下单结算，下单时能用优惠券抵扣，还要有一个优惠券列表页能看到每张券的门槛、面额、状态和有效期。技术栈还没定，你先帮我把需求问清楚。
 
 下面是接下来的会话示意（对话是示例；命令与输出是真实实跑值）：
 
-> **Claude Code：** 先问一个决定后面怎么拆的问题：优惠券是下单用券和券列表两个需求，还是一个？
+> **Claude Code：** 先问一个决定后面怎么拆的问题：做哪几条需求？A 五条全做（商品列表、加入购物车、下单结算、下单用优惠券、优惠券列表）；B 只做下单用券和券列表两条。
 >
-> **你：** 两个：需求一是下单用优惠券，需求二是优惠券列表。
+> **你：** A，五条全做。
 
-后面也是这样一次一个问：满减规则、券码不对怎么办、过期和已用怎么算——问完规则，再问原型细节（一个需求一页、券列表页显示什么、券码不对返回什么、mock 数据放几条），每次都给选项，你答一个它记一个，答案直接写进需求列表和概要设计。问完再汇总：
-
-> **Claude Code：** 明白了，规划是这样：建任务，PRD 里写两个需求；需求列表按需求分条、每条写清对应系统原型里哪一页，概要设计和系统原型（`doc/prototype/` 里一页一个文件 + `index.html` 导航入口）落到 `doc/` 里；评审通过后按需求拆成两个子任务再动手。确认后我就建任务、写 PRD、落设计文档，没问题吗？
+> **Claude Code：** 技术栈现在定还是留给后端基础子任务？A 现在定死 Node.js + Express + 内存；B 只定约束，选型留给后端基础子任务 1.1 问答。
 >
-> **你：** 没问题，开始吧。
+> **你：** B，只定约束：价格用“分”存、接口统一返回 `{code, data}`、端口 3000。选型按工作流归属后端基础子任务。
+
+> **Claude Code：** 三件商品和三张券的数据定下来？A 按给定数据；B 再加商品/券。
+>
+> **你：** A，按给定数据：无线鼠标 8900 分/库存 120、机械键盘 29900 分/库存 45、27 寸显示器 129900 分/库存 20；券是 MAN100JIAN10（满 10000 分减 1000 分，未使用，2026-12-31）、MAN200JIAN30（满 20000 分减 3000 分，已使用）、NEW5（新人 5 元券，已过期，2026-10-01）。
+
+> **Claude Code：** 券校验顺序与错误码？A 不存在 → 已使用 → 已过期 → 不满门槛，错误码 COUPON_INVALID / COUPON_USED / COUPON_EXPIRED / COUPON_THRESHOLD；B 只分能用/不能用。
+>
+> **你：** A，按四档顺序。
+
+> **Claude Code：** 下单时收货地址必填吗？A 必填，缺地址返回 400 ADDRESS_REQUIRED；B 选填。
+>
+> **你：** A，必填。
+
+> **Claude Code：** 结算页怎么用券？A 输入券码随订单一起提交，后端校验抵扣；B 先领券再下单。
+>
+> **你：** A，输入券码随订单提交。
+
+> **Claude Code：** 优惠券列表展示哪些字段？A 券名、门槛、面额、状态、有效期；B 只显示券名和面额。
+>
+> **你：** A，五项全展示。
+
+> **Claude Code：** 明确不做哪些？A 不做支付、登录、券的发放/领取/核销后台、过期自动清理、数据库、缓存；B 都做。
+>
+> **你：** A，这些都不做。
+
+八个维度（用户与场景、功能边界、数据、性能、安全、兼容性、验收、范围外）到这里全覆盖了：性能是单机演示、无特殊并发要求，安全是券码只按精确匹配校验，兼容性是价格分存、接口 `{code, data}`——这三项在问答里已确认，不再单独提问。没有阻塞性开放问题，可以进入设计。
 
 问完后，设计包落盘在项目 `doc/`，不在 `.sunshine`——设计人员先把所有产出物都做完，评审通过后开发才进场：
 
 ```text
-doc/design/需求列表.md
-doc/design/概要设计.md
-doc/prototype/index.html
-doc/prototype/结算页.html
-doc/prototype/优惠券页.html
+doc/design/需求列表.md        # 54 行：R-001～R-005（第 23–27 行）、待确认事项（第 39–48 行）、变更记录（第 50–54 行）
+doc/design/概要设计.md        # 85 行：目标与范围、模块划分、关键流程、接口、数据、技术选型、验收标准、风险
+doc/prototype/index.html       # 42 行：导航入口，列 4 页与对应需求
+doc/prototype/mock.js          # 12 行：共用 mock，商品 3 条、券 3 条
+doc/prototype/商品列表页.html  # 60 行：R-001
+doc/prototype/购物车页.html    # 56 行：R-002
+doc/prototype/结算页.html      # 60 行：R-003 + R-004（券码输入框 + 门槛提示“满 100 元减 10 元”第 36 行）
+doc/prototype/优惠券页.html    # 44 行：R-005
 ```
 
-需求列表是按需求分条的（真实文件内容，节选）：需求一“下单用优惠券”对应系统原型结算页——结算页输入券码，满减规则满 100 元减 10 元，券须未使用且未过期，否则提示不可用；需求二“优惠券列表”对应系统原型优惠券页——列表显示券名、门槛、面额、状态、有效期。概要设计的接口行写的是（真实内容）：
+5 条需求对应 4 页原型——R-003 下单结算与 R-004 下单用优惠券共用结算页（R-004 是结算页里的券码输入区），其余一需求一页。原型是派 `sunshine-prototype` 子代理做的（只读需求列表 + 概要设计，汇报只写页数、mock 数、路径）；init 自带的模板 `doc/prototype/示例页.html` 是占位示例，不是真实页面，已经删掉，`index.html` 按实际页面重写过。
+
+需求列表按需求分条，每条写清对应系统原型里哪一页（真实文件内容，节选）：
 
 ```text
-| POST /api/orders | { items, address, couponCode } | { code, data: order }，实付写在 data.total | 校验顺序：不存在 → 已使用 → 已过期 → 不满门槛；失败返回 400 + 错误码（COUPON_INVALID / COUPON_USED / COUPON_EXPIRED / COUPON_THRESHOLD）；MAN100JIAN10 满 100 元减 10 元（满 10000 分减 1000 分） |
+| R-001 | 商品列表 | 商品列表页展示全部商品：名称、价格（元）、库存；GET /api/products 返回三件商品 | P0 | GET /api/products 返回三件商品：无线鼠标 8900 分 / 库存 120、机械键盘 29900 分 / 库存 45、27寸显示器 129900 分 / 库存 20 |
+| R-002 | 加入购物车 | 商品列表页点“加入购物车”，购物车页展示已加商品、数量、合计；购物车放浏览器 localStorage，不设后端接口 | P0 | 购物车页能展示已加商品与合计；刷新后购物车还在 |
+| R-003 | 下单结算 | 结算页填收货地址提交订单；收货地址必填，缺地址返回 400 ADDRESS_REQUIRED；带地址下单成功 | P0 | 缺地址下单返回 400 ADDRESS_REQUIRED；带地址下单成功，返回订单 id、items、address、status“待付款” |
+| R-004 | 下单用优惠券 | 结算页输入券码，满 100 元减 10 元；券须未使用且未过期、且满足门槛，否则下单失败并提示原因 | P0 | 券码 NOPE 下单返回 400 COUPON_INVALID；MAN200JIAN30 返回 400 COUPON_USED；NEW5 返回 400 COUPON_EXPIRED；1 件机械键盘用 MAN100JIAN10 实付 28900 分；2 件无线鼠标用 MAN100JIAN10 实付 16800 分；1 件无线鼠标用 MAN100JIAN10 返回 400 COUPON_THRESHOLD |
+| R-005 | 优惠券列表 | 优惠券页展示全部券：券名、门槛、面额、状态、有效期；GET /api/coupons 返回三条券 | P0 | GET /api/coupons 返回三条券：MAN100JIAN10 满100减10 未使用、MAN200JIAN30 满200减30 已使用、NEW5 新人5元券 已过期 |
+```
+
+概要设计的接口行（真实内容）：
+
+```text
+| GET /api/products | 无 | { code, data: products }，三件商品 | 返回全部商品，不分页 |
+| POST /api/orders | { items, address, couponCode } | { code, data: order }，实付写在 data.total | 缺地址返回 400 ADDRESS_REQUIRED；券校验顺序：不存在 → 已使用 → 已过期 → 不满门槛；失败返回 400 + 错误码 COUPON_INVALID / COUPON_USED / COUPON_EXPIRED / COUPON_THRESHOLD |
 | GET /api/coupons | 无 | { code, data: coupons }，三条券 | 返回全部券，不分页 |
 ```
 
-系统原型是 `doc/prototype/` 里的一组页面 + `index.html` 导航入口：顶部是“结算 | 优惠券”的导航，结算页是券码输入框、门槛提示（满 100 元减 10 元）、提交按钮，优惠券页是一张表（券名、门槛、面额、状态、有效期），表里是三条 mock 假数据（满100减10 未使用、满200减30 已使用、新人5元券 已过期），演示时直接点着看。一个原型对应多个需求：需求一和需求二都在这一组页面里，各占一页；拆解也跟着需求走，子任务按需求拆。
-
-设计人员做设计包的顺序也是一步步来的：先把需求问清楚、写成需求列表，再写概要设计（结构、接口、验收），再派发 `sunshine-prototype` 子代理按需求列表一页一页做出原型（带 mock 假数据；派发提示里只给需求列表和概要设计的路径，子代理做完只汇报页数、mock 记录数和文件路径，主会话不直接写原型），最后拼成一份完整的系统原型——原型是设计阶段的终点，不是起点。做原型的时候发现需求有缺口，需求列表跟着改（走变更），但大方向是需求在先、原型在后。
-
-然后是需求评审——设计人员退场前最后一件事：Claude Code 把整包东西列出来请你确认——PRD、设计文档清单、拆解方案；确认后才往下走。这一步就是 1.5 的需求评审，也就是本节的“最终规划总结”：
-
-> **Claude Code：** 评审一下：PRD、需求列表、概要设计、系统原型都齐了，拆成两个子任务——需求一是结算页 + POST 接口，需求二是优惠券页 + GET 接口。确认后我就建父任务、一次性拆子任务，没问题吗？
->
-> **你：** 没问题，拆吧。
+技术选型一节（概要设计第 62–71 行）只写约束与待定项，不强制拍板：约束是价格分存、接口 `{code, data}`、端口 3000；语言、框架、数据库、缓存四项标 `[待定]`，留给后端基础子任务的 1.1 问答。这是 v0.5.5 的规则——后端基础工作量够大就单独立任务，选型项以 `[待定]` 标在它的 prd 里，它的 1.1 读到 `[待定]` 先问答。
 
 ---
 
-开发人员进场时（尤其设计和开发不是同一个人），先在 agent 界面里打开项目，再说一句进场提示词：
+**[设计评审：设计人员 + 开发人员都在场]**
 
-示例提示词（示例，不是真实会话记录）：
+设计包做完，先评审再拆解。评审就是 1.5 的最终规划总结——整包规划产物列出来请你确认，确认后才 `task start`：
 
-> 设计评审通过了，子任务已经拆好。现在按 sunshine 工作流开始开发：先把父任务的子任务清单和第一个子任务的上下文列出来给我确认，确认后从第一个子任务开始，一个一个做；每个子任务先启动，做完检查、回写规范、提交、归档，再启动下一个；全部子任务归档后，父任务做最终集成复核再归档。
-
-确认后，开发就按下面“一轮一轮怎么做”的流程走；中途关掉重开，跑 `/sunshine:continue`，它按 `task.json` 的状态分流续接。
-
-评审通过后拆解只做一次——拆解跟着需求走：一个原型对应多个需求，子任务按需求拆，拆的是整个范围，子任务清单一次定好；拆完不自动开发，两个子任务建出来都是 `planning`。父任务记好子任务映射，开发人员进场时任务已经拆好、上下文已经配好（每个子任务的上下文指向系统原型里自己的那一页）。
-
-一个需求默认是一个子任务（子任务包揽自己那一页 + 它的接口，验收标准在一起，好验收）。但如果一个需求的前后端都很大、或者前后端是不同的人做、或者后端接口要给好几个页面共用，就再拆成前端一个子任务、后端一个子任务——机制上就是子任务再挂子任务（`task create --parent`），父任务的 `children` 里记着两个，前端和后端各是 planning。两个子任务之间的交接物是概要设计里的接口约定：后端按约定实现接口，前端按约定 + 原型里的 mock 数据做页面，前端不用等后端做完；父任务的最终集成复核再把前后端合起来一次验过。
-
-下面是真实跑出来的任务列表（拆解完就是嵌套的）：
-
-```sh
-sunshine task list
-# 全部活动任务：
-#
-# - 11-13-商城优惠券/ (planning) [0/2 已完成] [lin]
-# - 11-13-下单用优惠券/ (planning) [lin]
-# - 11-13-优惠券列表/ (planning) [lin]
-#
-# 总计：3 个任务
-```
-
-**拆解的产出物：磁盘上多了什么**
-
-拆解不是只在对话里说一声，磁盘上多了这些东西（真实目录树，任务目录在归档前后长一个样，只是归档后搬进 `archive/2026-11/`）：
-
-```text
-.sunshine/tasks/11-13-商城优惠券/
-task.json # 父任务：children 记着两个子任务
-prd.md # 父任务的 PRD
-implement.jsonl # 空的，父任务不实现
-check.jsonl # 空的
-.sunshine/tasks/11-13-下单用优惠券/
-task.json # 子任务：parent 指回父任务，status 是 planning
-prd.md # 子任务的 PRD（骨架，agent 在 1.1 里填实）
-implement.jsonl # 实现时读什么：系统原型结算页 + 概要设计
-check.jsonl # 检查时对照什么：前端规范 + 后端接口契约
-.sunshine/tasks/11-13-优惠券列表/
-...（同样四份）
-```
-
-需求一的上下文清单（真实内容）——开发人员进场读的就是这两份：
-
-```json
-implement.jsonl
-{"file":"doc/prototype/结算页.html","reason":"结算页原型：券码输入框"}
-{"file":"doc/design/概要设计.md","reason":"接口与流程"}
-
-check.jsonl
-{"file":".sunshine/spec/frontend.md","reason":"结算页规范"}
-{"file":".sunshine/spec/backend.md","reason":"优惠券接口规范"}
-```
-
-原型按页分文件，各子任务直接读自己那页的文件，不用再算行范围；`lines` 只留给其它长单文件（如长规范），用法见 1.4。
-
-子任务的 `prd.md` 是骨架，agent 在子任务自己的 1.1 里填实；复杂任务在 `start` 前还要补 `design.md`（技术设计）和 `implement.md`（执行计划）——这是 `prd.md` 模板里自己写的话。演示里需求写在 `doc/` 设计包里，子任务的上下文指过去就行。
-
-**开发进场：一轮一轮怎么做**
-
-先启动需求一。Claude Code 在底下跑的（你不用敲），只贴关键输出：
-
-```sh
-sunshine task start 11-13-下单用优惠券
-# ✓ 状态：planning → in_progress（降级）
-```
-
-`start` 成功后状态就写进 `task.json`，指针写进 `.sunshine/.current-task`——会话关了重开，状态还在文件里，不在对话里（后面有接续的例子）。归档前先切了功能分支（`master` 也是 `base_branch`，直接归档会被拒）：`git checkout -b feat/coupon-checkout` + `task set-branch`。
-
-下面是开发时的会话示意（对话是示例；命令与输出是真实实跑值）：
-
-> **Claude Code：** 需求一开始了：主会话派 `sunshine-implement` 按系统原型结算页给 `checkout.html` 加券码输入框，给 `orders.js` 的 POST 加四道校验，改完再派 `sunshine-check` 按 `check.jsonl` 里的规范验收。
->
-> **Claude Code：** implement 做完了：结算页多了券码输入框（`name="couponCode"`）；POST 按“不存在→已用→过期→不满门槛”顺序校验，券码不对返回 400，满 100 元减 10 元，1 件机械键盘实付 28900。check 也过了：四档 curl 全对。spec 里我补了优惠券接口和结算页两条约定。提交计划如下，回复“行”就执行：
->
-> ```text
-> 建议提交（按顺序）：
->   1. 需求一：下单用优惠券，结算页 + 券接口
->      - src/db.js / src/routes/orders.js / public/checkout.html
->      - .sunshine/spec/backend.md / .sunshine/spec/frontend.md
-> 未识别的脏文件（不在提交里）：.claude/、.cursor/（init 脚手架）、.sunshine/ 其余（骨架+任务目录，由 archive/add-session 管理）、doc/（设计包，属父任务规划产物）
-> ```
->
-> **你：** 行。
->
-> **Claude Code：** 提交完了：`057abbd 需求一：下单用优惠券，结算页 + 券接口`（5 个文件，75 行新增，2 行删除）。运行 `/finish-work` 归档、记日志，要现在执行吗？
->
-> **你：** 可以。
-
-关键输出（真实跑出来的）：curl 四档——券码 NOPE 是 `{"code":"COUPON_INVALID"}`、HTTP 400；1 件机械键盘是 200、订单 id 是 1、实付 28900；1 件无线鼠标是 `{"code":"COUPON_THRESHOLD"}`、HTTP 400；2 件无线鼠标是 200、订单 id 是 2、实付 16800：
-
-```sh
-curl -s -X POST localhost:3000/api/orders -H 'Content-Type: application/json' -d '{"items":[{"id":1,"qty":1}],"address":"测试地址","couponCode":"NOPE"}' -w "\nHTTP %{http_code}\n"
-# {"code":"COUPON_INVALID"}
-# HTTP 400
-
-curl -s -X POST localhost:3000/api/orders -H 'Content-Type: application/json' -d '{"items":[{"id":2,"qty":1}],"address":"测试地址","couponCode":"MAN100JIAN10"}' -w "\nHTTP %{http_code}\n"
-# {"code":"OK","data":{"id":1,"items":[{"id":2,"name":"机械键盘","price":29900,"qty":1}],"address":"测试地址","couponCode":"MAN100JIAN10","total":28900,"status":"待付款"}}
-# HTTP 200
-
-curl -s -X POST localhost:3000/api/orders -H 'Content-Type: application/json' -d '{"items":[{"id":1,"qty":1}],"address":"测试地址","couponCode":"MAN100JIAN10"}' -w "\nHTTP %{http_code}\n"
-# {"code":"COUPON_THRESHOLD"}
-# HTTP 400
-
-curl -s -X POST localhost:3000/api/orders -H 'Content-Type: application/json' -d '{"items":[{"id":1,"qty":2}],"address":"测试地址","couponCode":"MAN100JIAN10"}' -w "\nHTTP %{http_code}\n"
-# {"code":"OK","data":{"id":2,"items":[{"id":1,"name":"无线鼠标","price":8900,"qty":2}],"address":"测试地址","couponCode":"MAN100JIAN10","total":16800,"status":"待付款"}}
-# HTTP 200
-```
-
-`finish-work` 归档了需求一，记了会话日志：
-
-```sh
-git log --oneline
-# e4ac2b2 chore: record journal
-# be797d4 chore(task): archive 11-13-下单用优惠券
-# 057abbd 需求一：下单用优惠券，结算页 + 券接口
-# 0fae77b 商城优惠券演示起点：重建 s2-old 商城
-```
-
-归档后父任务显示 1/2 已完成。
-
-一个子任务就是这样一轮一轮走的，每轮读什么、产出什么都在文件里，不靠对话记着：
-
-1. **批准**：1.5 评审通过后，子任务自己的 1.1 填实 PRD、1.4 配好上下文，批准后才 `task start`。
-2. **实现（2.1）**：读 `implement.jsonl` 里的文件（系统原型结算页、概要设计）+ 自己的 `prd.md`，派 `sunshine-implement` 改代码。产出：改好的 `checkout.html` 和 `orders.js`（`db.js` 里加了券表）。
-3. **检查（2.2）**：读 `check.jsonl` 里的文件（前端规范、后端接口契约），派 `sunshine-check` 验收。产出：curl 的验收结果。
-4. **回写规范（3.3）**：`sunshine-update-spec` 把新约定写进 `spec/`（`backend.md:17` 优惠券接口、`frontend.md:18` 优惠券）。产出：更新后的 `frontend.md`、`backend.md`。
-5. **提交（3.4）**：起草提交计划、展示一次、请一次确认，确认后提交（一个提交：代码 + spec 约定）。产出：提交 `057abbd`。
-6. **收尾（3.5 + finish-work）**：提醒用户可以运行 `/finish-work`，用户确认后执行：归档任务、记录会话日志。产出：归档提交 `be797d4` + 日志提交 `e4ac2b2` + 父任务 1/2 已完成。
-
-需求一归档后，需求二才启动——走同样的流程（对话略，命令与输出是真实实跑值）：
-
-> **Claude Code：** 需求二开始了：派 `sunshine-implement` 按系统原型优惠券页写 `public/优惠券页.html`，加 `GET /api/coupons` 接口，改完派 `sunshine-check` 验收。
->
-> **Claude Code：** implement 做完了：优惠券页拉 GET 渲染表格；GET 返回全部三条券。check 发现一个问题并直接修了：初版优惠券页是写死三条券的静态表格，与 3.3 刚写的规范“数据调 GET /api/coupons，不写死 mock”不符；已改成 `fetch("/api/coupons")` 渲染（含 Loading、空态、错误态），复验页 200、接口仍返回三条券。3.3 判断：backend.md 优惠券接口节与 frontend.md 优惠券节已覆盖 GET /api/coupons 与调接口渲染，无新增内容，未改 spec。提交计划如下，回复“行”就执行：
->
-> ```text
-> 建议提交（按顺序）：
->   1. 需求二：优惠券列表，优惠券页 + GET 接口
->      - src/routes/coupons.js、src/server.js、public/优惠券页.html
-> ```
->
-> **你：** 行。
->
-> **Claude Code：** 提交完了：`d44083b 需求二：优惠券列表，优惠券页 + GET 接口`（3 个文件，62 行新增）。运行 `/finish-work` 归档、记日志，要现在执行吗？
->
-> **你：** 可以。
-
-关键输出（真实跑出来的）：
-
-```sh
-curl -s localhost:3000/api/coupons
-# {"code":"OK","data":[{"code":"MAN100JIAN10","name":"满100减10","threshold":10000,"amount":1000,"status":"未使用","expires":"2026-12-31"},{"code":"MAN200JIAN30","name":"满200减30","threshold":20000,"amount":3000,"status":"已使用","expires":"2026-12-31"},{"code":"NEW5","name":"新人5元券","threshold":0,"amount":500,"status":"已过期","expires":"2026-10-01"}]}
-```
-
-`finish-work` 归档了需求二（`b0044a9`），记了会话日志（`eb9b771`）；归档后父任务显示 2/2 已完成。
-
-最后父任务做最终集成复核——读概要设计里的验收标准、两个子任务的检查结果和接口约定，不重读整个原型，一次过一遍，再归档。复核时起服务一次跑五档，全绿：NOPE `{"code":"COUPON_INVALID"}` HTTP 400；1 件键盘 `total:28900` HTTP 200；1 件鼠标 `{"code":"COUPON_THRESHOLD"}` HTTP 400；2 件鼠标 `total:16800` HTTP 200；GET /api/coupons 三条券（threshold 10000）HTTP 200。两处共用同一份 coupons 数据。
-
-> **Claude Code：** 集成复核过了：验收标准都过了，两个子任务的检查结果和接口约定也都对得上。运行 `/finish-work` 归档父任务、记日志，要现在执行吗？
->
-> **你：** 可以。
-
-```sh
-sunshine task list
-# 全部活动任务：
-#
-# （没有活动任务）
-#
-# 总计：0 个任务
-
-sunshine task list-archive
-# 已归档任务：
-#
-# [2026-11] - 3 个任务
-# - 11-13-下单用优惠券/
-# - 11-13-优惠券列表/
-# - 11-13-商城优惠券/
-```
-
-设计人员进场时只有需求，退场时留下一份完整的设计包；开发人员进场时任务已经按需求拆好、上下文已经配好，退场时 0 个活动任务、3 个归档。
-
-**关闭重开后怎么接上**
-
-Claude Code 关了重开，会话里的对话没了，但状态都在文件里：`task.json` 的 `status`、`.sunshine/.current-task` 里的指针、`implement.jsonl` / `check.jsonl`、`prd.md`、`spec/`。新会话不用回忆，直接跑 `/sunshine:continue`——它先跑 `sunshine task context` 看当前任务，再按 `status` 分流到对应的步骤（2.1 实现、2.2 检查、3.3 回写规范、3.4 提交）。
-
-下面是真实跑出来的接续（需求一做到一半时取的，只读文件）：
-
-```sh
-sunshine task current
-#.sunshine/tasks/11-13-下单用优惠券
-
-sunshine task context
-# ## 当前任务
-# 路径：.sunshine/tasks/11-13-下单用优惠券
-# 状态：in_progress
-# ……
-```
-
-`.sunshine/.current-task` 里就一行，就是任务路径：
-
-```text
-.sunshine/tasks/11-13-下单用优惠券
-```
-
-接续时的会话示意（对话是示例；命令与输出是真实实跑值）：
-
-> **你：**（第二天，重新打开 Claude Code）继续做商城优惠券。
->
-> **Claude Code：** 先看一下当前任务状态：`task context` 说当前任务是需求一，状态 `in_progress`，按上下文清单读系统原型结算页和概要设计，接着从 2.1 做，没问题吗？
->
-> **你：** 没问题，继续。
-
-两个注意点，都是真实踩过的：
-
-- `task start` 有守卫：`check.jsonl` 是空的会直接报错（`错误：check.jsonl 没有已整理条目`），先 `add-context` 配好再 `start`，或者加 `--allow-empty-context`。
-- 指针在 `.sunshine/.current-task` 里，`task finish` 清掉它，`task archive` 把任务目录搬进归档。归档完的任务不在活动列表里，不会再被续接上——变更走新任务，就是这个道理。
-
-**需求变更：满减门槛从 100 元改成 200 元——设计人员返场**
-
-项目做完归档后，业务方说满减门槛从 100 元改成 200 元。按工作流 1.5 的需求变更规则走：已经归档的三个任务不 reopen，变更走一个新任务；但设计包是设计人员的交付物，改设计包要设计人员先返场——返场不是一句话，是实打实改三处地方、评审只审改动的部分，交接有凭据。
-
----
-
-> **你：** 需求变了：满减门槛从 100 元改成 200 元。按 sunshine 工作流走：设计人员先返场改设计包，评审通过后再动手。
->
-> **Claude Code：** 波及面是需求一一个地方：需求二已归档且不受影响（列表页不拦门槛），不 reopen；需求一也已归档，不 reopen。1.1 只问 delta 一个问题：门槛改成多少？答：200 元。规划是这样：设计人员先返场，改三处地方——需求列表里需求一那条、概要设计接口行、系统原型结算页里的门槛提示；改完评审只审这三处，评审通过后设计人员退场；再建新任务「满减门槛改成 200」，PRD 里记一笔 `[变更 2026-11-13]`，`db.js` 的门槛改成 20000 分，spec 同步改，curl 验 178 元和 299 元两档。确认后我就开始，没问题吗？
+> **Claude Code：** 最终规划总结请确认：目标是从零做带优惠券的 web 商城，设计先行；范围是 R-001～R-005 五条全做；范围外是支付、登录、发放/领取/核销后台、过期自动清理、数据库、缓存；关键决策是选型留给后端基础子任务、购物车放 localStorage、地址必填、券校验四档顺序；产物是 prd.md、需求列表、概要设计、原型 4 页 + mock，6 个子任务已建好并通过 validate，顺序是后端基础 → 商品列表 → 加入购物车 → 下单结算 → 下单用优惠券 → 优惠券列表。确认后我就逐个 start 开发，没问题吗？
 >
 > **你：** 没问题，开始吧。
 
-设计人员返场改的是这三处（真实文件内容，改后都是 200 元）：
+---
 
-```text
-doc/design/需求列表.md:23
-| R-001 | 下单用优惠券 | 结算页输入券码，满 200 元减 10 元；券须未使用且未过期，否则下单失败并提示原因 | P0 | 券码 NOPE 下单返回 400 COUPON_INVALID；1 件机械键盘用券实付 28900 分；1 件无线鼠标用券返回 400 COUPON_THRESHOLD；2 件无线鼠标用券返回 400 COUPON_THRESHOLD |
+**[拆解：1.2 只做一次]**
 
-doc/design/概要设计.md:41
-| POST /api/orders | { items, address, couponCode } | { code, data: order }，实付写在 data.total | 校验顺序：不存在 → 已使用 → 已过期 → 不满门槛；失败返回 400 + 错误码（COUPON_INVALID / COUPON_USED / COUPON_EXPIRED / COUPON_THRESHOLD）；MAN100JIAN10 满 200 元减 10 元（满 20000 分减 1000 分） |
+拆解只做一次，评审通过后一次建好全部 6 个子任务；拆完不自动开发，子任务建出来都是 planning。父任务只 create 不 start（自身无实现工作），拆解依据是 `doc/` 里实际有的文档：
 
-doc/prototype/结算页.html:39
-<p class="hint">满 200 元减 10 元</p>
+```sh
+sunshine task list
+# 全部活动任务：
+#
+#   - 11-13-商城/ (planning) [0/6 已完成] [lin]
+#     - 11-13-后端基础/ (planning) [lin]
+#     - 11-13-商品列表/ (planning) [lin]
+#     - 11-13-加入购物车/ (planning) [lin]
+#     - 11-13-下单结算/ (planning) [lin]
+#     - 11-13-下单用优惠券/ (planning) [lin]
+#     - 11-13-优惠券列表/ (planning) [lin]
+#
+# 总计：7 个任务
 ```
 
-（另外同步了同一文件里的验收标准、待确认事项、变更记录和概要设计数据节，否则同一文件内自相矛盾；grep 核对：三处均为 200，设计文档内残留的“100”只剩变更记录里的历史说明与券名。）
+后端基础子任务排在最前面，它的 1.1 读到 `[待定]` 先问答，一次一个：
 
-原型那处只是一行门槛提示，小改在主会话里 grep 定向改，不重新派发 `sunshine-prototype`；只有结构性大改才重新派发。
-
-改完是需求评审——这次只审变更的部分，不重审整个设计包：
-
-> **Claude Code：** 评审一下，只审改动的三处：需求列表、概要设计、系统原型里的门槛都从 100 元改成 200 元，其他地方一个字没动；需求二不受影响。确认后设计人员退场，我建新任务、配上下文，开发人员进场，没问题吗？
+> **Claude Code：** 语言选哪个？A Node.js；B Go。
 >
-> **你：** 没问题。
+> **你：** A，Node.js，商城演示轻量，前后端同语言。
+>
+> **Claude Code：** 框架？A Express；B 原生 http。
+>
+> **你：** A，Express。
+>
+> **Claude Code：** 数据库？A 不用数据库用内存；B SQLite。
+>
+> **你：** A，内存，数据量小，三件商品三张券，演示不需要持久化。
+>
+> **Claude Code：** 缓存？A 不用；B 加一层内存缓存。
+>
+> **你：** A，不用，内存数据本身就是最快的那层。
 
-**评审时要说什么：波及面和任务列表怎么定**
+四项结论写进该子任务的 prd.md 与 design.md，`[待定]` 清零；选型定了以后不再改，后续子任务沿用。各需求子任务的 1.1 只简短确认范围（范围即各自 prd.md 里那条需求 + 验收标准），不重做全套 brainstorm，直接进 1.4。
 
-上面那个例子是项目做完归档后的变更，评审只审改动的三处。开发中途的变更也一样，但评审时要多看一样东西——任务列表怎么调。你在评审时说一句：
-
-示例提示词（示例，不是真实会话记录）：
-
-> 评审这次变更：先列波及面——变更碰到哪几个子任务、每个是已归档、进行中还是还没做；再列任务列表怎么调——哪个新建返工子任务、哪个直接改范围和上下文、哪个摘掉、哪个不动；最后列拆分方案。确认这三样我点头后才动手。
-
-波及面是这样定的：对照两样东西——父任务 `task.json` 里的 `children` 清单（子任务映射）和 `doc/` 设计包（需求列表、概要设计、原型页）。变更碰到哪个子任务的 PRD、设计、接口或原型页，那个子任务就被波及。定下来之后按四类处理：
-
-- **已归档**：不 reopen。新建任务走完整流程，描述里写清原任务与变更原因。注意：已归档的父任务下挂不了子任务（`task create --parent` 会报“父任务无法解析”），所以返工任务建成独立任务，PRD 里写清它对应哪个已归档的父任务。
-- **进行中**：先停下手头的活，回炉完再继续，状态不用改。
-- **还没做（planning）**：直接改，范围用 `task set-scope` 改，上下文用 `task add-context` 加。
-- **没被波及**：不停，继续做。
-- **作废**：用 `task remove-subtask` 从父任务的 `children` 里摘掉。
-
-拆分还是按需求：返工子任务一个需求一个，前后端都大再拆前端、后端两个。打个比方：需求一已归档、需求二还没做，变更两个都影响——需求一新建返工子任务，需求二直接改内容；如果需求二不用做了，就把它摘掉。调完的清单在评审时给你确认一遍，通过开发才继续。
-
-**交接：开发人员拿到什么**
-
-评审通过，设计人员退场。开发人员进场时拿到的不是一句话，是三样东西——
-
-1. **改好的设计包**：上面三处，`doc/` 里的文件就是合同，开发照着改。
-2. **评审确认**：只审变更部分的确认，确认完才往下走。
-3. **新任务的上下文清单**：新任务「满减门槛改成 200」的 `implement.jsonl` 和 `check.jsonl`，开发人员进场只读这两份清单里的文件，不用重读整个设计包：
-
-```json
-implement.jsonl
-{"file":"doc/design/需求列表.md","reason":"变更后的需求一"}
-{"file":"doc/design/概要设计.md","reason":"变更后的接口行"}
-
-check.jsonl
-{"file":".sunshine/spec/backend.md","reason":"优惠券接口规范"}
-```
-
-PRD 里还记了一笔（真实内容）：`[变更 2026-11-13] MAN100JIAN10 的满减门槛由 100 元改成 200 元（threshold 10000 分→20000 分）；设计已改三处：需求列表需求一、概要设计接口行、结算页门槛提示；改代码后实测：2 件无线鼠标不满门槛、1 件机械键盘仍可用`
+每个子任务的 implement.jsonl / check.jsonl 只放规范、研究、doc/ 设计产物，明确不放代码文件（子代理在实现期间自己读，不用预先登记）；start 前两份 jsonl 各须至少一条真实条目，`task validate` 全过才 start。依赖写进 prd：后端基础归档后需求子任务再启动；R-004 依赖 R-003 的订单接口；R-005 依赖 R-004 的 coupons 数据。
 
 ---
 
-开发人员进场，按新任务的上下文动手。建任务时先撞了一次墙：`task create "满减门槛改成 200" --parent 11-13-商城优惠券` 报错“父任务无法解析：11-13-商城优惠券”——父任务已归档，不在 `.sunshine/tasks` 下。按工作流“已归档不 reopen，新建任务走完整流程”，改成独立建任务：`11-13-满减门槛改成-200`。启动前切功能分支（`feat/coupon-threshold-200` + `set-branch`），再走完整流程：批准 → implement 子代理 → check 子代理 → 回写规范 → 提交计划 → 提交 → finish-work 归档。
+**[开发进场]**
 
-implement 改了三处：`db.js` 的 threshold 10000→20000（grep :12 核对）；`backend.md` 同步改——grep 证实变更前 backend.md 从未写明具体门槛值（无 10000/100 元字样），所谓“同步改”实际是在优惠券接口节补一行：`满减门槛（2026-11-13 由 100 元改为 200 元）：MAN100JIAN10 threshold 20000 分，amount 1000 分；不满 200 元用该券返回 400 COUPON_THRESHOLD。`；`public/checkout.html:12` 门槛提示也同步改成满 200 元（不改它页面就与新门槛撒谎）。
+逐个激活：一个子任务完整走完实现 → 检查 → 回写规范 → 提交 → 归档，后下一个才启动。下面是每个子任务的实录（对话是示例；命令与输出是真实实跑值）。
 
-关键输出（真实跑出来的）：2 件无线鼠标返回 `{"code":"COUPON_THRESHOLD"}`（改前是 200、实付 16800），1 件机械键盘返回 200、实付 28900：
+### 后端基础：技术选型与脚手架
 
-```sh
-curl -s -X POST localhost:3000/api/orders -H 'Content-Type: application/json' -d '{"items":[{"id":1,"qty":2}],"address":"","couponCode":"MAN100JIAN10"}' -w "\nHTTP %{http_code}\n"
-# {"code":"COUPON_THRESHOLD"}
-# HTTP 400
+先做后端基础子任务。它的 implement.jsonl 有 3 条（后端规范、概要设计技术选型第 62–71 行、需求列表 R-001 第 23 行），check.jsonl 有 2 条，`task validate` 全过才 start。2.1 实现：`package.json`（express ^4.18.2）、`src/server.js`（express.json、静态目录 public、监听 3000）、`src/db.js`（products 三件商品 + orders 空数组）；`npm install` 装上 express 4.22.3，共 68 个包，生成 `package-lock.json`。
 
-curl -s -X POST localhost:3000/api/orders -H 'Content-Type: application/json' -d '{"items":[{"id":2,"qty":1}],"address":"","couponCode":"MAN100JIAN10"}' -w "\nHTTP %{http_code}\n"
-# {"code":"OK","data":{"id":1,"items":[{"id":2,"name":"机械键盘","price":29900,"qty":1}],"address":"","couponCode":"MAN100JIAN10","total":28900,"status":"待付款"}}
-# HTTP 200
-```
-
-GET /api/coupons 再验：MAN100JIAN10 的 threshold 已是 20000。提交是 `759af17 变更：满减门槛改成 200 元（100→200）`（3 个文件，3 行新增，2 行删除）；`finish-work` 归档（`3d18edf`）+ 记日志（`42afb6f`）后一共 4 个任务：
+2.2 检查：`node --check` 通过；服务启动输出 `商城跑在 http://localhost:3000`。此时还没有任何 `/api` 路由，curl 验证的是脚手架本身能跑：
 
 ```sh
-sunshine task list-archive
-# 已归档任务：
-#
-# [2026-11] - 4 个任务
-# - 11-13-下单用优惠券/
-# - 11-13-优惠券列表/
-# - 11-13-商城优惠券/
-# - 11-13-满减门槛改成-200/
-
-git log --oneline
-# 42afb6f chore: record journal
-# 3d18edf chore(task): archive 11-13-满减门槛改成-200
-# 759af17 变更：满减门槛改成 200 元（100→200）
-# 1618fe9 chore: record journal
-# 444e009 chore(task): archive 11-13-商城优惠券
-# eb9b771 chore: record journal
-# b0044a9 chore(task): archive 11-13-优惠券列表
-# d44083b 需求二：优惠券列表，优惠券页 + GET 接口
-# e4ac2b2 chore: record journal
-# be797d4 chore(task): archive 11-13-下单用优惠券
-# 057abbd 需求一：下单用优惠券，结算页 + 券接口
-# 0fae77b 商城优惠券演示起点：重建 s2-old 商城
+curl -s -i http://localhost:3000/
+# HTTP/1.1 404 Not Found（预期：无静态文件、无路由）
+curl -s http://localhost:3000/api/products
+# Cannot GET /api/products（预期：路由尚未挂载）
 ```
 
-旧的三个任务原样留在归档里，变更单独一个任务、有完整的记录——下次再有人问“门槛为什么是 200 元”，`prd.md` 里的 `[变更 2026-11-13]` 就是答案。
+3.3 回写规范：有更新。`.sunshine/spec/backend.md` 补“本项目技术选型”一节（第 17–20 行：语言 Node.js、框架 Express、数据库不用内存、缓存不用；价格分存、接口 `{code, data}`、端口 3000）；`.sunshine/spec/frontend.md` 技术栈一节改为“原生 HTML + JS，无框架；页面在 `public/`；不引入 Tailwind”。
 
-还有一处名不副实要记下来：变更后 MAN100JIAN10 的 name 仍是“满100减10”，threshold 已是 20000；这次没要求改名，概要设计数据节里注明了，代码与 GET 输出未改。
+3.4 提交计划只展示一次、请一次确认（“回复 'ok' / '行' 执行”），确认后按序提交。第一个子任务的提交计划有两笔——先提交规划产物，再提交自己的工作：
 
-**全流程闭环一览**
+> **Claude Code：** 提交计划请一次性确认：(1) `docs: 商城设计先行规划产物（需求列表、概要设计、原型、父子任务）`（doc/ + 全部 7 个任务文件 + `.gitignore`）；(2) `feat: 后端基础：Node.js + Express 脚手架与商品内存数据`（package.json、package-lock.json、src/server.js、src/db.js、spec backend/frontend 两文件）。`node_modules/` 已进 `.gitignore`，不提交。回复 'ok' / '行' 执行。
+>
+> **你：** 行。
 
-整个场景走下来，是一条闭环，每一步的进出场和交接物都在上面写清了：
+工作提交 `1e3fc51`（规划产物提交 `9ad44e3`）→ 归档提交 `0866131` → 日志提交 `a1b867a`（会话 1）。顺带一提：`.gitignore`（内容仅 `node_modules/`）是这次新建的——init 没生成仓库根 `.gitignore`，否则 `node_modules/` 会进工作区。
 
-1. **需求提出**（你）：在 Claude Code 里提需求，说清要做什么。
-2. **需求澄清**（设计人员进场）：agent 先提问，一次只问一个，先问堵住后面工作的（比如需求是几个、怎么拆），再问细节；问之前先对照八个方面看哪个还没问到——谁用、做什么、不做什么、数据、性能、安全、兼容、怎么验收。
-3. **设计包**（设计人员）：先写需求列表，再写概要设计，再派发 `sunshine-prototype` 子代理按需求列表一页一页做出系统原型（带 mock 假数据；主会话只收汇报，不直接写原型）——原型是设计阶段的终点。交接物：`doc/` 里的三份设计文档（本例的三份，不是硬性清单——设计产出由设计者定，`doc/` 里有什么、评审就审什么、拆解就依据什么；没有设计文档就是纯代码任务。）。
-4. **需求评审**（你确认）：审整包（设计包 + 拆解方案）；确认后设计人员退场。交接物：评审通过的设计包。
-5. **拆解**（agent）：一次性拆完整个范围，子任务按需求拆（一个需求默认一个子任务，前后端都大就再拆前端/后端两个子任务，交接物是概要设计里的接口约定）；拆完不自动开发。交接物：任务目录（task.json 的 parent/children、prd.md、implement.jsonl、check.jsonl）。
+### 商品列表
 
-后端另外算：这个商城的后端已经有了（Express，12.2 那个），不用选型；优惠券的后端改动（券校验、券列表接口）直接写进需求一、需求二的 prd。量大（要选语言、建表、接缓存）才先拆一个“后端基础：技术选型与脚手架”子任务排在最前面，选型项（语言、框架、数据库、缓存）以 `[待定]` 标在它的 prd 里，它的 1.1 先问答定选型再动手，归档后需求子任务再启动。
+implement.jsonl / check.jsonl 各 5 条（后端规范、前端规范、需求列表 R-001 第 23 行、概要设计接口一节第 41–51 行、商品列表页原型），`task validate` 全过。2.1 实现：`src/routes/products.js`（GET /api/products）、`src/server.js` 挂载 products 路由、`public/商品列表页.html`（调真实接口渲染，价格除以 100；“加入购物车”按钮已含写 localStorage 的处理）。
 
-6. **开发**（开发人员进场）：逐个激活子任务，每个子任务走完整流程（批准 → implement 子代理 → check 子代理 → 回写规范 → 提交计划 → 提交 → finish-work 归档），每步读自己的上下文清单。交接物：改好的代码 + 更新后的 spec + 提交 + 归档记录 + 会话日志。
-7. **集成复核与归档**（父任务）：子任务全归档后，父任务读验收标准、两个子任务的检查结果和接口约定一次复核（不重读整个原型），再归档。交接物：归档的任务目录。
-8. **需求变更**（设计人员返场）：改设计包 → 只审变更部分 → 交接（改好的设计包 + 评审确认 + 新任务的上下文清单 + PRD 里的 `[变更]` 记录）→ 开发人员进场走新任务。已归档的任务不 reopen；新任务是独立任务（已归档的父任务下挂不了子任务）。
-9. **关闭重开后接上**：状态全在文件里（task.json 的 status、`.current-task` 指针、jsonl、prd.md、spec），新会话跑 `/sunshine:continue`，按 status 分流到对应的步骤。
+2.2 检查：
+
+```sh
+curl -s http://localhost:3000/api/products
+# {"code":"OK","data":[{"id":1,"name":"无线鼠标","price":8900,"stock":120},{"id":2,"name":"机械键盘","price":29900,"stock":45},{"id":3,"name":"27寸显示器","price":129900,"stock":20}]}
+curl -s -o /dev/null -w "%{http_code}" http://localhost:3000/商品列表页.html
+# 200（页面含 fetch("/api/products") 渲染逻辑）
+```
+
+3.3 回写规范：走了一遍判断，结论“没有要更新的”（接口遵循已有后端规范，无新模式、新决策）。工作提交 `4134922` → 归档提交 `7e4d47b` → 日志提交 `df6838b`（会话 2）。
+
+### 加入购物车
+
+implement.jsonl / check.jsonl 各 4 条（前端规范、需求列表 R-002 第 24 行、概要设计接口一节第 41–51 行、购物车页原型），`task validate` 全过。2.1 实现：`public/购物车页.html`（调 GET /api/products 拿单价，读 localStorage 渲染已加商品、数量、合计；空态提示；“去结算”入口进 checkout.html）。
+
+2.2 检查：购物车没有后端接口，加购交互本身是浏览器 localStorage 行为，curl 点不了按钮；本次以页面可达 + 关键逻辑 grep + node 按 db.js 数据验算合计为准：
+
+```sh
+curl -s -o /dev/null -w "%{http_code} %{size_download} bytes" http://localhost:3000/购物车页.html
+# 200, 2595 bytes（页面含 localStorage 3 处、/api/products 1 处、去结算 1 处）
+node -e "console.log('合计 = ' + (29900 + 8900 * 2) + ' 分 = ' + (29900 + 8900 * 2) / 100 + ' 元')"
+# 合计 = 47700 分 = 477 元（1 件机械键盘 + 2 件无线鼠标）
+```
+
+3.3 回写规范：走了一遍判断，结论“没有要更新的”。工作提交 `60f7b93` → 归档提交 `b05f8df` → 日志提交 `fdf8ca8`（会话 3）。
+
+### 下单结算
+
+implement.jsonl / check.jsonl 各 5 条（后端规范、前端规范、需求列表 R-003 第 25 行、概要设计接口一节第 41–51 行、结算页原型），`task validate` 全过。2.1 实现：`src/routes/orders.js`（POST /api/orders，先校验地址再算总额；ADDRESS_REQUIRED 分支在第 10–12 行）、`src/server.js` 挂载 orders 路由、`public/checkout.html`（收货地址输入框必填，提交调真实接口；本版尚无券码输入框，R-004 再加）。
+
+2.2 检查：
+
+```sh
+curl -s -X POST http://localhost:3000/api/orders -H "Content-Type: application/json" -d '{"items":[{"id":2,"qty":1}]}'
+# {"code":"ADDRESS_REQUIRED"}，HTTP 400（缺地址）
+curl -s -X POST http://localhost:3000/api/orders -H "Content-Type: application/json" -d '{"items":[{"id":2,"qty":1}],"address":""}'
+# {"code":"ADDRESS_REQUIRED"}，HTTP 400（空地址也算缺地址）
+curl -s -X POST http://localhost:3000/api/orders -H "Content-Type: application/json" -d '{"items":[{"id":2,"qty":1}],"address":"北京市海淀区"}'
+# {"code":"OK","data":{"id":1,"items":[{"id":2,"name":"机械键盘","price":29900,"qty":1}],"address":"北京市海淀区","couponCode":null,"total":29900,"status":"待付款"}}，HTTP 200
+```
+
+3.3 回写规范：走了一遍判断，结论“没有要更新的”（ADDRESS_REQUIRED 是本任务的合同，已在 design.md 与概要设计接口行里，无需进通用规范）。工作提交 `a88a79e` → 归档提交 `5d9ce45` → 日志提交 `9f34611`（会话 4）。
+
+### 下单用优惠券
+
+implement.jsonl / check.jsonl 各 4 条（后端规范、需求列表 R-004 第 26 行、概要设计接口一节第 41–51 行、结算页原型），`task validate` 全过。2.1 实现：`src/db.js` 加 coupons 内存表（三条券，第 12–14 行）；`src/routes/orders.js` 加 `checkCoupon`（第 43–52 行，顺序：不存在 → 已使用 → 已过期 → 不满门槛，通过则实付减面额）；`public/checkout.html` 加券码输入框（`name="couponCode"` 第 33 行）与门槛提示“满 100 元减 10 元”（第 35 行）。
+
+2.2 检查，六档全跑（地址均为 `北京市海淀区`）：
+
+```sh
+curl -s -X POST http://localhost:3000/api/orders -H "Content-Type: application/json" -d '{"items":[{"id":2,"qty":1}],"address":"北京市海淀区","couponCode":"NOPE"}'
+# {"code":"COUPON_INVALID"}，HTTP 400（券码不存在）
+curl -s -X POST http://localhost:3000/api/orders -H "Content-Type: application/json" -d '{"items":[{"id":2,"qty":1}],"address":"北京市海淀区","couponCode":"MAN200JIAN30"}'
+# {"code":"COUPON_USED"}，HTTP 400（已使用）
+curl -s -X POST http://localhost:3000/api/orders -H "Content-Type: application/json" -d '{"items":[{"id":2,"qty":1}],"address":"北京市海淀区","couponCode":"NEW5"}'
+# {"code":"COUPON_EXPIRED"}，HTTP 400（已过期）
+curl -s -X POST http://localhost:3000/api/orders -H "Content-Type: application/json" -d '{"items":[{"id":2,"qty":1}],"address":"北京市海淀区","couponCode":"MAN100JIAN10"}'
+# {"code":"OK","data":{"id":1,"items":[{"id":2,"name":"机械键盘","price":29900,"qty":1}],"address":"北京市海淀区","couponCode":"MAN100JIAN10","total":28900,"status":"待付款"}}，HTTP 200（1 件键盘实付 28900）
+curl -s -X POST http://localhost:3000/api/orders -H "Content-Type: application/json" -d '{"items":[{"id":1,"qty":2}],"address":"北京市海淀区","couponCode":"MAN100JIAN10"}'
+# {"code":"OK","data":{"id":2,"items":[{"id":1,"name":"无线鼠标","price":8900,"qty":2}],"address":"北京市海淀区","couponCode":"MAN100JIAN10","total":16800,"status":"待付款"}}，HTTP 200（2 件鼠标实付 16800）
+curl -s -X POST http://localhost:3000/api/orders -H "Content-Type: application/json" -d '{"items":[{"id":1,"qty":1}],"address":"北京市海淀区","couponCode":"MAN100JIAN10"}'
+# {"code":"COUPON_THRESHOLD"}，HTTP 400（1 件鼠标不满门槛）
+```
+
+3.3 回写规范：走了一遍判断，结论“没有要更新的”（校验顺序是业务规则，已在 design.md 与概要设计接口行里；backend.md 的补行留给变更演示）。工作提交 `346c7d2` → 归档提交 `91106ee` → 日志提交 `220790d`（会话 5）。订单 id 每次重启服务后从 1 开始计（内存数据，重启即清空），属演示预期。
+
+### 优惠券列表
+
+implement.jsonl / check.jsonl 各 5 条（后端规范、前端规范、需求列表 R-005 第 27 行、概要设计接口一节第 41–51 行、优惠券页原型），`task validate` 全过。2.1 实现：`src/routes/coupons.js`（GET /api/coupons）、`src/server.js` 挂载 coupons 路由、`public/优惠券页.html`（调真实接口渲染三条券）。
+
+2.2 检查：
+
+```sh
+curl -s http://localhost:3000/api/coupons
+# {"code":"OK","data":[{"code":"MAN100JIAN10","name":"满100减10","threshold":10000,"amount":1000,"status":"未使用","expires":"2026-12-31"},{"code":"MAN200JIAN30","name":"满200减30","threshold":20000,"amount":3000,"status":"已使用","expires":"2026-12-31"},{"code":"NEW5","name":"新人5元券","threshold":0,"amount":500,"status":"已过期","expires":"2026-10-01"}]}
+curl -s -o /dev/null -w "%{http_code} %{size_download} bytes" http://localhost:3000/优惠券页.html
+# 200, 1859 bytes
+```
+
+最后一轮 2.2 是全范围回归：`task context --mode packages` 在单仓项目下只返回“单仓项目（未配置包）”，没有包可列，改为回归全部接口——GET /api/products 返回三件商品、POST /api/orders（1 件键盘 + MAN100JIAN10，带地址）返回实付 28900、status“待付款”，均通过。
+
+3.3 回写规范：走了一遍判断，结论“没有要更新的”。工作提交 `08ff4d4` → 归档提交 `e71f8c2` → 日志提交 `99d36ab`（会话 6）。
+
+---
+
+**[父任务最终集成复核]**
+
+六个子任务全部归档后，父任务 `[6/6 已完成]`，做最终集成复核再归档。复核读验收标准 + 各子任务检查结果 + 接口约定，未重读整个原型；fresh 服务启动后一次跑完：
+
+```sh
+curl -s http://localhost:3000/api/products
+# {"code":"OK","data":[{"id":1,"name":"无线鼠标","price":8900,"stock":120},{"id":2,"name":"机械键盘","price":29900,"stock":45},{"id":3,"name":"27寸显示器","price":129900,"stock":20}]}
+curl -s http://localhost:3000/api/coupons
+# 三条券（threshold 10000/20000/0，与变更前一致）
+curl -s -X POST http://localhost:3000/api/orders -H "Content-Type: application/json" -d '{"items":[{"id":2,"qty":1}]}'
+# {"code":"ADDRESS_REQUIRED"}，HTTP 400
+curl -s -X POST http://localhost:3000/api/orders -H "Content-Type: application/json" -d '{"items":[{"id":2,"qty":1}],"address":"北京市海淀区","couponCode":"MAN100JIAN10"}'
+# {"code":"OK","data":{"id":1,...,"total":28900,"status":"待付款"}}，HTTP 200
+curl -s -X POST http://localhost:3000/api/orders -H "Content-Type: application/json" -d '{"items":[{"id":1,"qty":2}],"address":"北京市海淀区","couponCode":"MAN100JIAN10"}'
+# total 16800，HTTP 200
+curl -s -X POST http://localhost:3000/api/orders -H "Content-Type: application/json" -d '{"items":[{"id":1,"qty":1}],"address":"北京市海淀区","couponCode":"MAN100JIAN10"}'
+# {"code":"COUPON_THRESHOLD"}，HTTP 400
+# 四页面均 HTTP 200：商品列表页、购物车页、checkout.html、优惠券页
+```
+
+父任务自身无代码提交（代码都在子任务工作提交里）；归档前先 `task set-branch 11-13-商城 feature/11-13-商城`。finish-work 步骤 1（`task context --mode record`）查到除父任务外无其他已完成未归档任务，“一并归档”问题 N=0，无需提问。归档提交 `257b690` → 日志提交 `d120f25`（会话 7；`--commit` 记的是规划产物提交 `9ad44e3`，因父任务无独立工作提交，摘要里已写明这一点）。归档后 `task list` 活动任务 0 个，`task list-archive` 显示 2026-11 共 7 个任务。
+
+---
+
+**[变更演示：设计人员返场]**
+
+父任务归档之后，用户改主意了：优惠券满减门槛从 100 元改成 200 元。设计先行怎么做变更？设计先改 `doc/` 与受影响原型页，父任务 prd 记 `[变更]`，1.5 只审变更；已归档新建返工不 reopen、进行中暂停回炉、没做的直接改。
+
+先建变更任务。按 1.2 的做法想挂在父任务下面，但父任务已经归档了：
+
+```sh
+sunshine task create "满减门槛改成 200 元" --slug 满减门槛改成-200 --parent 11-13-商城 --no-start
+# 错误：无法在 /tmp/scenes/s6-new/.sunshine/tasks 下解析任务 "11-13-商城"
+# 错误：父任务无法解析：11-13-商城
+# 未创建任务。请传入已存在的任务目录。
+```
+
+已归档父任务下建不了子任务——这是 1.2 的含义：拆解只做一次，要么规划时把子任务都建好，要么父任务等全部子任务归档后再归档；返工任务挂不上已归档的父任务，只能独立建。改成独立任务，PRD 记 `[变更 2026-11-13]`：
+
+```sh
+sunshine task create "满减门槛改成 200 元" -d "优惠券满减门槛 100 元改为 200 元" --slug 满减门槛改成-200 --no-start
+# 任务已创建：11-13-满减门槛改成-200
+```
+
+注意一个口径：`[变更 2026-11-13]` 不记进已归档父任务的 prd.md——归档的是历史，不 reopen；旧演示里已归档父任务的 prd 同样没有这一笔。`[变更]` 只记在变更任务自己的 prd.md 与设计文档的变更记录里。
+
+设计返场改八处（本轮五条需求，下单用优惠券是 R-004）：
+
+| # | 文件 | 行号 | 改动 |
+| --- | --- | --- | --- |
+| 1 | `doc/design/需求列表.md` | 26（R-004 行） | “满 100 元减 10 元”→“满 200 元减 10 元”；验收“2 件无线鼠标用 MAN100JIAN10 实付 16800 分”→“返回 400 COUPON_THRESHOLD” |
+| 2 | `doc/design/需求列表.md` | 54（变更记录行） | 新增行：`2026-11-13 ｜ R-004 满减门槛由 100 元改为 200 元（验收标准同步改：2 件无线鼠标由实付 16800 分改为 400 COUPON_THRESHOLD）｜ 用户要求` |
+| 3 | `doc/design/概要设计.md` | 29（模块划分·结算页行） | 门槛提示“满 100 元减 10 元”→“满 200 元减 10 元”（同文件内自相矛盾处同步） |
+| 4 | `doc/design/概要设计.md` | 50（接口行·结算页） | 门槛提示“满 100 元减 10 元”→“满 200 元减 10 元” |
+| 5 | `doc/design/概要设计.md` | 59（数据节 mock 三条券行） | MAN100JIAN10 `threshold 10000`→`threshold 20000`，并追加注明：“注意：券名‘满100减10’未改，门槛已改为 200 元，名不副实，见变更记录” |
+| 6 | `doc/design/概要设计.md` | 77（验收标准行） | “2 件无线鼠标用 MAN100JIAN10 实付 16800 分”→“返回 400 COUPON_THRESHOLD” |
+| 7 | `doc/prototype/结算页.html` | 36（门槛提示行） | “满 100 元减 10 元”→“满 200 元减 10 元” |
+| 8 | `doc/prototype/mock.js` | 8 | MAN100JIAN10 `threshold: 10000`→`threshold: 20000`（原型共用 mock 同步；优惠券页按 mock 渲染，自动同步） |
+
+改完后 grep 核对：需求行、接口行、结算页原型、mock.js 里的旧值（“满 100 元减 10 元”“threshold 10000”）已无残留；“16800”只剩变更记录行里那一处（它本身就是在记旧值）；“满100减10”只剩券名本身（有意不改名）。
+
+变更任务的 1.5 只评审变更的部分（prd.md + 上述设计改动），确认后 `task start`。implement.jsonl / check.jsonl 各 4 条（后端规范、需求列表 R-004 第 26 行、概要设计接口一节第 41–51 行、结算页原型），`task validate` 全过。implement 改三处：
+
+| # | 文件 | 行号 | 改动 |
+| --- | --- | --- | --- |
+| 1 | `src/db.js` | 12 | MAN100JIAN10 `threshold: 10000`→`threshold: 20000` |
+| 2 | `.sunshine/spec/backend.md` | 21（新增行） | `优惠券 MAN100JIAN10 门槛 20000 分（2026-11-13 由 10000 改为 20000；券名“满100减10”未改，名不副实）。` |
+| 3 | `public/checkout.html` | 35 | 门槛提示“满 100 元减 10 元”→“满 200 元减 10 元” |
+
+变更后 curl 验证（地址均为 `北京市海淀区`）：
+
+```sh
+curl -s -X POST http://localhost:3000/api/orders -H "Content-Type: application/json" -d '{"items":[{"id":1,"qty":2}],"address":"北京市海淀区","couponCode":"MAN100JIAN10"}'
+# {"code":"COUPON_THRESHOLD"}，HTTP 400（2 件鼠标原来实付 16800，现在不满 200 元门槛）
+curl -s -X POST http://localhost:3000/api/orders -H "Content-Type: application/json" -d '{"items":[{"id":2,"qty":1}],"address":"北京市海淀区","couponCode":"MAN100JIAN10"}'
+# {"code":"OK","data":{"id":1,"items":[{"id":2,"name":"机械键盘","price":29900,"qty":1}],"address":"北京市海淀区","couponCode":"MAN100JIAN10","total":28900,"status":"待付款"}}，HTTP 200（1 件键盘仍实付 28900）
+curl -s http://localhost:3000/api/coupons
+# MAN100JIAN10 {"code":"MAN100JIAN10","name":"满100减10","threshold":20000,"amount":1000,"status":"未使用","expires":"2026-12-31"}（名仍“满100减10”，threshold 已是 20000）
+```
+
+工作提交 `eec9467`（`变更：满减门槛改成 200 元（100→200）`，含设计改动 8 处 + 代码改动 3 处 + 变更任务文件）→ 归档提交 `7648b07` → 日志提交 `ba86c65`（会话 8）。归档后 `task list-archive` 显示 2026-11 共 8 个任务。
+
+---
+
+最终 git log（旧 → 新，25 条提交；每个任务都是“工作提交 → 归档提交 → 日志提交”顺序）：
+
+```text
+3ba152f chore: sunshine init（产品设计）
+9ad44e3 docs: 商城设计先行规划产物（需求列表、概要设计、原型、父子任务）
+1e3fc51 feat: 后端基础：Node.js + Express 脚手架与商品内存数据
+0866131 chore(task): archive 11-13-后端基础
+a1b867a chore: record journal
+4134922 feat: 商品列表：GET /api/products 与商品列表页
+7e4d47b chore(task): archive 11-13-商品列表
+df6838b chore: record journal
+60f7b93 feat: 加入购物车：购物车页（localStorage）
+b05f8df chore(task): archive 11-13-加入购物车
+fdf8ca8 chore: record journal
+a88a79e feat: 下单结算：POST /api/orders 与结算页，地址必填
+5d9ce45 chore(task): archive 11-13-下单结算
+9f34611 chore: record journal
+346c7d2 feat: 下单用优惠券：券校验与抵扣，结算页加券码输入
+91106ee chore(task): archive 11-13-下单用优惠券
+220790d chore: record journal
+08ff4d4 feat: 优惠券列表：GET /api/coupons 与优惠券页
+e71f8c2 chore(task): archive 11-13-优惠券列表
+99d36ab chore: record journal
+257b690 chore(task): archive 11-13-商城
+d120f25 chore: record journal
+eec9467 变更：满减门槛改成 200 元（100→200）
+7648b07 chore(task): archive 11-13-满减门槛改成-200
+ba86c65 chore: record journal
+```
+
+这个场景的闭环就是：空目录 `init` → 需求一次一问 → 设计包落 `doc/` → 评审（最终规划总结）→ 拆解一次建好 6 个子任务 → 逐个子任务走完实现、检查、回写规范、提交、归档 → 父任务集成复核后归档 → 变更走设计返场再闭环。设计先行没有强制的交付物清单——概要设计、需求列表、原型都不是硬性要求，只是这个场景里的设计包；设计产出由设计者定，1.5 审整包，拆解依据 `doc/` 里实际有的文档，没有设计文档就是纯代码任务。
+
+几个边界，照实说：
+
+- “加入购物车”按钮写 localStorage 的逻辑随 R-001 的商品列表页一起交付，R-002 的交付物是购物车页本身（读 localStorage 渲染与合计）及端到端验算——购物车没有后端接口，curl 点不了按钮，靠页面可达 + 关键逻辑 grep + node 验算合计。
+- `task start` 在沙箱报会话身份不可用（降级模式），7 次 start 都是降级模式，状态照常翻转，未阻塞。
+- 归档与 add-session 的自动提交本轮全部一次成功——演示仓库事先已设本地 git 身份，旧演示里因缺 git 身份失败、手动补提交的情况本轮没复现。
+- `add-session` 留下的 `.gitattributes`（journal 的 `merge=union` 规则）8 次 journal 提交都没把它带进去，最终 `git status` 仍剩 `?? .gitattributes` 一条残留。
+- `.sunshine/.developer` 没被 gitignore，已随基线提交 `3ba152f` 进库；init 也没生成仓库根 `.gitignore`，`node_modules/` 是后端基础子任务新建根 `.gitignore` 后才排除的。
+- 浏览器真实渲染未验证：沙箱无浏览器，原型页与生产页只做了 curl 取回（HTTP 200 + 关键逻辑 grep），页面长什么样、按钮点按反馈未在真实浏览器里看过。
 
 ## 附录：命令速查
 
