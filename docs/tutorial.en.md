@@ -72,6 +72,8 @@ Open the project in Claude Code (Codex and Cursor work the same way — the agen
 
 Note: the prompt must name the workflow explicitly — ask first, confirm, then create the task and write the PRD. A bare requirement on its own is not enough: in a real run the agent jumped straight to coding and skipped task creation and requirement confirmation.
 
+The designer and the developer are not two workflows — they are two phases of one workflow: the designer does 1.1 (clarify requirements), the design deliverables, 1.5 (review), and 1.2 (breakdown); the developer does phase 2 (implement and check) and phase 3 (write back and commit). They share one workflow.md, one task system, and one PRD, and the handoff runs through the requirements list and the task structure. So the prompt does not need to name a role — naming the workflow and the mode is enough, and the role follows the phase: while the task is in the design phase, the agent is the designer; once it moves into development, the agent is the developer. If the mode is unclear, the agent asks first in 1.1. The only thing to state explicitly is the scope boundary: design only, no code, or the design is done and only development remains.
+
 You do not need to mention commands. The prompt names the workflow explicitly — ask first, confirm, then create the task and write the PRD — because a bare requirement on its own lets the agent jump straight to coding. Once the flow is named, the agent follows it: if the request is big enough to be a task, `workflow.md` requires it to ask for your agreement before creating one — it will not silently create a task directory. It may also ask clarifying questions first (for example, whether "other" needs a minimum text length), and it will tell you what it is about to do before doing it.
 
 Before the work starts, the demo project's conventions need to live in the specs — either you add them, or you ask the agent to ("Put the refund conventions into the spec files"). Either way they end up as three short additions:
@@ -1652,54 +1654,92 @@ Example prompt (an example, not a record of a real session):
 
 Here is the session (the conversation is an example; the commands and outputs are real values from runs):
 
-> **Claude Code:** One question first — it decides how the split goes: which requirements? A, all five (product list, adding to cart, checkout, using a coupon at checkout, coupon list); B, only using a coupon and the coupon list.
->
-> **You:** A, all five.
+Design-first does not mean asking every question up front and then producing the whole design package in one go. It runs per requirement, one loop at a time: for each requirement, a round of questions, then the requirements list is updated on disk, then a prototype sub-agent builds that requirement's page. The loop stops only when the designer and the user agree the current batch is enough, and only then does it move to review and split. The scope is not fixed in advance — the loop starts from the requirements already in the opening prompt (a starting batch, not a fixed scope); shared constraints and shared data are fixed the first time they are needed; the boundary of what is out of scope is set as the work goes.
 
-> **Claude Code:** Do we fix the tech stack now, or leave it to the backend-foundation sub-task? A, fix it now: Node.js + Express + in-memory; B, only set constraints and leave the choice to that sub-task's 1.1 questions.
->
-> **You:** B, constraints only: prices stored in "fen", all APIs return `{code, data}`, port 3000. The choice belongs to the backend-foundation sub-task by workflow.
+#### Round 1: R-001 product list
 
-> **Claude Code:** Shall we fix the data — three products and three coupons? A, use the given data; B, add more products or coupons.
+> **Claude Code:** What product data do we use? A, three products — wireless mouse 8900 fen / stock 120, mechanical keyboard 29900 fen / stock 45, 27-inch monitor 129900 fen / stock 20; B, add more products.
 >
-> **You:** A, as given: wireless mouse 8900 fen / stock 120, mechanical keyboard 29900 fen / stock 45, 27-inch monitor 129900 fen / stock 20; coupons MAN100JIAN10 (10000 off 1000, unused, 2026-12-31), MAN200JIAN30 (20000 off 3000, used), NEW5 (new-user 5-yuan coupon, expired, 2026-10-01).
+> **You:** A, as given.
+
+> **Claude Code:** How do we fix prices, APIs, and the port? A, prices stored in "fen", all APIs return `{code, data}`, port 3000; B, decide each separately later.
+>
+> **You:** A, these three are shared constraints — fix them in this round.
+
+Requirements list updated on disk: 45 lines, with a new R-001 line (the product list page shows all products: name, price, stock; GET /api/products returns the three products).
+
+Prototype dispatch: three inputs — the requirements list (current state) + the spec's frontend style constraints (`.sunshine/spec/frontend.md`) + the existing prototype directory `doc/prototype/`. The sub-agent reported: 1 new page. 商品列表页.html 72 lines; mock.js 8 lines (3 products); index.html 38 lines; the template placeholder 示例页.html deleted.
+
+#### Round 2: R-002 adding to cart
+
+> **Claude Code:** Where does the cart live? A, in the browser's localStorage, no backend API; B, stored on the backend.
+>
+> **You:** A, localStorage.
+
+Requirements list updated on disk: 46 lines, with a new R-002 line (click "add to cart" on the product list page; the cart page shows the added products, quantities, and total; the cart lives in the browser's localStorage, no backend API).
+
+Prototype dispatch: same three inputs. The sub-agent reported: 1 new page. 购物车页.html 145 lines; index.html 39 lines; mock.js unchanged. The cart's localStorage key is `sunshine_cart`; the demo pre-fills 1 keyboard + 2 mice, totalling 47700 fen (node check: 29900 + 8900 × 2 = 47700).
+
+#### Round 3: R-003 checkout
+
+> **Claude Code:** Is the shipping address required? What happens without one? A, required — a missing address returns 400 ADDRESS_REQUIRED; B, optional.
+>
+> **You:** A, required.
+
+Requirements list updated on disk: 47 lines, with a new R-003 line (fill in the shipping address on the checkout page and submit the order; the address is required, a missing address returns 400 ADDRESS_REQUIRED; an order with an address succeeds).
+
+Prototype dispatch: same three inputs. The sub-agent reported: 1 new page. 结算页.html 132 lines; index.html 40 lines; mock.js unchanged. An empty address shows "请填写收货地址"; submitting with an address shows "下单成功，订单状态：待付款". No coupon area yet — only a source comment reserving the R-004 spot.
+
+#### Round 4: R-004 using a coupon at checkout
 
 > **Claude Code:** Coupon validation order and error codes? A, not found → used → expired → below threshold, with COUPON_INVALID / COUPON_USED / COUPON_EXPIRED / COUPON_THRESHOLD; B, only usable versus not usable.
 >
 > **You:** A, the four-step order.
 
-> **Claude Code:** Is the shipping address required at checkout? A, required — missing address returns 400 ADDRESS_REQUIRED; B, optional.
->
-> **You:** A, required.
-
-> **Claude Code:** How is a coupon used at checkout? A, type the code and submit it with the order, the backend validates and deducts; B, claim the coupon first, then order.
+> **Claude Code:** How is the coupon code submitted, and who validates it? A, type the code on the checkout page and submit it with the order; the backend validates and deducts; B, claim the coupon first, then order.
 >
 > **You:** A, submit the code with the order.
+
+The three coupons were fixed in this round, the first time they were needed: MAN100JIAN10 (10000 off 1000, unused, 2026-12-31), MAN200JIAN30 (20000 off 3000, used), NEW5 (new-user 5-yuan coupon, expired, 2026-10-01).
+
+Requirements list updated on disk: 48 lines, with a new R-004 line (type the coupon code on the checkout page, 100 off 10; the coupon must be unused and unexpired and meet the threshold, otherwise the order fails with a reason).
+
+Prototype dispatch: same three inputs, explicitly sharing the checkout page with R-003 (add the coupon area, do not rebuild the page). The sub-agent reported: 0 new pages. 结算页.html 215 lines (coupon code input on line 49, the "满 100 元减 10 元" threshold hint on line 50, validation logic on lines 121–189); mock.js 17 lines (3 products + 3 coupons); index.html unchanged. A node check of all six cases passed (1 keyboard pays 28900, 2 mice pay 16800, 1 mouse is below threshold).
+
+#### Round 5: R-005 coupon list
 
 > **Claude Code:** What does the coupon list show? A, coupon name, threshold, amount, status, expiry; B, only name and amount.
 >
 > **You:** A, all five fields.
 
+Requirements list updated on disk: 49 lines, with a new R-005 line (the coupon page shows all coupons: name, threshold, amount, status, expiry; GET /api/coupons returns the three coupons).
+
+Prototype dispatch: same three inputs. The sub-agent reported: 1 new page. 优惠券页.html 86 lines; index.html 41 lines; mock.js unchanged. Final count: 4 content pages + the navigation entry.
+
+#### Closing questions
+
 > **Claude Code:** What is explicitly out of scope? A, no payments, no login, no coupon issuing / claiming / redemption backend, no automatic expiry cleanup, no database, no cache; B, build all of it.
 >
-> **You:** A, all of that is out.
+> **You:** A, all of that is out — write it into the prd.md "out of scope" section.
 
-All eight dimensions (users and scenarios, feature boundaries, data, performance, security, compatibility, acceptance, out of scope) are covered by now: performance is a single-machine demo with no special concurrency needs, security is exact-match coupon codes, compatibility is prices in fen and APIs in `{code, data}` — those three were settled in the answers, so no separate questions. No blocking open questions, so on to design.
+Designer and user agreed the current batch was enough; the loop ends, and the work moves to review and split.
 
-Once the questions are answered, the design package lands in the project's `doc/`, not `.sunshine` — the designer finishes all deliverables first, and development only starts after the review passes:
+All eight dimensions (users and scenarios, feature boundaries, data, performance, security, compatibility, acceptance, out of scope) are covered by now: performance is a single-machine demo with no special concurrency needs, security is exact-match coupon codes, compatibility is prices in fen, APIs in `{code, data}`, and port 3000 — those three were settled in the answers and in the requirements list's non-functional section, so no separate questions. No blocking open questions, so on to design.
+
+The outline design was written after the loop ended — the opening prompt asked for it by name (generated on demand, not a mandatory checklist item). The final design package lands in the project's `doc/`, not `.sunshine`:
 
 ```text
-doc/design/需求列表.md        # 54 lines: R-001–R-005 (lines 23–27), open items (lines 39–48), change log (lines 50–54)
-doc/design/概要设计.md        # 85 lines: goals and scope, module split, key flows, interfaces, data, tech selection, acceptance criteria, risks
-doc/prototype/index.html       # 42 lines: navigation entry listing the 4 pages and their requirements
-doc/prototype/mock.js          # 12 lines: shared mock, 3 products and 3 coupons
-doc/prototype/商品列表页.html  # 60 lines: R-001
-doc/prototype/购物车页.html    # 56 lines: R-002
-doc/prototype/结算页.html      # 60 lines: R-003 + R-004 (coupon code input + the "满 100 元减 10 元" threshold hint on line 36)
-doc/prototype/优惠券页.html    # 44 lines: R-005
+doc/design/需求列表.md        # 49 lines: R-001–R-005 (lines 23–27), open items (lines 39–44, empty), change log (lines 45–49)
+doc/design/概要设计.md        # 78 lines: goals and scope, module split, key flows, interfaces (lines 38–40), data, tech selection (lines 55–64, [待定] on lines 60–63), acceptance criteria, risks
+doc/prototype/index.html       # 41 lines: navigation entry listing the 4 pages and their requirements
+doc/prototype/mock.js          # 17 lines: shared mock, 3 products and 3 coupons
+doc/prototype/商品列表页.html  # 72 lines: R-001
+doc/prototype/购物车页.html    # 145 lines: R-002
+doc/prototype/结算页.html      # 215 lines: R-003 + R-004 (coupon code input on line 49, the "满 100 元减 10 元" threshold hint on line 50, validation logic on lines 121–189)
+doc/prototype/优惠券页.html    # 86 lines: R-005
 ```
 
-Five requirements map to four prototype pages — R-003 checkout and R-004 using a coupon share the checkout page (R-004 is the coupon-code area on that page); every other requirement gets its own page. The prototype was built by dispatching a `sunshine-prototype` sub-agent (it reads only the requirements list and the outline design, and reports only page count, mock rows, and paths); the template `doc/prototype/示例页.html` that `init` ships is a placeholder, not a real page, so it was deleted and `index.html` rewritten for the real pages.
+Five requirements map to four prototype pages — R-003 checkout and R-004 using a coupon share the checkout page (R-004 is the coupon-code area on that page); every other requirement gets its own page. The prototype was built by dispatching a `sunshine-prototype` sub-agent once per round, with the same three inputs (requirements list as it stood + the spec's frontend style constraints + the existing prototype directory), and each report gave only page count, mock rows, and paths; the template `doc/prototype/示例页.html` that `init` ships is a placeholder, not a real page, so it was deleted in round 1 and `index.html` rewritten for the real pages.
 
 The requirements list is one item per requirement, each pointing at its page in the system prototype (real file content, excerpt):
 
@@ -1719,7 +1759,7 @@ The outline design's interface lines (real content):
 | GET /api/coupons | 无 | { code, data: coupons }，三条券 | 返回全部券，不分页 |
 ```
 
-The tech-selection section (outline design, lines 62–71) only writes constraints and open items and never forces a decision: constraints are prices in fen, APIs in `{code, data}`, port 3000; language, framework, database, and cache are all marked `[待定]`, left for the backend-foundation sub-task's 1.1 questions. That is the v0.5.5 rule — when the backend foundation is big enough for its own sub-task, its selection items are marked `[待定]` in its PRD and its 1.1 answers them before any scaffolding.
+The tech-selection section (outline design, lines 55–64) only writes constraints and open items and never forces a decision: constraints are prices in fen, APIs in `{code, data}`, port 3000, and a single-machine demo with no special concurrency needs; language, framework, database, and cache are all marked `[待定]` (lines 60–63), left for the backend-foundation sub-task's 1.1 questions. That is the v0.5.5 rule — when the backend foundation is big enough for its own sub-task, its selection items are marked `[待定]` in its PRD and its 1.1 answers them before any scaffolding.
 
 ---
 
@@ -1727,7 +1767,7 @@ The tech-selection section (outline design, lines 62–71) only writes constrain
 
 The design package is reviewed before any split. The review is the 1.5 final planning summary — the whole planning package laid out for confirmation, and only then does anything `task start`:
 
-> **Claude Code:** Final planning summary for confirmation: the goal is a coupon-carrying web store built from zero, design-first; the scope is all five requirements R-001–R-005; out of scope are payments, login, coupon issuing / claiming / redemption, automatic expiry cleanup, database, and cache; the key decisions are leaving the stack to the backend-foundation sub-task, keeping the cart in localStorage, requiring the address, and the four-step coupon validation order; the deliverables are prd.md, the requirements list, the outline design, a 4-page prototype plus mock, and 6 sub-tasks already created and validated, in order backend foundation → product list → adding to cart → checkout → using a coupon → coupon list. Once you confirm, I'll start them one by one. OK?
+> **Claude Code:** Final planning summary for confirmation: the goal is a coupon-carrying web store built from zero, design-first; the scope is all five requirements R-001–R-005; out of scope are payments, login, coupon issuing / claiming / redemption, automatic expiry cleanup, database, and cache; the key decisions are leaving the stack to the backend-foundation sub-task, keeping the cart in localStorage, requiring the address, and the four-step coupon validation order; the deliverables are prd.md, the requirements list (49 lines), the outline design (78 lines), a 4-page prototype plus mock, and 6 sub-tasks already created and validated, in order backend foundation → product list → adding to cart → checkout → using a coupon → coupon list. Once you confirm, I'll start them one by one. OK?
 >
 > **You:** OK, go ahead.
 
@@ -1735,7 +1775,7 @@ The design package is reviewed before any split. The review is the 1.5 final pla
 
 **[Split: 1.2 runs once]**
 
-The split runs once, right after the review passes, creating all 6 sub-tasks in one pass; it starts nothing, and every sub-task is created in `planning`. The parent task is only created, never started (it has no implementation work of its own), and the split follows what is actually in `doc/`:
+The split runs once, right after the review passes, creating all 6 sub-tasks in one pass; it starts nothing, and every sub-task is created in `planning`. The parent task is only created, never started (it has no implementation work of its own), and the split follows the requirements list (the main thread and the contract) and what is actually in `doc/`:
 
 ```sh
 sunshine task list
@@ -1752,270 +1792,271 @@ sunshine task list
 # 总计：7 个任务
 ```
 
+The planning products were committed as `b4bf106` (doc/ + the 7 task files) — the design package and the task structure land in one commit before any coding starts.
+
 The backend-foundation sub-task goes first, and its 1.1 answers the `[待定]` items one question at a time:
 
 > **Claude Code:** Which language? A, Node.js; B, Go.
 >
 > **You:** A, Node.js — the store demo is light, and one language front and back.
 >
-> **Claude Code:** Which framework? A, Express; B, plain http.
+> **Claude Code:** Which framework? A, Express; B, raw http.
 >
 > **You:** A, Express.
 >
-> **Claude Code:** Database? A, no database, in-memory; B, SQLite.
+> **Claude Code:** Where does the data live? A, in memory, no database; B, SQLite.
 >
-> **You:** A, in-memory — three products and three coupons, the demo needs no persistence.
+> **You:** A, in memory — the data is small, three products and three coupons, and the demo needs no persistence.
 >
-> **Claude Code:** Cache? A, none; B, an in-memory cache layer.
+> **Claude Code:** Cache? A, none; B, add an in-memory cache layer.
 >
-> **You:** A, none — in-memory data is already the fastest layer.
+> **You:** A, none — in-memory data is already the fastest layer there is.
 
-The four answers go into that sub-task's prd.md and design.md, the `[待定]` items clear to zero, and once the stack is settled it stays settled for the sub-tasks after it. Each requirement sub-task's 1.1 only confirms its scope briefly (its own requirement plus acceptance criteria in its prd.md) — no second full brainstorm — then straight to 1.4.
+The four answers go into that sub-task's prd.md and design.md, and the `[待定]` items clear; once the stack is fixed it does not change again, and the later sub-tasks reuse it. Each requirement sub-task's own 1.1 only briefly confirms its scope (the one requirement in its prd.md plus its acceptance criteria) and skips the full brainstorm, going straight to 1.4.
 
-Every sub-task's implement.jsonl and check.jsonl hold only specs, research, and `doc/` design products, never code files (the sub-agent reads the code itself while implementing; nothing needs to be pre-registered); each file needs at least one real entry before `start`, and `task validate` must pass. Dependencies go in the PRDs: the requirement sub-tasks start only after the backend foundation is archived; R-004 depends on R-003's order API; R-005 depends on R-004's coupons data.
+Each sub-task's implement.jsonl / check.jsonl lists only specs, research, and doc/ design products — never code files (the sub-agent reads those itself during implementation, so they need no advance registration); before `task start`, each jsonl needs at least one real entry, and `task validate` must pass. Dependencies go in the prd: the requirement sub-tasks start only after the backend foundation is archived; R-004 depends on R-003's order API; R-005 depends on R-004's coupon data.
 
 ---
 
 **[Developers enter]**
 
-Activation is one sub-task at a time: a sub-task runs the whole implement → check → write-back → commit → archive sequence before the next one starts. Here is the record for each sub-task (the conversation is an example; the commands and outputs are real values from runs).
+One sub-task at a time: each runs the full implement → check → write back → commit → archive cycle before the next starts. Here is each sub-task's record (the conversation is an example; the commands and outputs are real values from runs).
 
-### Backend foundation: tech selection and scaffolding
+### Backend foundation: stack choice and scaffolding
 
-The backend-foundation sub-task goes first. Its implement.jsonl has 3 entries (backend spec, outline-design tech selection lines 62–71, requirements-list R-001 line 23) and its check.jsonl has 2, and `task validate` passes before `start`. 2.1 implements `package.json` (express ^4.18.2), `src/server.js` (express.json, static directory public, listening on 3000), and `src/db.js` (three products plus an empty orders array); `npm install` pulls express 4.22.3, 68 packages, and writes `package-lock.json`.
+The backend-foundation sub-task goes first. Its implement.jsonl has 3 entries (outline design interfaces and data, the backend spec, this task's design.md), its check.jsonl has 2 (outline design acceptance criteria, this task's prd.md), and `task validate` passes before start. 2.1 implementation: `package.json` (single-line JSON, Express ^4.21.2, start is `node server.js`), `server.js` 18 lines (port 3000, a GET / health JSON, serves public/), `src/db.js` 21 lines (products / coupons / orders / nextOrderId=1), a root `.gitignore` (node_modules/), and package-lock.json generated automatically; `npm install` pulls in express 4.21.2, 68 packages in total.
 
-2.2 checks: `node --check` passes; the server prints `商城跑在 http://localhost:3000`. There are no `/api` routes yet, so curl verifies the scaffold itself runs:
+Two inferences (the task data did not say): MAN200JIAN30's expiry is 2026-12-31 (same as MAN100JIAN10); NEW5's threshold is 0 and its amount 500 fen.
+
+2.2 check:
 
 ```sh
 curl -s -i http://localhost:3000/
-# HTTP/1.1 404 Not Found (expected: no static files, no routes yet)
+# HTTP/1.1 200 OK
+# {"code":0,"data":{"status":"ok"}} (health JSON)
 curl -s http://localhost:3000/api/products
-# Cannot GET /api/products (expected: the route is not mounted yet)
+# Cannot GET /api/products (expected: no route mounted yet)
 ```
 
-3.3 writes back to spec, and there is an update: `.sunshine/spec/backend.md` gains a "本项目技术选型" section (lines 17–20: Node.js, Express, no database, in-memory, no cache; prices in fen, APIs in `{code, data}`, port 3000); `.sunshine/spec/frontend.md` changes its stack section to "原生 HTML + JS，无框架；页面在 `public/`；不引入 Tailwind".
-
-The 3.4 submit plan is shown once and confirmed once ("reply 'ok' / '行' to run"), then committed in order. The first sub-task's plan has two commits — the planning products first, then its own work:
-
-> **Claude Code:** Submit plan for one-time confirmation: (1) `docs: 商城设计先行规划产物（需求列表、概要设计、原型、父子任务）` (doc/ + all 7 task files + `.gitignore`); (2) `feat: 后端基础：Node.js + Express 脚手架与商品内存数据` (package.json, package-lock.json, src/server.js, src/db.js, both spec files). `node_modules/` is in `.gitignore` and stays out. Reply 'ok' / '行' to run.
->
-> **You:** 行.
-
-Work commit `1e3fc51` (planning commit `9ad44e3`) → archive commit `0866131` → journal commit `a1b867a` (session 1). One aside: the `.gitignore` (containing only `node_modules/`) was created here — `init` writes no root `.gitignore`, or `node_modules/` would have entered the work tree.
+3.3 write back: the check ran and the answer was "no spec update" (the stack and the interfaces are already recorded in the task prd/design and the outline design; the team spec gains no new convention). Work commit `d4845de` → archive commit `bfe26d0` → journal commit `0d2d697` (session 1). Note: the `.gitignore` (containing only `node_modules/`) was created here — `init` does not generate a repo-root `.gitignore`, or `node_modules/` would land in the working tree.
 
 ### Product list
 
-Implement.jsonl and check.jsonl have 5 entries each (backend spec, frontend spec, requirements-list R-001 line 23, outline-design interface section lines 41–51, product-list prototype page), and `task validate` passes. 2.1 implements `src/routes/products.js` (GET /api/products), mounts the products route in `src/server.js`, and writes `public/商品列表页.html` (renders from the real API, price divided by 100; the "加入购物车" button already carries the localStorage write).
+implement.jsonl has 3 entries (outline design interface GET /api/products, the product list prototype page, this task's prd.md), check.jsonl has 2 (outline design acceptance criteria, this task's prd.md), `task validate` passes. 2.1 implementation: `src/routes/products.js` 11 lines (GET /api/products), `server.js` 22 lines (+5, route mounted), `public/index.html` 103 lines (fetches /api/products, writes the cart to localStorage, Loading and error states).
 
-2.2 checks:
+2.2 check:
 
 ```sh
 curl -s http://localhost:3000/api/products
-# {"code":"OK","data":[{"id":1,"name":"无线鼠标","price":8900,"stock":120},{"id":2,"name":"机械键盘","price":29900,"stock":45},{"id":3,"name":"27寸显示器","price":129900,"stock":20}]}
-curl -s -o /dev/null -w "%{http_code}" http://localhost:3000/商品列表页.html
-# 200 (the page carries the fetch("/api/products") render logic)
+# {"code":0,"data":[{"id":1,"name":"无线鼠标","price":8900,"stock":120},{"id":2,"name":"机械键盘","price":29900,"stock":45},{"id":3,"name":"27寸显示器","price":129900,"stock":20}]}
+curl -s -o /dev/null -w "%{http_code} %{size_download} bytes" http://localhost:3000/index.html
+# 200, 4143 bytes
+curl -s -o /dev/null -w "%{http_code}" http://localhost:3000/
+# 200
 ```
 
-3.3 writes back to spec: the judgment runs, and the answer is "nothing to update" (the API follows the existing backend spec, no new pattern or decision). Work commit `4134922` → archive commit `7e4d47b` → journal commit `df6838b` (session 2).
+3.3 write back: the check ran and the answer was "no spec update" (the API follows the existing backend spec; no new pattern, no new decision). Work commit `3977045` → archive commit `b6fdb15` → journal commit `a6faa74` (session 2).
 
 ### Adding to cart
 
-Implement.jsonl and check.jsonl have 4 entries each (frontend spec, requirements-list R-002 line 24, outline-design interface section lines 41–51, cart prototype page), and `task validate` passes. 2.1 implements `public/购物车页.html` (fetches GET /api/products for prices, reads localStorage to render the added items, quantities, and total, shows an empty state, and links "去结算" to checkout.html).
+implement.jsonl has 2 entries (the cart prototype page, this task's prd.md), check.jsonl has 2 (the cart prototype page, this task's prd.md), `task validate` passes. 2.1 implementation: `public/cart.html` 156 lines (6680 bytes) — reads localStorage `sunshine_cart`, calls /api/products to resolve prices, quantities are editable with the total updating live, the cart survives a refresh, empty state, and a "go to checkout" link to checkout.html; the production page does not pre-fill demo data (the prototype stuffs 1 keyboard + 2 mice when it opens with no data), so no data means the empty state; it also drops products that are no longer listed and clamps out-of-range quantities.
 
-2.2 checks: the cart has no backend API — adding to cart is browser localStorage behavior, and curl cannot click a button. So this round verifies reachability plus the key logic by grep plus a node calculation against db.js:
+2.2 check: the cart has no backend API — adding to the cart is a browser localStorage action that curl cannot click — so the check is page reachability + key-logic grep + a node calculation against the db.js data:
 
 ```sh
-curl -s -o /dev/null -w "%{http_code} %{size_download} bytes" http://localhost:3000/购物车页.html
-# 200, 2595 bytes (the page contains localStorage in 3 places, /api/products once, 去结算 once)
-node -e "console.log('合计 = ' + (29900 + 8900 * 2) + ' 分 = ' + (29900 + 8900 * 2) / 100 + ' 元')"
-# 合计 = 47700 分 = 477 元 (1 mechanical keyboard + 2 wireless mice)
+curl -s -o /dev/null -w "%{http_code} %{size_download} bytes" http://localhost:3000/cart.html
+# 200, 6680 bytes (the page has localStorage in 4 places, fetch in 1)
+node -e "console.log('total = ' + (29900 + 8900 * 2) + ' fen = ' + (29900 + 8900 * 2) / 100 + ' yuan')"
+# total = 47700 fen = 477 yuan (1 mechanical keyboard + 2 wireless mice)
 ```
 
-3.3 writes back to spec: the judgment runs, and the answer is "nothing to update". Work commit `60f7b93` → archive commit `b05f8df` → journal commit `fdf8ca8` (session 3).
+3.3 write back: the check ran and the answer was "no spec update". Work commit `1853417` → archive commit `faac8ce` → journal commit `ace811d` (session 3).
 
 ### Checkout
 
-Implement.jsonl and check.jsonl have 5 entries each (backend spec, frontend spec, requirements-list R-003 line 25, outline-design interface section lines 41–51, checkout prototype page), and `task validate` passes. 2.1 implements `src/routes/orders.js` (POST /api/orders, validates the address first and then totals; the ADDRESS_REQUIRED branch is lines 10–12), mounts the orders route in `src/server.js`, and writes `public/checkout.html` (the address input is required and submits to the real API; there is no coupon input yet — R-004 adds it).
+implement.jsonl has 3 entries (outline design interface POST /api/orders, the checkout prototype page, this task's prd.md), check.jsonl has 2 (outline design acceptance criteria, this task's prd.md), `task validate` passes. 2.1 implementation: `src/routes/orders.js` 40 lines (address check on line 13 — a missing or empty address returns 400 ADDRESS_REQUIRED; the id comes from `db.nextOrderId++`; the total is price × qty; status "待付款"; couponCode is accepted but not validated and not deducted), `server.js` 29 lines (adds the `express.json()` the scaffold lacked, plus the route mount), `public/checkout.html` 176 lines (address input on line 48, no coupon area yet — only the `<!-- R-004 券码输入区（预留位置） -->` comment; the cart is cleared after a successful order).
 
-2.2 checks:
+2.2 check:
 
 ```sh
 curl -s -X POST http://localhost:3000/api/orders -H "Content-Type: application/json" -d '{"items":[{"id":2,"qty":1}]}'
-# {"code":"ADDRESS_REQUIRED"}, HTTP 400 (no address)
+# {"code":"ADDRESS_REQUIRED","data":null}, HTTP 400 (no address)
 curl -s -X POST http://localhost:3000/api/orders -H "Content-Type: application/json" -d '{"items":[{"id":2,"qty":1}],"address":""}'
-# {"code":"ADDRESS_REQUIRED"}, HTTP 400 (an empty address counts as missing)
-curl -s -X POST http://localhost:3000/api/orders -H "Content-Type: application/json" -d '{"items":[{"id":2,"qty":1}],"address":"北京市海淀区"}'
-# {"code":"OK","data":{"id":1,"items":[{"id":2,"name":"机械键盘","price":29900,"qty":1}],"address":"北京市海淀区","couponCode":null,"total":29900,"status":"待付款"}}, HTTP 200
+# {"code":"ADDRESS_REQUIRED","data":null}, HTTP 400 (an empty address counts as missing)
+curl -s -X POST http://localhost:3000/api/orders -H "Content-Type: application/json" -d '{"items":[{"id":2,"qty":1}],"address":"测试地址"}'
+# {"code":0,"data":{"id":1,"items":[{"id":2,"qty":1}],"address":"测试地址","couponCode":null,"total":29900,"status":"待付款"}}, HTTP 200
+curl -s -o /dev/null -w "%{http_code} %{size_download} bytes" http://localhost:3000/checkout.html
+# 200, 7241 bytes
 ```
 
-3.3 writes back to spec: the judgment runs, and the answer is "nothing to update" (ADDRESS_REQUIRED is this task's contract, already in design.md and the outline-design interface line, so it needs no place in the general spec). Work commit `a88a79e` → archive commit `5d9ce45` → journal commit `9f34611` (session 4).
+3.3 write back: the check ran and the answer was "no spec update" (ADDRESS_REQUIRED is this task's contract, already in design.md and the outline design's interface line; it does not belong in the shared spec). Work commit `0d56a42` → archive commit `cc5b816` → journal commit `9f84869` (session 4). Note: db.js exports nextOrderId by value, and orders.js mutates the exported object with `db.nextOrderId++`, so the id keeps incrementing across requests.
 
 ### Using a coupon at checkout
 
-Implement.jsonl and check.jsonl have 4 entries each (backend spec, requirements-list R-004 line 26, outline-design interface section lines 41–51, checkout prototype page), and `task validate` passes. 2.1 implements the coupons in-memory table in `src/db.js` (three coupons, lines 12–14), adds `checkCoupon` to `src/routes/orders.js` (lines 43–52, order: not found → used → expired → below threshold; a pass deducts the amount), and adds the coupon input to `public/checkout.html` (`name="couponCode"`, line 33) plus the "满 100 元减 10 元" threshold hint (line 35).
+implement.jsonl has 3 entries (outline design interface POST /api/orders, the four-step coupon validation, the checkout prototype page's coupon area, this task's prd.md), check.jsonl has 2 (outline design acceptance criteria, this task's prd.md), `task validate` passes. 2.1 implementation: `src/routes/orders.js` 64 lines (`checkCoupon` on line 8, called on line 42; the order is not found → COUPON_INVALID, status used → COUPON_USED, status expired or expires before today → COUPON_EXPIRED, subtotal below threshold → COUPON_THRESHOLD; a passing coupon deducts its discount; an empty or missing couponCode skips validation and deducts nothing; the order object gains a couponCode field), `public/checkout.html` 200 lines (coupon code input on line 49, the "满 100 元减 10 元" threshold hint on line 50). The coupons table (three coupons) was already in db.js from the backend foundation, so nothing was added there.
 
-2.2 checks, all six cases (the address is `北京市海淀区` throughout):
+2.2 check, all six cases (the address is `测试地址` throughout):
 
 ```sh
-curl -s -X POST http://localhost:3000/api/orders -H "Content-Type: application/json" -d '{"items":[{"id":2,"qty":1}],"address":"北京市海淀区","couponCode":"NOPE"}'
-# {"code":"COUPON_INVALID"}, HTTP 400 (the code does not exist)
-curl -s -X POST http://localhost:3000/api/orders -H "Content-Type: application/json" -d '{"items":[{"id":2,"qty":1}],"address":"北京市海淀区","couponCode":"MAN200JIAN30"}'
-# {"code":"COUPON_USED"}, HTTP 400 (already used)
-curl -s -X POST http://localhost:3000/api/orders -H "Content-Type: application/json" -d '{"items":[{"id":2,"qty":1}],"address":"北京市海淀区","couponCode":"NEW5"}'
-# {"code":"COUPON_EXPIRED"}, HTTP 400 (expired)
-curl -s -X POST http://localhost:3000/api/orders -H "Content-Type: application/json" -d '{"items":[{"id":2,"qty":1}],"address":"北京市海淀区","couponCode":"MAN100JIAN10"}'
-# {"code":"OK","data":{"id":1,"items":[{"id":2,"name":"机械键盘","price":29900,"qty":1}],"address":"北京市海淀区","couponCode":"MAN100JIAN10","total":28900,"status":"待付款"}}, HTTP 200 (1 keyboard, 28900 after the discount)
-curl -s -X POST http://localhost:3000/api/orders -H "Content-Type: application/json" -d '{"items":[{"id":1,"qty":2}],"address":"北京市海淀区","couponCode":"MAN100JIAN10"}'
-# {"code":"OK","data":{"id":2,"items":[{"id":1,"name":"无线鼠标","price":8900,"qty":2}],"address":"北京市海淀区","couponCode":"MAN100JIAN10","total":16800,"status":"待付款"}}, HTTP 200 (2 mice, 16800 after the discount)
-curl -s -X POST http://localhost:3000/api/orders -H "Content-Type: application/json" -d '{"items":[{"id":1,"qty":1}],"address":"北京市海淀区","couponCode":"MAN100JIAN10"}'
-# {"code":"COUPON_THRESHOLD"}, HTTP 400 (1 mouse is below the threshold)
+curl -s -X POST http://localhost:3000/api/orders -H "Content-Type: application/json" -d '{"items":[{"id":2,"qty":1}],"address":"测试地址","couponCode":"NOPE"}'
+# {"code":"COUPON_INVALID","data":null}, HTTP 400 (coupon code does not exist)
+curl -s -X POST http://localhost:3000/api/orders -H "Content-Type: application/json" -d '{"items":[{"id":2,"qty":1}],"address":"测试地址","couponCode":"MAN200JIAN30"}'
+# {"code":"COUPON_USED","data":null}, HTTP 400 (already used)
+curl -s -X POST http://localhost:3000/api/orders -H "Content-Type: application/json" -d '{"items":[{"id":2,"qty":1}],"address":"测试地址","couponCode":"NEW5"}'
+# {"code":"COUPON_EXPIRED","data":null}, HTTP 400 (expired)
+curl -s -X POST http://localhost:3000/api/orders -H "Content-Type: application/json" -d '{"items":[{"id":2,"qty":1}],"address":"测试地址","couponCode":"MAN100JIAN10"}'
+# {"code":0,"data":{"id":1,"items":[{"id":2,"qty":1}],"address":"测试地址","couponCode":"MAN100JIAN10","total":28900,"status":"待付款"}}, HTTP 200 (1 keyboard pays 28900)
+curl -s -X POST http://localhost:3000/api/orders -H "Content-Type: application/json" -d '{"items":[{"id":1,"qty":2}],"address":"测试地址","couponCode":"MAN100JIAN10"}'
+# {"code":0,"data":{"id":2,"items":[{"id":1,"qty":2}],"address":"测试地址","couponCode":"MAN100JIAN10","total":16800,"status":"待付款"}}, HTTP 200 (2 mice pay 16800)
+curl -s -X POST http://localhost:3000/api/orders -H "Content-Type: application/json" -d '{"items":[{"id":1,"qty":1}],"address":"测试地址","couponCode":"MAN100JIAN10"}'
+# {"code":"COUPON_THRESHOLD","data":null}, HTTP 400 (1 mouse is below the threshold)
 ```
 
-3.3 writes back to spec: the judgment runs, and the answer is "nothing to update" (the validation order is a business rule, already in design.md and the outline-design interface line; backend.md's extra line is left for the change demo). Work commit `346c7d2` → archive commit `91106ee` → journal commit `220790d` (session 5). Order ids restart from 1 after each server restart (in-memory data clears on restart) — expected for a demo.
+3.3 write back: the check ran and the answer was "no spec update" (the validation order is a business rule, already in design.md and the outline design's interface line; the backend.md addition is left for the change demo). Work commit `7901f3e` → archive commit `cd2a51e` → journal commit `87afc67` (session 5). Order ids count from 1 after each service restart (in-memory data, wiped on restart) — expected for the demo.
 
 ### Coupon list
 
-Implement.jsonl and check.jsonl have 5 entries each (backend spec, frontend spec, requirements-list R-005 line 27, outline-design interface section lines 41–51, coupon prototype page), and `task validate` passes. 2.1 implements `src/routes/coupons.js` (GET /api/coupons), mounts the coupons route in `src/server.js`, and writes `public/优惠券页.html` (renders the three coupons from the real API).
+implement.jsonl has 3 entries (outline design interface GET /api/coupons, the coupon prototype page, this task's prd.md), check.jsonl has 2 (outline design acceptance criteria, this task's prd.md), `task validate` passes. 2.1 implementation: `src/routes/coupons.js` 11 lines (GET /api/coupons), `server.js` 33 lines (+4, route mounted), `public/coupons.html` 94 lines (fetches /api/coupons, five fields, thresholds and amounts converted from fen to yuan, a 0 threshold shows "无门槛", the coupon name row also carries the code, and anything but "未使用" is greyed out and marked "（不可用）").
 
-2.2 checks:
+2.2 check:
 
 ```sh
 curl -s http://localhost:3000/api/coupons
-# {"code":"OK","data":[{"code":"MAN100JIAN10","name":"满100减10","threshold":10000,"amount":1000,"status":"未使用","expires":"2026-12-31"},{"code":"MAN200JIAN30","name":"满200减30","threshold":20000,"amount":3000,"status":"已使用","expires":"2026-12-31"},{"code":"NEW5","name":"新人5元券","threshold":0,"amount":500,"status":"已过期","expires":"2026-10-01"}]}
-curl -s -o /dev/null -w "%{http_code} %{size_download} bytes" http://localhost:3000/优惠券页.html
-# 200, 1859 bytes
+# {"code":0,"data":[{"code":"MAN100JIAN10","name":"满100减10","threshold":10000,"discount":1000,"status":"未使用","expires":"2026-12-31"},{"code":"MAN200JIAN30","name":"满200减30","threshold":20000,"discount":3000,"status":"已使用","expires":"2026-12-31"},{"code":"NEW5","name":"新人5元券","threshold":0,"discount":500,"status":"已过期","expires":"2026-10-01"}]}
+curl -s -o /dev/null -w "%{http_code} %{size_download} bytes" http://localhost:3000/coupons.html
+# 200, 3916 bytes
 ```
 
-The last 2.2 round is a full-scope regression: `task context --mode packages` returns "单仓项目（未配置包）" for a single-repo project, with no packages to list, so the regression covers every interface instead — GET /api/products returns three products, and POST /api/orders (1 keyboard + MAN100JIAN10, with an address) returns 28900 with status "待付款". Both pass.
+The last round's 2.2 is a full-range regression: GET /api/products returns the three products, the six POST /api/orders cases (missing address 400, 1 keyboard + MAN100JIAN10 pays 28900, 2 mice + MAN100JIAN10 pay 16800, 1 mouse 400 COUPON_THRESHOLD), and `/`, /index.html, /cart.html, /checkout.html, /coupons.html all HTTP 200.
 
-3.3 writes back to spec: the judgment runs, and the answer is "nothing to update". Work commit `08ff4d4` → archive commit `e71f8c2` → journal commit `99d36ab` (session 6).
+3.3 write back: the check ran and the answer was "no spec update". Work commit `8c03060` → archive commit `8c4e04f` → journal commit `f37743d` (session 6).
 
 ---
 
-**[Final integration review on the parent task]**
+**[Parent task: final integration review]**
 
-With all six sub-tasks archived, the parent shows `[6/6 已完成]` and runs its final integration review before archiving. The review reads the acceptance criteria, each sub-task's check results, and the interface contracts — it does not re-read the whole prototype. A fresh server runs the whole set once:
+With all six sub-tasks archived, the parent task is `[6/6 已完成]` and gets a final integration review before it is archived. The review reads the acceptance criteria + each sub-task's check results + the interface contracts — it does not re-read the whole prototype; a fresh service start runs everything once:
 
 ```sh
 curl -s http://localhost:3000/api/products
-# {"code":"OK","data":[{"id":1,"name":"无线鼠标","price":8900,"stock":120},{"id":2,"name":"机械键盘","price":29900,"stock":45},{"id":3,"name":"27寸显示器","price":129900,"stock":20}]}
+# {"code":0,"data":[{"id":1,"name":"无线鼠标","price":8900,"stock":120},{"id":2,"name":"机械键盘","price":29900,"stock":45},{"id":3,"name":"27寸显示器","price":129900,"stock":20}]}
 curl -s http://localhost:3000/api/coupons
 # three coupons (thresholds 10000/20000/0, as before the change)
 curl -s -X POST http://localhost:3000/api/orders -H "Content-Type: application/json" -d '{"items":[{"id":2,"qty":1}]}'
-# {"code":"ADDRESS_REQUIRED"}, HTTP 400
-curl -s -X POST http://localhost:3000/api/orders -H "Content-Type: application/json" -d '{"items":[{"id":2,"qty":1}],"address":"北京市海淀区","couponCode":"MAN100JIAN10"}'
-# {"code":"OK","data":{"id":1,...,"total":28900,"status":"待付款"}}, HTTP 200
-curl -s -X POST http://localhost:3000/api/orders -H "Content-Type: application/json" -d '{"items":[{"id":1,"qty":2}],"address":"北京市海淀区","couponCode":"MAN100JIAN10"}'
+# {"code":"ADDRESS_REQUIRED","data":null}, HTTP 400
+curl -s -X POST http://localhost:3000/api/orders -H "Content-Type: application/json" -d '{"items":[{"id":2,"qty":1}],"address":"测试地址","couponCode":"MAN100JIAN10"}'
+# {"code":0,"data":{"id":1,"items":[{"id":2,"qty":1}],"address":"测试地址","couponCode":"MAN100JIAN10","total":28900,"status":"待付款"}}, HTTP 200
+curl -s -X POST http://localhost:3000/api/orders -H "Content-Type: application/json" -d '{"items":[{"id":1,"qty":2}],"address":"测试地址","couponCode":"MAN100JIAN10"}'
 # total 16800, HTTP 200
-curl -s -X POST http://localhost:3000/api/orders -H "Content-Type: application/json" -d '{"items":[{"id":1,"qty":1}],"address":"北京市海淀区","couponCode":"MAN100JIAN10"}'
-# {"code":"COUPON_THRESHOLD"}, HTTP 400
-# all four pages return HTTP 200: product list, cart, checkout.html, coupon list
+curl -s -X POST http://localhost:3000/api/orders -H "Content-Type: application/json" -d '{"items":[{"id":1,"qty":1}],"address":"测试地址","couponCode":"MAN100JIAN10"}'
+# {"code":"COUPON_THRESHOLD","data":null}, HTTP 400
+# all four pages HTTP 200: index.html, cart.html, checkout.html, coupons.html
 ```
 
-The parent has no code commit of its own (the code lives in the sub-tasks' work commits); before archiving it runs `task set-branch 11-13-商城 feature/11-13-商城`. The finish-work step 1 (`task context --mode record`) finds no other completed-but-unarchived tasks besides the parent, so the "archive these N together? [y/N]" question has N=0 and is never asked. Archive commit `257b690` → journal commit `d120f25` (session 7; `--commit` records the planning commit `9ad44e3`, since the parent has no work commit of its own, and the journal summary says so). After archiving, `task list` shows 0 active tasks and `task list-archive` shows 7 tasks for 2026-11.
+The parent task has no code commit of its own (the code is all in the sub-tasks' work commits); before archiving, run `task set-branch 11-13-商城 feature/11-13-商城`. finish-work step 1 (`task context --mode record`) found no other finished-but-unarchived tasks besides the parent, so the "archive together" question has N=0 and needs no asking. Archive commit `13c9f37` → journal commit `90531a6` (session 7; `--commit` records the planning-products commit `b4bf106`, since the parent has no work commit of its own, and the summary says so). After archiving, `task list` shows 0 active tasks and `task list-archive` shows 7 tasks for 2026-11.
 
 ---
 
-**[Change demo: the designer comes back]**
+**[Change demo: the designer returns]**
 
-After the parent is archived, the user changes their mind: the coupon threshold moves from 100 yuan to 200 yuan. How does design-first handle a change? The designer revises `doc/` and the affected prototype pages first, the parent PRD records a `[变更]`, and 1.5 reviews only the change; archived work is never reopened, in-progress work pauses and goes back, untouched work keeps running.
+After the parent task is archived, the user changes their mind: the coupon threshold moves from 100 yuan to 200 yuan. How does a change work under design-first? The designer edits `doc/` and the affected prototype pages first, the parent task's prd records a `[变更]`, and 1.5 reviews only the change; an archived task is never reopened for rework, an in-progress one pauses and goes back, one not started is edited directly.
 
-First, create the change task. The 1.2 way would attach it under the parent — but the parent is already archived:
+Create the change task first. Following 1.2, the first instinct is to hang it under the parent task — but the parent is already archived:
 
 ```sh
 sunshine task create "满减门槛改成 200 元" --slug 满减门槛改成-200 --parent 11-13-商城 --no-start
-# 错误：无法在 /tmp/scenes/s6-new/.sunshine/tasks 下解析任务 "11-13-商城"
+# 错误：无法在 /tmp/scenes/s6-loop/.sunshine/tasks 下解析任务 "11-13-商城"
 # 错误：父任务无法解析：11-13-商城
 # 未创建任务。请传入已存在的任务目录。
 ```
 
-A sub-task cannot be created under an archived parent — that is what 1.2 means: the split happens once, so either all sub-tasks are created during planning, or the parent waits until every sub-task is archived before it archives; a rework task cannot hang off an archived parent and has to stand alone. So it becomes an independent task, and its PRD records `[变更 2026-11-13]`:
+A sub-task cannot be created under an archived parent — that is what 1.2 means by "split once": either create all the sub-tasks during planning, or archive the parent only after all its sub-tasks are archived; a rework task cannot hang off an archived parent, so it is created standalone. Create it as an independent task, with the PRD recording `[变更 2026-11-13]`:
 
 ```sh
 sunshine task create "满减门槛改成 200 元" -d "优惠券满减门槛 100 元改为 200 元" --slug 满减门槛改成-200 --no-start
 # 任务已创建：11-13-满减门槛改成-200
 ```
 
-One wording rule to be clear about: the `[变更 2026-11-13]` is not written into the archived parent's prd.md — an archive is history and is never reopened; the older demo's archived parent PRD has no such line either. The `[变更]` goes in the change task's own prd.md and in the design documents' change log.
+One point of wording: `[变更 2026-11-13]` is not written into the archived parent task's prd.md — an archive is history, it is not reopened; the `[变更]` goes only into the change task's own prd.md and the design documents' change log. The archived parent prd still says "满 100 元减 10 元" and "2 件无线鼠标用 MAN100JIAN10 实付 16800 分" — that is its pre-archive state, not an omission.
 
-The designer revises eight places (this round has five requirements, and using a coupon is R-004):
-
-| # | File | Line | Change |
-| --- | --- | --- | --- |
-| 1 | `doc/design/需求列表.md` | 26 (the R-004 line) | "满 100 元减 10 元" → "满 200 元减 10 元"; acceptance "2 件无线鼠标用 MAN100JIAN10 实付 16800 分" → "返回 400 COUPON_THRESHOLD" |
-| 2 | `doc/design/需求列表.md` | 54 (the change-log line) | New line: `2026-11-13 ｜ R-004 满减门槛由 100 元改为 200 元（验收标准同步改：2 件无线鼠标由实付 16800 分改为 400 COUPON_THRESHOLD）｜ 用户要求` |
-| 3 | `doc/design/概要设计.md` | 29 (module split, checkout-page line) | Threshold hint "满 100 元减 10 元" → "满 200 元减 10 元" (a self-contradiction inside the same file, synced) |
-| 4 | `doc/design/概要设计.md` | 50 (interface line, checkout page) | Threshold hint "满 100 元减 10 元" → "满 200 元减 10 元" |
-| 5 | `doc/design/概要设计.md` | 59 (data section, mock-coupons line) | MAN100JIAN10 `threshold 10000` → `threshold 20000`, plus the note: "注意：券名‘满100减10’未改，门槛已改为 200 元，名不副实，见变更记录" |
-| 6 | `doc/design/概要设计.md` | 77 (acceptance-criteria line) | "2 件无线鼠标用 MAN100JIAN10 实付 16800 分" → "返回 400 COUPON_THRESHOLD" |
-| 7 | `doc/prototype/结算页.html` | 36 (threshold-hint line) | "满 100 元减 10 元" → "满 200 元减 10 元" |
-| 8 | `doc/prototype/mock.js` | 8 | MAN100JIAN10 `threshold: 10000` → `threshold: 20000` (the shared prototype mock is synced; the coupon page renders from the mock, so it follows automatically) |
-
-A grep afterwards confirms the old values ("满 100 元减 10 元", "threshold 10000") are gone from the requirement lines, the interface lines, the checkout prototype, and mock.js; "16800" remains only in the change-log line itself (which is there to record the old value), and "满100减10" remains only as the coupon name (deliberately not renamed).
-
-The change task's 1.5 reviews only the changed parts (prd.md plus the design changes above), then `task start`. Its implement.jsonl and check.jsonl have 4 entries each (backend spec, requirements-list R-004 line 26, outline-design interface section lines 41–51, checkout prototype page), and `task validate` passes. The implementation changes three places:
+The designer revisits six places:
 
 | # | File | Line | Change |
 | --- | --- | --- | --- |
-| 1 | `src/db.js` | 12 | MAN100JIAN10 `threshold: 10000` → `threshold: 20000` |
-| 2 | `.sunshine/spec/backend.md` | 21 (new line) | `优惠券 MAN100JIAN10 门槛 20000 分（2026-11-13 由 10000 改为 20000；券名“满100减10”未改，名不副实）。` |
-| 3 | `public/checkout.html` | 35 | Threshold hint "满 100 元减 10 元" → "满 200 元减 10 元" |
+| 1 | `doc/design/需求列表.md` | 26 (the R-004 line) | "满 100 元减 10 元" → "满 200 元减 10 元"; the acceptance "2 件无线鼠标用 MAN100JIAN10 实付 16800 分" → "返回 400 COUPON_THRESHOLD" |
+| 2 | `doc/design/需求列表.md` | 49 (change log line) | New line: `2026-11-13 ｜ MAN100JIAN10 门槛从 10000 分改为 20000 分（满 100 元减 10 元改为满 200 元减 10 元）；券名“满100减10”未改 ｜ 门槛调整` |
+| 3 | `doc/design/概要设计.md` | 70 (acceptance criteria, R-004 line) | Same as #1 (acceptance updated in step) |
+| 4 | `doc/design/概要设计.md` | 78 (risk line) | Now reads "券名‘满100减10’与门槛 20000 分（200 元）不一致，名不副实（2026-11-13 由 10000 改为 20000，未改名）" |
+| 5 | `doc/prototype/结算页.html` | 50 (threshold hint line) | "满 100 元减 10 元" → "满 200 元减 10 元（券码 MAN100JIAN10，满 20000 分减 1000 分）" |
+| 6 | `doc/prototype/mock.js` | 14 | MAN100JIAN10 `threshold: 10000` → `threshold: 20000` (the shared prototype mock updates; the coupon page renders from the mock, so it follows automatically) |
 
-Post-change curl verification (the address is `北京市海淀区` throughout):
+A grep afterwards confirms: the old value "10000" remains only in the change log and risk lines, where it is history; "16800" is gone entirely; "满100减10" remains only as the coupon name itself (deliberately not renamed).
+
+The change task's 1.5 reviews only the changed part (prd.md + the design changes above); once confirmed, `task start`. implement.jsonl / check.jsonl have 3 / 2 entries (requirements list R-004 and change log, outline design acceptance and risks, this task's prd.md with `[变更]`), and `task validate` passes. The implementation changes three places:
+
+| # | File | Line | Change |
+| --- | --- | --- | --- |
+| 1 | `src/db.js` | 11 | MAN100JIAN10 `threshold: 10000` → `threshold: 20000` |
+| 2 | `.sunshine/spec/backend.md` | 16 (new line) | `优惠券 MAN100JIAN10 门槛 20000 分（2026-11-13 由 10000 改为 20000；券名“满100减10”未改，名不副实）。` |
+| 3 | `public/checkout.html` | 50, 179 | Threshold hint "满 100 元减 10 元" → "满 200 元减 10 元" (line 50); the `COUPON_THRESHOLD` message "未满门槛，满 100 元减 10 元" → "未满门槛，满 200 元减 10 元" (line 179); no other logic touched |
+
+Post-change curl checks (the address is `测试地址` throughout):
 
 ```sh
-curl -s -X POST http://localhost:3000/api/orders -H "Content-Type: application/json" -d '{"items":[{"id":1,"qty":2}],"address":"北京市海淀区","couponCode":"MAN100JIAN10"}'
-# {"code":"COUPON_THRESHOLD"}, HTTP 400 (2 mice used to pay 16800; now they are below the 200-yuan threshold)
-curl -s -X POST http://localhost:3000/api/orders -H "Content-Type: application/json" -d '{"items":[{"id":2,"qty":1}],"address":"北京市海淀区","couponCode":"MAN100JIAN10"}'
-# {"code":"OK","data":{"id":1,"items":[{"id":2,"name":"机械键盘","price":29900,"qty":1}],"address":"北京市海淀区","couponCode":"MAN100JIAN10","total":28900,"status":"待付款"}}, HTTP 200 (1 keyboard still pays 28900)
+curl -s -X POST http://localhost:3000/api/orders -H "Content-Type: application/json" -d '{"items":[{"id":1,"qty":2}],"address":"测试地址","couponCode":"MAN100JIAN10"}'
+# {"code":"COUPON_THRESHOLD","data":null}, HTTP 400 (2 mice used to pay 16800; now they are below the 200-yuan threshold)
+curl -s -X POST http://localhost:3000/api/orders -H "Content-Type: application/json" -d '{"items":[{"id":2,"qty":1}],"address":"测试地址","couponCode":"MAN100JIAN10"}'
+# {"code":0,"data":{"id":1,"items":[{"id":2,"qty":1}],"address":"测试地址","couponCode":"MAN100JIAN10","total":28900,"status":"待付款"}}, HTTP 200 (1 keyboard still pays 28900)
 curl -s http://localhost:3000/api/coupons
-# MAN100JIAN10 {"code":"MAN100JIAN10","name":"满100减10","threshold":20000,"amount":1000,"status":"未使用","expires":"2026-12-31"} (the name is still "满100减10"; the threshold is already 20000)
+# MAN100JIAN10 {"code":"MAN100JIAN10","name":"满100减10","threshold":20000,"discount":1000,"status":"未使用","expires":"2026-12-31"} (the name is still "满100减10", the threshold is now 20000)
 ```
 
-Work commit `eec9467` (`变更：满减门槛改成 200 元（100→200）`, covering the 8 design changes, the 3 code changes, and the change task's files) → archive commit `7648b07` → journal commit `ba86c65` (session 8). After archiving, `task list-archive` shows 8 tasks for 2026-11.
+Work commit `3f80cf9` (7 files, +10/−9, design revisit and implementation in one commit) → archive commit `261bc6c` → journal commit `28eb3c1` (session 8). After archiving, `task list-archive` shows 8 tasks for 2026-11.
 
 ---
 
-The final git log (oldest first, 25 commits; every task follows "work commit → archive commit → journal commit"):
+Final git log (old → new, 25 commits; each task runs "work commit → archive commit → journal commit" in order):
 
 ```text
-3ba152f chore: sunshine init（产品设计）
-9ad44e3 docs: 商城设计先行规划产物（需求列表、概要设计、原型、父子任务）
-1e3fc51 feat: 后端基础：Node.js + Express 脚手架与商品内存数据
-0866131 chore(task): archive 11-13-后端基础
-a1b867a chore: record journal
-4134922 feat: 商品列表：GET /api/products 与商品列表页
-7e4d47b chore(task): archive 11-13-商品列表
-df6838b chore: record journal
-60f7b93 feat: 加入购物车：购物车页（localStorage）
-b05f8df chore(task): archive 11-13-加入购物车
-fdf8ca8 chore: record journal
-a88a79e feat: 下单结算：POST /api/orders 与结算页，地址必填
-5d9ce45 chore(task): archive 11-13-下单结算
-9f34611 chore: record journal
-346c7d2 feat: 下单用优惠券：券校验与抵扣，结算页加券码输入
-91106ee chore(task): archive 11-13-下单用优惠券
-220790d chore: record journal
-08ff4d4 feat: 优惠券列表：GET /api/coupons 与优惠券页
-e71f8c2 chore(task): archive 11-13-优惠券列表
-99d36ab chore: record journal
-257b690 chore(task): archive 11-13-商城
-d120f25 chore: record journal
-eec9467 变更：满减门槛改成 200 元（100→200）
-7648b07 chore(task): archive 11-13-满减门槛改成-200
-ba86c65 chore: record journal
+fd8a2a1 init: 产品设计类型初始化（sunshine v0.5.6，新工作流：按需求循环）
+b4bf106 规划产物：需求列表、概要设计、原型 4 页 + mock、7 个任务（设计先行，按需求循环）
+d4845de 后端基础：Node.js/Express 脚手架与内存数据（选型：Node.js/Express/内存/无缓存）
+bfe26d0 chore(task): archive 11-13-后端基础
+0d2d697 chore: record journal
+3977045 商品列表：GET /api/products 返回三件商品，生产版商品列表页调真实接口
+b6fdb15 chore(task): archive 11-13-商品列表
+a6faa74 chore: record journal
+1853417 加入购物车：生产版购物车页，localStorage 购物车、数量可改合计实时更新
+faac8ce chore(task): archive 11-13-加入购物车
+ace811d chore: record journal
+0d56a42 下单结算：POST /api/orders 地址必填校验，生产版结算页
+cc5b816 chore(task): archive 11-13-下单结算
+9f84869 chore: record journal
+7901f3e 下单用优惠券：券校验四档 + 抵扣，结算页加券码输入区
+cd2a51e chore(task): archive 11-13-下单用优惠券
+87afc67 chore: record journal
+8c03060 优惠券列表：GET /api/coupons 返回三条券，生产版优惠券页五字段
+8c4e04f chore(task): archive 11-13-优惠券列表
+f37743d chore: record journal
+13c9f37 chore(task): archive 11-13-商城
+90531a6 chore: record journal
+3f80cf9 满减门槛改成 200：MAN100JIAN10 门槛 10000→20000 分（设计返场 + 实现）
+261bc6c chore(task): archive 11-13-满减门槛改成-200
+28eb3c1 chore: record journal
 ```
 
-The closed loop in this scenario is: empty directory → `init` → questions one at a time → the design package in `doc/` → the review (final planning summary) → one split creating 6 sub-tasks → each sub-task running implement, check, spec write-back, commit, and archive in turn → the parent's integration review and archive → a change going through the design package and closing again. Design-first has no forced deliverables list — the outline design, the requirements list, and the prototype are not hard requirements, only this scenario's design package; the designer decides the deliverables, 1.5 reviews the whole package, the split follows what is actually in `doc/`, and a task with no design documents is simply a pure coding task.
+The loop in this scenario is: empty directory `init` → per-requirement loop (each requirement gets one round: questions → requirements list updated on disk → that requirement's prototype page), stopping when both sides agree the current batch is enough → the outline design written on demand → review (final planning summary) → one split creating all 6 sub-tasks → each sub-task runs implement, check, write back, commit, archive in turn → the parent task's integration review, then archive → a change goes through the designer revisiting the design and the loop closes again. Design-first has no mandatory deliverables list — the outline design, the requirements list, and the prototype are not hard requirements, they are just this scenario's design package; the designer decides what the design produces, 1.5 reviews the current batch, and the split follows the requirements list (the main thread and the contract) and what is actually in `doc/`; with no design documents it is simply a code-only task.
 
-A few boundaries, stated plainly:
+A few boundaries, stated as they are:
 
-- The "加入购物车" button's localStorage write ships with R-001's product-list page; R-002's deliverable is the cart page itself (reading localStorage to render and total) plus the end-to-end calculation — the cart has no backend API, curl cannot click a button, so it is verified by page reachability plus key-logic grep plus a node total.
-- `task start` reports "会话身份不可用" (degraded mode) in the sandbox; all 7 starts ran degraded, and the status still flipped as usual — nothing was blocked.
-- This round, every archive auto-commit and every add-session auto-commit succeeded on the first try — the demo repo had a local git identity set in advance, so the older demo's missing-identity failure and manual top-up commit did not reproduce.
-- The `.gitattributes` left by `add-session` (the journal's `merge=union` rule) was not picked up by any of the 8 journal commits; the final `git status` still shows one leftover, `?? .gitattributes`.
-- `.sunshine/.developer` is not gitignored and entered the repo with the baseline commit `3ba152f`; `init` also writes no root `.gitignore`, and `node_modules/` was only excluded once the backend-foundation sub-task created a root `.gitignore`.
-- Real browser rendering was not verified: the sandbox has no browser, so prototype and production pages were only fetched with curl (HTTP 200 plus key-logic grep) — what the pages look like, and what clicking a button does, was never seen in a real browser.
+- The "add to cart" button's localStorage logic ships with R-001's product list page; R-002's deliverable is the cart page itself (reading localStorage, rendering, totalling) plus the end-to-end check — the cart has no backend API, curl cannot click a button, so the check is page reachability + key-logic grep + a node calculation of the total.
+- `task start` left no session record at all this round: the `.sunshine/.runtime/` directory does not even exist, and none of the 8 starts wrote a session file; the status still flipped as normal, and nothing blocked.
+- The automatic commits from archiving and add-session succeeded on the first try all 8 times — the demo repo had a local git identity set up in advance.
+- The `.gitattributes` that `add-session` leaves behind (the journal's `merge=union` rule) was not picked up by any of the 8 journal commits, and the final `git status` still shows one leftover line, `?? .gitattributes`.
+- `.sunshine/.developer` is not gitignored and entered the repo with the baseline commit `fd8a2a1`; `init` also does not generate a repo-root `.gitignore`, and `node_modules/` was only excluded once the backend-foundation sub-task created a root `.gitignore`.
+- Two sub-agent exec calls reported `subprocess.output_drain_timeout` (exitCode 0): one in the coupon-list implement, one in the change implement; both reports were complete, and the results were independently re-checked by the main session.
+- Known prototype-versus-production differences: the prototype mock.js gives coupons only a code, no name field, so the page shows the code where the name goes; the production db.js has a name field. The production cart page does not pre-fill demo data (the prototype stuffs 1 keyboard + 2 mice when it opens with no data), so no data means the empty state.
+- Real browser rendering was not verified: the sandbox has no browser, so the prototype and production pages were only fetched with curl (HTTP 200 + key-logic grep); what the pages look like and how the buttons feel were never seen in a real browser.
 
 ## Appendix: command reference
 
