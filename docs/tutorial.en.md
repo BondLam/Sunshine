@@ -1648,7 +1648,7 @@ State the requirement to Claude Code (same for Codex and Cursor):
 
 Example prompt (an example, not a record of a real session):
 
-> I want to build a web store with coupons from zero, design-first: settle the requirements and the design first, and only start coding after the review passes. The store needs a product list, adding to cart, checkout, using a coupon at checkout for a discount, and a coupon list page showing each coupon's threshold, amount, status, and expiry. The tech stack isn't decided yet — help me pin down the requirements first.
+> I want to build a web store with coupons from zero, design-first. Please follow the Sunshine workflow: ask me first to pin down the unclear product logic and technical decisions; once confirmed, create the task, write the PRD, and land the requirements list, the outline design, and the system prototype in doc/; after the review passes, split it into sub-tasks per requirement and then implement. The store needs a product list, adding to cart, checkout, using a coupon at checkout for a discount, and a coupon list page showing each coupon's threshold, amount, status, and expiry. The tech stack isn't decided yet — help me pin down the requirements first.
 
 Here is the session (the conversation is an example; the commands and outputs are real values from runs):
 
