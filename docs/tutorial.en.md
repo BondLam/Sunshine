@@ -1165,14 +1165,12 @@ Example prompt (an example, not a record of a real session):
 
 Here is the session (the conversation is an example; the commands and outputs are real values from runs):
 
-> **Claude Code:** First, how many requirements does this product have (one at a time, with options): 1. Is leave-requesting two requirements — submit and approve — or one? 2. What leave types are there? 3. Is the reason mandatory — block the submit or let it through? 4. What is the longest a single annual-leave request can be, and what happens over the cap?
+> **Claude Code:** One question first — it decides how the split goes: is leave-requesting two requirements, submit and approve, or one?
 >
-> **You:** Two requirements: requirement one is submitting a leave request, requirement two is approving one. Types are 年假 / 病假 / 事假 (annual / sick / personal leave); the reason is mandatory, block the submit without it; annual leave is at most 10 days per request, over the cap it returns `NEED_APPROVAL` for approval.
->
-> **Claude Code:** Now the prototype details: 1. One requirement, one page — requirement one is the request page, requirement two is the approval list page, right? 2. What does the approval list page show? 3. What does the backend return when `reason` is missing? 4. Does the prototype carry mock data?
->
-> **You:** Right, requirement one is the request page, requirement two is the approval list page. The list shows applicant, type, start and end dates, days, and status, with a 通过 (approve) and 驳回 (reject) button on each row; a missing `reason` returns 400 with `{"error": "reason 必填"}` (reason required); the prototype carries mock data — three fake rows in the list （张三 pending, 李四 approved, 王五 pending) — so the demo is clickable.
->
+> **You:** Two: requirement one is submitting a leave request, requirement two is approving one.
+
+The rest goes the same way, one question at a time: the leave types, whether the reason is mandatory, the annual-leave cap — rules first, then the prototype details (one page per requirement, what the approval list page shows, what a missing `reason` returns, how many mock rows), each with options; you answer one, it records one, and the answers go straight into the requirements list and the outline design. Once the questions are done, it sums up:
+
 > **Claude Code:** Got it. Here's the plan: create the task, write the PRD for both requirements; land the requirements list (one item per requirement, each pointing at its page in the system prototype), the outline design, and the system prototype (one file per page under `doc/prototype/`, plus an `index.html` navigation entry) in `doc/`; after the review passes, split it into two sub-tasks per requirement and then implement. Once you confirm, I'll create the task, write the PRD, and land the design documents. OK?
 >
 > **You:** OK, go ahead.
@@ -1197,7 +1195,7 @@ The requirements list is one item per requirement (real file content, excerpt): 
 
 (In English: "`POST /api/v1/leaves`: a missing `reason` returns 400 with `{"error": "reason 必填"}`. Annual leave is at most 10 days per request; over the cap it returns `NEED_APPROVAL`. `GET /api/v1/leaves` returns all records.")
 
-The system prototype is one file with two pages plus navigation between them: a "申请 | 审批列表" (Request | Approval list) nav at the top, a request page with a type dropdown (mandatory), start and end dates, a reason text field (mandatory), and a submit button, and an approval list page as a table (applicant, type, start and end dates, days, status) carrying three mock rows （张三 pending, 李四 approved, 王五 pending), each with a 通过 (approve) and 驳回 (reject) button — the demo is clickable. One prototype serves multiple requirements: requirements one and two both live in this one prototype, one page each; and the split follows the requirements — the sub-tasks split per requirement.
+The system prototype is a set of pages under `doc/prototype/`, plus an `index.html` navigation entry: a "申请 | 审批列表" (Request | Approval list) nav at the top, a request page with a type dropdown (mandatory), start and end dates, a reason text field (mandatory), and a submit button, and an approval list page as a table (applicant, type, start and end dates, days, status) carrying three mock rows （张三 pending, 李四 approved, 王五 pending), each with a 通过 (approve) and 驳回 (reject) button — the demo is clickable. One prototype serves multiple requirements: requirements one and two both live in this set of pages, one page each; and the split follows the requirements — the sub-tasks split per requirement.
 
 The designer builds the design package step by step too: clarify the requirements and write them into the requirements list first, then the outline design (structure, interfaces, acceptance), then dispatch `sunshine-prototype` to build the prototype — one page per requirement in the list, with mock data (the dispatch prompt gives only the requirements list and the outline design; the sub-agent reports back just the page count, the mock record count, and the file path, and the main session never writes the prototype itself) — and the complete system prototype is the end of the design phase, not the start. If building the prototype exposes a gap in the requirements, the requirements list is updated with it (through the change path), but the overall direction stays requirements first, prototype last.
 
@@ -1251,19 +1249,6 @@ The split is not just a line in the conversation — it lands on disk as real fi
   check.jsonl      # what to check against: the frontend spec + the backend API contract
 .sunshine/tasks/11-11-需求二-审批请假申请/
   ...（the same four files）
-```
-
-The parent's `task.json` records the sub-task map (real content):
-
-```json
-"children": ["11-11-需求一-提交请假申请", "11-11-需求二-审批请假申请"]
-```
-
-The sub-task's `task.json` points back at the parent (real content):
-
-```json
-"parent": "11-11-请假申请小工具",
-"status": "planning"
 ```
 
 Requirement one's context lists (real content) — this is what developers read on entry:
@@ -1370,13 +1355,8 @@ sunshine task current
 sunshine task context
 # ## 当前任务
 # 路径：.sunshine/tasks/11-11-接续演示任务
-# 来源：file:.sunshine/.current-task
-# 名字：接续演示任务
 # 状态：in_progress
-# 创建：2026-11-11
-# 描述：演示关闭重开后怎么接上
-#
-# [!] 该任务有 prd.md，详情请读它
+# ……
 ```
 
 `.sunshine/.current-task` holds a single line — the task path:
@@ -1481,12 +1461,12 @@ Key output (real runs): 6 days returns `{"code":"NEED_APPROVAL","data":null}`, 5
 The whole scenario runs as one closed loop, with every entry, exit, and handoff spelled out above:
 
 1. **State the requirement** (you): state what to build in Claude Code.
-2. **Clarify the requirement** (the designer enters): the agent asks first, pinning down the rules and the prototype details.
-3. **The design package** (the designer): write the requirements list first, then the outline design, then dispatch `sunshine-prototype` to build the system prototype — one page per requirement in the list, with mock data (the main session only takes the report, never writes the prototype itself). The prototype is the end of the design phase. Handoff: the three design documents in `doc/`.
+2. **Clarify the requirement** (the designer enters): the agent asks first, one question at a time — the blocking ones first (how many requirements, how the split goes), then the details; before asking it checks eight angles for gaps — who uses it, what it does, what it does not do, data, performance, security, compatibility, and how done is judged.
+3. **The design package** (the designer): write the requirements list first, then the outline design, then dispatch `sunshine-prototype` to build the system prototype — one page per requirement in the list, with mock data (the main session only takes the report, never writes the prototype itself). The prototype is the end of the design phase. Handoff: the three design documents in `doc/` (the three in this example — not a fixed list: what the design phase produces is the designer's call; the review and the split use whatever is in `doc/`, and a task with no design documents is a plain code task.).
 4. **The requirements review** (you confirm): review the whole package (the design package plus the split plan); the designer exits after it passes. Handoff: the approved design package.
 5. **The split** (the agent): split the whole scope in one pass, per requirement (one requirement is one sub-task by default; split frontend and backend into two sub-tasks when both are large, with the interface contract in the outline design as the handoff); the split starts nothing. Handoff: the task directories (`task.json` parent/children, `prd.md`, `implement.jsonl`, `check.jsonl`).
 
-The backend is split separately: the split also judges the backend foundation work (selection, scaffolding, database modelling, caching). When it is large, first split out a "Backend foundation: tech selection and scaffolding" sub-task ahead of the rest, with the selection items (language, framework, database, cache) marked `[待定]` (to be decided) in its PRD; its 1.1 asks the questions and pins the selection down before it builds, and the requirement sub-tasks only start after it archives. When it is small, the `[待定]` items go into the first requirement sub-task's PRD instead.
+The backend is split separately: this tool's backend is a single `server.js`, small enough that the selection needs no sub-task of its own — the open items go straight into requirement one's PRD. Only when the backend is large (pick a language, model the database, wire up a cache) does it first split out a "Backend foundation: tech selection and scaffolding" sub-task ahead of the rest, with the selection items (language, framework, database, cache) marked `[待定]` (to be decided) in its PRD; its 1.1 asks the questions and pins the selection down before it builds, and the requirement sub-tasks only start after it archives.
 
 6. **Development** (developers enter): activate the sub-tasks one by one, five rounds each (implement → check → write back the spec → commit → archive), each round reading only its own context list. Handoff: the changed code, the updated spec, the commit.
 7. **Integration review and archive** (the parent task): once all sub-tasks are archived, the parent reviews once against the acceptance criteria, the two sub-tasks' check results, and the interface contract (without re-reading the whole prototype), then archives. Handoff: the archived task directories.
