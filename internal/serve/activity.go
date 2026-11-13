@@ -23,10 +23,10 @@ type activityEntry struct {
 }
 
 // watchedDesignFiles 是 mtime 活动流盯着的设计文档（相对项目根）。
+// 原型按页分文件：doc/prototype/ 下各页 .html 在 watchedFiles() 里展开盯梢。
 var watchedDesignFiles = []string{
 	"doc/design/需求列表.md",
 	"doc/design/概要设计.md",
-	"doc/prototype/原型.html",
 }
 
 // activityTracker 维护关键文件 mtime 快照：启动时记基线，每次
@@ -68,6 +68,17 @@ func (t *activityTracker) watchedFiles() map[string]string {
 	}
 	for _, rel := range watchedDesignFiles {
 		out[rel] = filepath.Join(t.root, filepath.FromSlash(rel))
+	}
+	// 原型按页分文件：展开 doc/prototype/ 下各页 .html（新增/删除页也被捕获；
+	// 只盯目录 mtime 会漏掉页内编辑，故必须展开到文件）。
+	if protoEntries, err := os.ReadDir(filepath.Join(t.root, "doc", "prototype")); err == nil {
+		for _, e := range protoEntries {
+			if e.IsDir() || !strings.HasSuffix(e.Name(), ".html") {
+				continue
+			}
+			rel := "doc/prototype/" + e.Name()
+			out[rel] = filepath.Join(t.root, "doc", "prototype", e.Name())
+		}
 	}
 	return out
 }

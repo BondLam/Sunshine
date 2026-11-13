@@ -384,7 +384,7 @@ func TestInitEndToEndProjectType(t *testing.T) {
 		}
 	})
 
-	// --type 产品设计：spec 三份全写（与全栈相同），doc/ 下写三份设计文档模板。
+	// --type 产品设计：spec 三份全写（与全栈相同），doc/ 下写四份设计文档模板。
 	t.Run("--type 产品设计", func(t *testing.T) {
 		dir := t.TempDir()
 		out, code := runInitBinary(t, dir, "-y", "-u", "测试", "--type", "产品设计")
@@ -402,7 +402,7 @@ func TestInitEndToEndProjectType(t *testing.T) {
 	})
 }
 
-// assertDesignTemplates 校验 init 后 doc/ 下三份设计文档模板存在且内容是模板。
+// assertDesignTemplates 校验 init 后 doc/ 下四份设计文档模板存在且内容是模板。
 func assertDesignTemplates(t *testing.T, dir string) {
 	t.Helper()
 	for _, tc := range []struct {
@@ -411,7 +411,8 @@ func assertDesignTemplates(t *testing.T, dir string) {
 	}{
 		{"doc/design/需求列表.md", "# 需求列表"},
 		{"doc/design/概要设计.md", "# 概要设计"},
-		{"doc/prototype/原型.html", "（请填写产品名称）原型"},
+		{"doc/prototype/index.html", "（请填写产品名称）原型"},
+		{"doc/prototype/示例页.html", "（请填写产品名称）原型 · 示例页"},
 	} {
 		data, err := os.ReadFile(filepath.Join(dir, filepath.FromSlash(tc.rel)))
 		if err != nil {

@@ -83,6 +83,7 @@ type jsonlEntry struct {
 	File   string `json:"file"`
 	Type   string `json:"type,omitempty"`
 	Reason string `json:"reason,omitempty"`
+	Lines  string `json:"lines,omitempty"`
 }
 
 // readJSONLEntries 逐行解析 jsonl 文件；文件不存在返回空数组。

@@ -1108,7 +1108,7 @@ func (r *Runner) RemoveSubtask(parent, child string) int {
 // ---------------------------------------------------------------------------
 
 // AddContext 向 implement/check.jsonl 加一条上下文（对应 task_context.cmd_add_context）。
-func (r *Runner) AddContext(dir, file, path, reason string) int {
+func (r *Runner) AddContext(dir, file, path, reason, lines string) int {
 	if !r.requireRoot() {
 		return 1
 	}
@@ -1118,6 +1118,12 @@ func (r *Runner) AddContext(dir, file, path, reason string) int {
 	}
 	if reason == "" {
 		reason = "手动添加"
+	}
+	if lines != "" {
+		if _, _, ok := parseLineRange(lines); !ok {
+			r.errf("lines 格式非法：%q，应为 \"起始行-结束行\"（如 \"120-180\"，1-based 闭区间）", lines)
+			return 1
+		}
 	}
 	jsonlName := file
 	if strings.ContainsAny(jsonlName, "/\\") || jsonlName == "." || jsonlName == ".." {
@@ -1146,8 +1152,12 @@ func (r *Runner) AddContext(dir, file, path, reason string) int {
 			return 0
 		}
 	}
-	entry := jsonlEntry{File: targetPath, Reason: reason}
+	entry := jsonlEntry{File: targetPath, Reason: reason, Lines: lines}
 	if entryType == "directory" {
+		if lines != "" {
+			r.errf("目录型条目不支持 lines：%s", targetPath)
+			return 1
+		}
 		entry.Type = "directory"
 	}
 	line, _ := json.Marshal(entry)
@@ -1264,6 +1274,21 @@ func (r *Runner) validateJSONL(jsonlPath, taskDir string) int {
 				fmt.Fprintf(r.out(), "  %s:%d：警告：%s 有 %d 字节，超过 context_injection.max_file_bytes（%d），注入时会被截断\n", name, lineNum, filePath, st.Size(), maxFileBytes)
 			}
 		}
+		if linesStr, _ := row["lines"].(string); linesStr != "" {
+			start, end, ok := parseLineRange(linesStr)
+			if !ok {
+				fmt.Fprintf(r.out(), "  %s:%d：lines 格式非法：%q，应为 \"起始行-结束行\"（如 \"120-180\"，1-based 闭区间）\n", name, lineNum, linesStr)
+				errors++
+			} else if data, err := os.ReadFile(fullPath); err == nil {
+				total := countFileLines(data)
+				if start > total {
+					fmt.Fprintf(r.out(), "  %s:%d：lines 起始行 %d 超出文件总行数（%d 行），注入时无内容\n", name, lineNum, start, total)
+					errors++
+				} else if end > total {
+					fmt.Fprintf(r.out(), "  %s:%d：警告：lines 结束行 %d 超出文件总行数（%d 行），注入时截到文件末尾\n", name, lineNum, end, total)
+				}
+			}
+		}
 	}
 	if errors == 0 && realEntries == 0 {
 		action := strings.SplitN(name, ".", 2)[0]
@@ -1367,12 +1392,16 @@ func (r *Runner) ListContext(dir string) int {
 			if reason == "" {
 				reason = "-"
 			}
+			linesStr, _ := row["lines"].(string)
 			if entryType == "directory" {
 				fmt.Fprintf(r.out(), "  %d. [目录] %s\n", count, filePath)
 			} else {
 				fmt.Fprintf(r.out(), "  %d. %s\n", count, filePath)
 			}
 			fmt.Fprintf(r.out(), "     → %s\n", reason)
+			if linesStr != "" {
+				fmt.Fprintf(r.out(), "     → lines %s\n", linesStr)
+			}
 		}
 		if !curated {
 			fmt.Fprintln(r.out(), "  （暂无已整理条目）")

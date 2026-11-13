@@ -757,6 +757,14 @@ func TestDesign(t *testing.T) {
 	if !ok || proto["exists"] != true {
 		t.Errorf("prototype = %v", data["prototype"])
 	}
+	// 原型按页分文件：再加一页，页数与总行数跟着变。
+	writeFile(t, filepath.Join(p.root, "doc", "prototype", "申请页.html"), "第一行\n第二行\n")
+	w = p.get(t, "/api/design")
+	decodeJSON(t, w, &data)
+	proto, ok = data["prototype"].(map[string]any)
+	if !ok || proto["pages"] != float64(2) || proto["countText"] != "2 页" || proto["lines"] != float64(3) {
+		t.Errorf("两页原型应为 pages=2、countText=2 页、lines=3，实际 %v", data["prototype"])
+	}
 }
 
 func TestJournal(t *testing.T) {

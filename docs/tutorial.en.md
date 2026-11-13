@@ -1173,7 +1173,7 @@ Here is the session (the conversation is an example; the commands and outputs ar
 >
 > **You:** Right, requirement one is the request page, requirement two is the approval list page. The list shows applicant, type, start and end dates, days, and status, with a 通过 (approve) and 驳回 (reject) button on each row; a missing `reason` returns 400 with `{"error": "reason 必填"}` (reason required); the prototype carries mock data — three fake rows in the list （张三 pending, 李四 approved, 王五 pending) — so the demo is clickable.
 >
-> **Claude Code:** Got it. Here's the plan: create the task, write the PRD for both requirements; land the requirements list (one item per requirement, each pointing at its page in the system prototype), the outline design, and one system prototype (two pages plus navigation between them) in `doc/`; after the review passes, split it into two sub-tasks per requirement and then implement. Once you confirm, I'll create the task, write the PRD, and land the design documents. OK?
+> **Claude Code:** Got it. Here's the plan: create the task, write the PRD for both requirements; land the requirements list (one item per requirement, each pointing at its page in the system prototype), the outline design, and the system prototype (one file per page under `doc/prototype/`, plus an `index.html` navigation entry) in `doc/`; after the review passes, split it into two sub-tasks per requirement and then implement. Once you confirm, I'll create the task, write the PRD, and land the design documents. OK?
 >
 > **You:** OK, go ahead.
 
@@ -1182,7 +1182,9 @@ Once the questions are answered, the design package lands in the project's `doc/
 ```text
 doc/design/需求列表.md
 doc/design/概要设计.md
-doc/prototype/原型.html
+doc/prototype/index.html
+doc/prototype/申请页.html
+doc/prototype/审批列表页.html
 ```
 
 The requirements list is one item per requirement (real file content, excerpt): requirement one "提交请假申请" (submit a leave request) points at the request page in the system prototype — the type dropdown （年假 / 病假 / 事假） is mandatory, the reason is mandatory, annual leave is at most 10 days per request, over the cap it goes to approval; requirement two "审批请假申请" (approve a leave request) points at the approval list page in the system prototype — the list shows applicant, type, start and end dates, days, and status, with a 通过 (approve) and 驳回 (reject) button on each row. The outline design's interface lines read (real content):
@@ -1268,13 +1270,15 @@ Requirement one's context lists (real content) — this is what developers read 
 
 ```json
 implement.jsonl
-{"file":"doc/prototype/原型.html","reason":"系统原型：申请页"}
+{"file":"doc/prototype/申请页.html","reason":"系统原型：申请页"}
 {"file":"doc/design/概要设计.md","reason":"概要设计：接口与验收"}
 
 check.jsonl
 {"file":".sunshine/spec/frontend.md","reason":"前端规范：申请页"}
 {"file":".sunshine/spec/backend.md","reason":"接口契约：POST"}
 ```
+
+The prototype is one file per page, so each sub-task reads its own page file directly — no line ranges to work out; `lines` is only for other long single files (such as a long spec), see 1.4.
 
 The sub-task's `prd.md` is a skeleton that the agent fills in at the sub-task's own 1.1; complex tasks also add a `design.md` (technical design) and an `implement.md` (execution plan) before `start` — that is what the `prd.md` template itself says. In this demo the requirements live in the `doc/` design package, and the sub-tasks' context lists point at it.
 
@@ -1415,7 +1419,7 @@ doc/design/需求列表.md:9
 doc/design/概要设计.md:16
 - 年假单次最长 5 天，超限返回 `NEED_APPROVAL`。
 
-doc/prototype/原型.html:12
+doc/prototype/申请页.html:15
 <p>年假单次最长 5 天，超限走审批。</p>
 ```
 
@@ -1481,6 +1485,9 @@ The whole scenario runs as one closed loop, with every entry, exit, and handoff 
 3. **The design package** (the designer): write the requirements list first, then the outline design, then dispatch `sunshine-prototype` to build the system prototype — one page per requirement in the list, with mock data (the main session only takes the report, never writes the prototype itself). The prototype is the end of the design phase. Handoff: the three design documents in `doc/`.
 4. **The requirements review** (you confirm): review the whole package (the design package plus the split plan); the designer exits after it passes. Handoff: the approved design package.
 5. **The split** (the agent): split the whole scope in one pass, per requirement (one requirement is one sub-task by default; split frontend and backend into two sub-tasks when both are large, with the interface contract in the outline design as the handoff); the split starts nothing. Handoff: the task directories (`task.json` parent/children, `prd.md`, `implement.jsonl`, `check.jsonl`).
+
+The backend is split separately: the split also judges the backend foundation work (selection, scaffolding, database modelling, caching). When it is large, first split out a "Backend foundation: tech selection and scaffolding" sub-task ahead of the rest, with the selection items (language, framework, database, cache) marked `[待定]` (to be decided) in its PRD; its 1.1 asks the questions and pins the selection down before it builds, and the requirement sub-tasks only start after it archives. When it is small, the `[待定]` items go into the first requirement sub-task's PRD instead.
+
 6. **Development** (developers enter): activate the sub-tasks one by one, five rounds each (implement → check → write back the spec → commit → archive), each round reading only its own context list. Handoff: the changed code, the updated spec, the commit.
 7. **Integration review and archive** (the parent task): once all sub-tasks are archived, the parent reviews once against the acceptance criteria, the two sub-tasks' check results, and the interface contract (without re-reading the whole prototype), then archives. Handoff: the archived task directories.
 8. **Requirement change** (the designer returns): change the design package → review only the changed part → handoff (the updated design package, the review confirmation, the new task's context lists, the `[变更]` record in the PRD) → developers enter on a new task. Archived tasks are never reopened.

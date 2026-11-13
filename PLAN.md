@@ -2482,3 +2482,85 @@ pre-commit install       # 在仓库根目录执行一次
 - 验证：go build/vet/gofmt 全过；go test ./... 20 个包全过（含新单测：中断/退出判别、干净退出、选项映射、提问取消、模板选单退出）；伪终端真实验证 5 路全过（平台多选/模板选单/项目类型三处 Ctrl+C 均干净取消退出码 0、不留文件；项目类型选“退出”取消；正常选全栈完成 init）。
 - 实测：不带参数一键装上 v0.5.2（`sunshine version` = 0.5.2）；v0.5.1 原版二进制 upgrade --dry-run 查到 v0.5.2（下载地址指向 v0.5.2 linux amd64，试运行未做修改；第一次撞上 GitHub API 匿名限流 403，10 分钟后重试通过；v0.5.1 旧二进制报错里的下载链接仍是旧用户名，是旧二进制内嵌的，新版已是 BondLam）；darwin arm64 包 checksum OK（`b77826f0…`，Mach-O arm64）；`go install github.com/BondLam/Sunshine/cmd/sunshine@v0.5.2` 与 `@latest` 均通（@latest 初次因本地模块缓存的版本列表滞后指到 v0.5.1，清缓存后通）。
 - 其后 PLAN.md 发布记录补提交一笔（远端 SHA 见 GOAL.md）。
+
+## v0.5.3（实施说明）：implement.jsonl 条目加行范围字段，注入时只切那一段（2026-11-13，用户定）
+
+**背景**：设计先行模式下每轮实现都要读原型文件。工作流的规矩是“jsonl 条目只读 reason 指明的部分，大文件先 grep 定位”（workflow.md:237），但执行靠 agent 自律——原型是一份文件，Read 工具一次就是整份读进来，原型一大每轮都读整份会撑上下文。用户定：给条目加行范围字段，机制上只读那一段。
+
+**字段格式**：`"lines": "120-180"`，1-based 闭区间行号字符串，单行写 `"120-120"`。缺省（旧条目无此字段）= 不限制，整文件注入，旧条目零改动全兼容。目录型条目忽略 lines。格式：`^\d+-\d+$` 且 start>=1 且 start<=end。
+
+**注入切片点（核心机制）**：`internal/hook/subagent.go` 是唯一注入实现方（`GetImplementContext`/`GetCheckContext` → `getTaskContext` → `getAgentContext` → `materializeJSONLEntries` → `materializeFile`，目前 `materializeFile` 读整文件、只按 `MaxFileBytes` 截断）：
+- `jsonlEntry` 加 `Lines string`；`readJSONLEntries` 解析 `item["lines"]`（map 解析，无 json tag，与现有 File/Type/Reason 同款）。
+- `materializeFile` 签名加 `lines` 参数：先按行切片（1-based 闭区间，`strings.Split` 按 `\n`），再走现有 `MaxFileBytes` 截断；切片后字节数计入总预算（已有 block 计费逻辑不动）。
+- 越界：end 超总行数截到文件末尾（不报错，块头注明实际行号）；start 超总行数注入空块 + stderr 警告。格式非法：注入时降级为整文件 + stderr 警告（hook 铁律：绝不阻断 agent 会话），`validate` 侧报硬错误。
+- 块头注明范围：`=== <路径> (lines 120-180 of 450) ===`；无 lines 时块头不变。`materializeDirectory` 调 `materializeFile` 时传空串。`materializeArtifact`（prd/design/implement.md）不动。
+- 同一套解析与注入代码服务于 implement/check 两个文件：字段与机制对两个文件通用（check.jsonl 顺带获得同款能力，不另做区分）；用户定的是 implement.jsonl，workflow 文案里两个文件一起写。
+
+**task 侧**：`internal/task/store.go` 的 `jsonlEntry` 加 `Lines string \`json:"lines,omitempty"\``；`internal/task/lifecycle.go`：
+- `AddContext` 加 lines 参数；CLI `task add-context` 加 `--lines "120-180"` flag；目录型条目带 lines 时拒绝（明确报错）。
+- `Validate` 的 `validateJSONL`：校验 lines 格式（正则 + start<=end，非法报硬错误）；文件存在时再校验 start<=总行数（start 越界报错误，end 越界报警告并提示注入时截到末尾）。
+- `ListContext` 显示 lines（reason 行后附 `(lines 120-180)`）。
+- `HasCuratedJSONLEntry` 不动（只判断有无真实条目）。
+
+**serve 侧**：`internal/serve/handlers_tasks.go` 的 `jsonlEntry` + `readJSONLEntries` 加 Lines 字段透传显示即可（只读观测，显示条目原文，不切片）。
+
+**workflow 模板**：`templates/workflows/native/workflow.md` 两处（先 grep 确认 tdd 与 channel-driven 模板是否复用同一段文字，有则同步改）：
+- 1.4 格式行：`{"file": "<路径>", "reason": "<原因>", "lines": "<起始行>-<结束行>"}`，说明 lines 可选、1-based 闭区间、缺省整文件、只对文件型条目有效。
+- line 237 规则句改为机制化表述：有 lines 的条目注入时只切那一段；无 lines 的大文件先 grep 定位。
+- workflow.md 改了，`sunshine update` 的哈希清单会提示用户项目里的 workflow.md 有更新，属预期行为，走正常 update 流程。
+
+**测试**：hook 侧新增单测（解析合法/非法/缺省、切片中间段/首行/末行、end 越界截断、start 越界空块、空 lines 整文件、注入块头含行号、目录条目不受影响、非法格式降级整文件）；task 侧（AddContext --lines 写入、Validate 格式错误/越界、ListContext 显示）。全量 go test 0 FAIL。真实注入实测：演示任务 implement.jsonl 写原型条目带 lines，跑注入命令生成子代理上下文，断言只含切片行（命令名以 `internal/hook/hook.go` 为准）。
+
+**版本与交付**：功能改动，定 v0.5.3。先实现验证、汇报，用户点选后再提交/发版（本次用户只定了方向，未说提交/发版）。
+
+## v0.5.4（实施说明）：原型按页拆文件——`doc/prototype/` 一页一个文件（2026-11-13，用户定）
+
+**背景**：原型是最终的系统原型，可能很大。单文件的前提下，不管行号还是锚点，都是在给一个大文件内部寻址：行号会漂移，锚点要标记纪律加解析逻辑。用户问“拆解时是不是带上原型从哪里读、有没可能读错”后定：原型生成时就按页拆成多个文件，拆解/1.4 时子任务直接读对的文件。`lines` 字段不白费，仍留给其它长单文件（长规范、长设计文档）。
+
+**新结构**：`doc/prototype/` 文件夹：
+- `index.html`——导航入口（产品名 + 到各页的链接 + 一句话介绍），设计评审打开它点着看；
+- 每页一个文件，文件名 = 页名（如 `申请页.html`、`审批列表页.html`）；
+- 共享样式/mock 数据抽成共用文件（`assets/style.css`、`assets/mock.js`，各页引用；小原型每页自包含也可，由原型子代理定）。
+- 旧的单文件 `doc/prototype/原型.html` 不再是约定；已有的旧原型继续可用（`lines` 仍支持），不强制迁移。
+
+**改动点**：
+1. 原型子代理定义：`templates/sunshine/agents/prototype.md`（channel 版）+ 17 个平台文件（claude、codebuddy、codex toml、copilot、cursor、droid、gemini、grok、kimi、kiro json、omp、opencode、pi、qoder、snow、trae、zcode）。平台文件是手工同步的（无生成器，与 canonical 文本并不完全相同，如 claude 版有原生子代理守卫句），每份都要改同一处意思：把“单文件系统原型 `doc/prototype/原型.html`”改为按页文件 + `index.html` 导航入口；汇报格式改成列出文件清单（每页一个文件）；“结构性大改时先读现有的原型文件再改”改为读 `index.html` + 相关页。
+2. init 产品设计模板：`templates/design/prototype.html`（66 行单文件）拆成 `templates/design/prototype/index.html`（导航入口 + 介绍）+ `templates/design/prototype/示例页.html`（核心操作表单示例）；`internal/scaffold/scaffold.go` 的 designTemplates 映射改成四条（新增两条原型文件）；只写不存在的文件、不覆盖的规则不变。`templates.Design` 是 `all:design` embed，新文件自动进二进制。
+3. workflow 模板三份：原型派发句（native:356、tdd:350、channel:223）“产出 `doc/prototype/原型.html`”改为“按页产出 `doc/prototype/`（每页一个文件 + `index.html` 导航入口）”；1.4 的 add-context 例子（native/tdd）原型条目改成页文件（去掉 `--lines`，`lines` 留给其它长单文件）；1.4 格式行保留 `lines` 说明。
+4. CLI 例子：`internal/cli/task.go` 的 add-context `--lines` 例子改用长规范文件（不用原型文件举例，避免误导）。
+5. serve：
+   - `internal/serve/activity.go`：watchedDesignFiles 去掉单文件，`watchedFiles()` 里 ReadDir `doc/prototype/` 把各页 `.html` 加进盯梢（新增/删除页也会被活动流捕获；目录本身的 mtime 只反映增删，不反映页内编辑，故必须展开到文件）。
+   - `internal/serve/handlers_misc.go` handleDesign：prototype 改成文件夹口径 `{exists: 目录存在，lines: 各页总行数，countText: "N 页"}`；docs 数组里 `"原型.html"` 改 `"原型/"`，带 countText。前端 designDocs 已支持 countText（有则优先显示），不用改前端；兜底分支核对一下也用 countText。
+6. 测试：`internal/scaffold/scaffold_test.go` 与 `internal/cli/init_projecttype_test.go` 的单文件断言改成文件夹结构断言；v0.5.3 的 `lines` 测试不动（fixture 路径是任意长单文件，与原型结构无关）。
+7. 教程 §12.6（中英文）：请假例子改按页结构——文件清单、需求一/二的 `implement.jsonl` 原型条目改成页文件、删掉 v0.5.3 刚加的那句 `lines` 说明（原型场景不再需要 `lines`；`lines` 的说明留在 1.4 与 add-context 帮助里）。“真实内容”处理：结构部分实跑更新（init 产品设计 + 建父子任务 + 写 jsonl，取真实输出）；演示核心（curl 校验等）不受原型布局影响，不动。
+
+**版本**：v0.5.4（v0.5.3 未提交/发版，两批分开发版；用户定夺时再定是否合并发版）。
+
+## v0.5.5（实施说明）：1.2 前置后端选型任务，选型以 `[待定]` 进任务、1.1 问答定（2026-11-13，用户定）
+
+**背景**：拆解按原型页驱动，清单天然是前端形状；后端除接口外的工作（选型语言/框架/数据库/缓存、脚手架、建库、接缓存）没有任务、没有归属，implement agent 只能在自己那一页范围内现想。用户定：前置一个后端选型任务，开发进场读到待定就先问答、确定后再开始第一个任务。
+
+**规则（1.2，三份模板同改）**：
+- 拆解时除按原型页拆需求子任务外，还要判断后端基础工作量（选型、脚手架、数据库建模、缓存）。
+- 默认：先建一个“后端基础：技术选型与脚手架”子任务，排在第一个需求子任务前面；后端选型项（语言、框架、数据库、缓存，按需再加消息队列、对象存储等）以 `[待定]` 标在它的 prd 里。它的 1.1 读到 `[待定]` 先问答（1.1 已有“一次只问一个问题、优先给选项”的问答机制，不用新写），开发人员确定后记进 prd/design，再做脚手架、建库、接缓存；归档后需求子任务再启动（依赖写进需求子任务的 prd.md，机制现成）。
+- 小项目：后端量小、单独一个任务是 overhead，待定项写进第一个需求子任务的 prd，它的 1.1 先问答定选型再动手。
+- 依据按“有什么读什么”：有概要设计时从模块划分、数据、技术选型三节拆；没有时按父任务 prd.md 建。概要设计仍不是必须的（1.1 已写明设计文档“按项目与设计者自定，有没有都行”）。
+- 选型定了以后不再改：后续子任务沿用；要改走需求变更流程（回炉）。
+
+**概要设计模板**（`templates/design/outline.md`）：在“数据”后、“验收标准”前加“技术选型”一节：只写约束（已有系统、必须用的库/数据库、性能要求）与待定项（`[待定]` + 待谁定），不强制设计人员拍板技术栈；空着也行。
+
+**教程 §12.6（中英文）**：在拆解段落后补一小段后端规则（规范性文字，不动演示的真实内容；不谎称请假演示当时就这么做的）。
+
+**版本**：v0.5.5（v0.5.3、v0.5.4 同在工作树未提交；用户定夺时再定是否合并发版）。
+
+## v0.5.6（实施说明）：brainstorm 加需求维度清单与排序规则（2026-11-13，用户定）
+
+**背景**：1.1 问询的质量靠 agent 自己判断：覆盖全靠它觉得哪个维度重要就问哪个，漏了也没人提醒；“最高价值”也没有明确的排序规则。用户定：加维度清单 + 排序规则。
+
+**改动**（`templates/platforms/common/skills/brainstorm.md` 与 copilot 变体 `templates/platforms/copilot/prompts/brainstorm.prompt.md`，两份是平行全文、须同步改）：
+- **需求维度清单**（新一节，放在“提问规则”后、“思考框架”前）：八个维度——用户与场景、功能边界、数据、性能、安全、兼容性、验收、范围外；每轮提问前对照清单，看哪个还没覆盖（已确认 / 已明确划在范围外 / 不适用，三者之一才算覆盖），没覆盖的进决策清单；不适用的维度直接标不适用，不硬问。清单只保证不漏，不保证每个问题都问得准；问得准还是靠判断，最终评审兜底。
+- **排序规则**（新一节，与维度清单并列）：每轮只问一个，从决策清单里按顺序挑——1. 阻塞后续工作的先问（不答没法往下走的）；2. 不可逆的先问（选错了返工成本大的）；3. 成本高的先问（影响范围大的）；4. 枝节后问（细节、偏好、可以后补的）。
+- **接线**（两处小改，让清单进循环）：规划流程步骤 4 “单个最高价值问题”后加“（按排序规则挑）”；步骤 5 “重新计算决策清单”改成“对照需求维度清单重新计算决策清单”。
+- 不动：提问规则本身（证据先查、每问四要素、每轮只问一个）、第一性原理框架、收敛门禁、最终评审；教程不写 brainstorm 内部规则，不用改。
+
+**版本**：v0.5.6（v0.5.3、v0.5.4、v0.5.5 同在工作树未提交；用户定夺时再定是否合并发版）。

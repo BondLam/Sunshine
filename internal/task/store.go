@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 
@@ -816,6 +817,37 @@ type jsonlEntry struct {
 	File   string `json:"file"`
 	Type   string `json:"type,omitempty"`
 	Reason string `json:"reason,omitempty"`
+	// Lines 是可选的行范围（"120-180"，1-based 闭区间）；缺省整文件。
+	// 注入时只切该段（见 internal/hook/subagent.go 的 materializeFile）。
+	Lines string `json:"lines,omitempty"`
+}
+
+// parseLineRange 解析 lines 字段（"120-180"，1-based 闭区间）。
+// 空串表示不限；格式非法或 start<1 或 start>end 返回 ok=false。
+// 与 internal/hook 的同名函数同形（两处各守一端：注入时降级、校验时报错）。
+func parseLineRange(s string) (start, end int, ok bool) {
+	if s == "" {
+		return 0, 0, false
+	}
+	parts := strings.Split(s, "-")
+	if len(parts) != 2 {
+		return 0, 0, false
+	}
+	start, err1 := strconv.Atoi(strings.TrimSpace(parts[0]))
+	end, err2 := strconv.Atoi(strings.TrimSpace(parts[1]))
+	if err1 != nil || err2 != nil || start < 1 || start > end {
+		return 0, 0, false
+	}
+	return start, end, true
+}
+
+// countFileLines 数文件的总行数（与注入切片同一口径：末尾空行不计）。
+func countFileLines(data []byte) int {
+	lines := strings.Split(string(data), "\n")
+	if n := len(lines); n > 0 && lines[n-1] == "" {
+		lines = lines[:n-1]
+	}
+	return len(lines)
 }
 
 var jsonlNameRe = regexp.MustCompile(`^[A-Za-z0-9._-]+$`)

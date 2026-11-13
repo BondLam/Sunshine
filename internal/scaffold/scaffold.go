@@ -187,10 +187,12 @@ func InitWithOptions(cwd, user string, opts InitOptions) error {
 }
 
 // designTemplates 是产品设计文档模板：内嵌源路径 → 项目内目标路径。
+// 原型按页分文件：index.html 是导航入口，每页一个文件。
 var designTemplates = []struct{ src, dst string }{
 	{"design/requirements.md", "doc/design/需求列表.md"},
 	{"design/outline.md", "doc/design/概要设计.md"},
-	{"design/prototype.html", "doc/prototype/原型.html"},
+	{"design/prototype/index.html", "doc/prototype/index.html"},
+	{"design/prototype/示例页.html", "doc/prototype/示例页.html"},
 }
 
 // writeDesignTemplates 把三份产品设计文档模板写进项目 doc/。

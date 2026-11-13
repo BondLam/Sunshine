@@ -2,6 +2,7 @@ package serve
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -213,7 +214,7 @@ func designDocInfo(root, rel string) map[string]any {
 func (s *Server) handleDesign(c *gin.Context) {
 	requirements := designDocInfo(s.root, "doc/design/需求列表.md")
 	outline := designDocInfo(s.root, "doc/design/概要设计.md")
-	prototype := designDocInfo(s.root, "doc/prototype/原型.html")
+	prototype := prototypeDocInfo(s.root)
 	c.JSON(http.StatusOK, map[string]any{
 		"requirements": requirements,
 		"outline":      outline,
@@ -223,9 +224,32 @@ func (s *Server) handleDesign(c *gin.Context) {
 		"docs": []map[string]any{
 			{"name": "需求列表.md", "exists": requirements["exists"], "lines": requirements["lines"]},
 			{"name": "概要设计.md", "exists": outline["exists"], "lines": outline["lines"]},
-			{"name": "原型.html", "exists": prototype["exists"], "lines": prototype["lines"]},
+			{"name": "原型/", "exists": prototype["exists"], "lines": prototype["lines"], "countText": prototype["countText"]},
 		},
 	})
+}
+
+// prototypeDocInfo 汇总 doc/prototype/ 文件夹：页数与各页总行数。
+// 原型按页分文件后不再有单文件原型；旧的单文件原型.html 如存在也计为一页。
+func prototypeDocInfo(root string) map[string]any {
+	dir := filepath.Join(root, "doc", "prototype")
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		return map[string]any{"exists": false, "lines": 0, "pages": 0, "countText": "0 页"}
+	}
+	pages, total := 0, 0
+	for _, e := range entries {
+		if e.IsDir() || !strings.HasSuffix(e.Name(), ".html") {
+			continue
+		}
+		data, err := os.ReadFile(filepath.Join(dir, e.Name()))
+		if err != nil {
+			continue
+		}
+		pages++
+		total += countDesignLines(data)
+	}
+	return map[string]any{"exists": pages > 0, "lines": total, "pages": pages, "countText": fmt.Sprintf("%d 页", pages)}
 }
 
 // ---------------------------------------------------------------------------

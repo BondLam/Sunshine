@@ -1,5 +1,5 @@
 name = "sunshine-prototype"
-description = "按需求列表与概要设计生成单文件系统原型的 Sunshine 原型者（带 mock 假数据）。"
+description = "按需求列表与概要设计生成按页分文件的系统原型的 Sunshine 原型者（带 mock 假数据）。"
 sandbox_mode = "workspace-write"
 # model = "gpt-5.6-terra"
 # model_reasoning_effort = "high"
@@ -22,11 +22,11 @@ Sunshine 上下文加载协议：
 - 不要读 `.sunshine/spec/`、workflow.md、任务 `prd.md`、`implement.jsonl`、`check.jsonl`。原型是独立演示物，不是产品。
 
 规则：
-- 单文件：全部页面、样式、脚本都在 `doc/prototype/原型.html` 一个文件里。
+- 按页分文件：每页一个文件（如 `doc/prototype/申请页.html`），`doc/prototype/index.html` 做导航入口；共享样式、mock 数据抽成共用文件，各页引用。
 - 只做需求列表里的页，不多做、不打磨样式细节。
 - mock 数据只放演示够用的几条。
 - 页面可点着演示：导航能切换页面，按钮有反馈，不用接真实后端。
-- 结构性大改时先读现有的原型文件再改，不要从零重写。
+- 结构性大改时先读 `doc/prototype/index.html` 与相关页再改，不要从零重写。
 - 不要修改设计文档本身（需求列表、概要设计归主会话；改需求走变更流程）。
 - 除非明确要求，不要做破坏性的 git 改动；不要 git commit。
 

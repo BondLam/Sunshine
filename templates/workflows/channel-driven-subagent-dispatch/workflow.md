@@ -134,7 +134,7 @@ Channel 驱动的子代理派发是本工作流的默认执行模型。主会话
 [workflow-state:in_progress]
 流程：channel 驱动的 `implement` 工作线程 -> channel 驱动的 `check` 工作线程 -> `sunshine-update-spec` -> 提交（第 3.4 步）-> `/sunshine:finish-work`。
 主会话默认：用 `sunshine channel spawn` 配合 `.sunshine/agents/implement.md` 与 `.sunshine/agents/check.md`；除非明确要求或宿主专属工具必需，否则不要用原生的 Claude Task / Codex sub_agent。
-工作线程上下文顺序：jsonl 条目 -> `prd.md` -> `design.md（如有）` -> `implement.md（如有）`。jsonl 条目只读 reason 指明的部分，大文件先 grep 定位。用 `implement`、`check`、`check-cx`、`check-cc` 这类稳定的工作线程代号；需要精确结果时用 `sunshine channel messages --raw` 读结果。
+工作线程上下文顺序：jsonl 条目 -> `prd.md` -> `design.md（如有）` -> `implement.md（如有）`。jsonl 条目只读 reason 指明的部分；带 `lines` 的条目注入时只切该行范围（1-based 闭区间），无 `lines` 的大文件先 grep 定位。用 `implement`、`check`、`check-cx`、`check-cc` 这类稳定的工作线程代号；需要精确结果时用 `sunshine channel messages --raw` 读结果。
 [/workflow-state:in_progress]
 
 [workflow-state:in_progress-inline]
@@ -220,7 +220,7 @@ sunshine task create "<任务标题>" --slug <名称>
 
 **设计文档落盘**：设计阶段产出的文档（需求列表、概要设计、高保真原型等，按项目与设计者自定，有没有都行）落盘在项目 `doc/`，不在 `.sunshine`；首次落盘时创建 `doc/` 目录。`doc/` 里有什么就用什么，没有原型就按 PRD 或需求列表拆；什么设计文档都没有就是纯代码任务，走直接开发。产品设计文档与任务目录里的技术设计 `design.md` 不是一回事，别混淆。
 
-**高保真原型派发给子代理**：原型是代码（HTML/CSS/JS + mock 数据），不要由主会话顺手写。用 `sunshine channel spawn --agent prototype` 派发（加载 `.sunshine/agents/prototype.md`），派发消息里给出 `doc/design/需求列表.md` 与 `doc/design/概要设计.md` 的路径；子代理只读这两份文件，产出 `doc/prototype/原型.html` 后只汇报页数、mock 记录数与文件路径，主会话不直接写原型，只收汇报。初版生成与结构性大改走子代理；小修（改个按钮颜色、一行文案）在主会话里用 grep 定向改，不重新派发。
+**高保真原型派发给子代理**：原型是代码（HTML/CSS/JS + mock 数据），不要由主会话顺手写。用 `sunshine channel spawn --agent prototype` 派发（加载 `.sunshine/agents/prototype.md`），派发消息里给出 `doc/design/需求列表.md` 与 `doc/design/概要设计.md` 的路径；子代理只读这两份文件，按页产出 `doc/prototype/`（每页一个文件 + `index.html` 导航入口）后只汇报页数、mock 记录数与文件路径，主会话不直接写原型，只收汇报。初版生成与结构性大改走子代理；小修（改个按钮颜色、一行文案）在主会话里用 grep 定向改，不重新派发。
 
 #### 1.2 任务拆解 `[optional · once]`
 
@@ -233,6 +233,8 @@ sunshine task create "<任务标题>" --slug <名称>
 - 为每个子任务建任务目录：`sunshine task create "<子任务标题>" --description "<一句话摘要>" --parent <父任务>`；已有任务挂成子任务用 `sunshine task add-subtask <父任务> <子任务>`。
 - 父任务记好子任务映射、跨子任务验收标准与最终集成复核。
 - 子任务随后各自走 1.1（自己的 `prd.md` / `design.md` / `implement.md`）→ 1.4（自己的 jsonl）→ 1.5（自己的 `task start`）→ 第 2 阶段。
+
+**后端基础**：拆解时除按原型页拆需求子任务外，还要判断后端基础工作量（选型、脚手架、数据库建模、缓存）。默认先建一个“后端基础：技术选型与脚手架”子任务，排在第一个需求子任务前面；后端选型项（语言、框架、数据库、缓存，按需再加消息队列、对象存储等）以 `[待定]` 标在它的 `prd.md` 里。它的 1.1 读到 `[待定]` 先问答（一次只问一个问题、优先给选项），开发人员确定后记进 `prd.md` / `design.md`，再做脚手架、建库、接缓存；它归档后需求子任务再启动（依赖写进需求子任务的 `prd.md`）。后端量小、单独一个任务是 overhead 时，待定项写进第一个需求子任务的 `prd.md`，它的 1.1 先问答定选型再动手。依据按“有什么读什么”：有概要设计时从模块划分、数据、技术选型三节拆；没有时按父任务 `prd.md` 建。选型定了以后不再改，后续子任务沿用；要改走需求变更流程。
 
 **拆解只做一次**：评审通过后，读齐 `doc/` 里的全部设计文档，一次性定好子任务清单；不要做好一个页面拆一次、边设计边拆——开发进场时设计包必须是完整的。
 

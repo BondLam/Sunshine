@@ -234,7 +234,7 @@ Inline 模式：跳过 jsonl 整理；第 2 阶段通过 `sunshine-before-dev` �
 工具：`sunshine-implement` / `sunshine-research` 只是子代理类型（Task/Agent 工具，不是 Skill；没有同名的 skill）。`sunshine-update-spec` 是 skill。`sunshine-check` 两者都是；改完代码后核查时优先用 Agent 形态。
 流程：`sunshine-implement` -> `sunshine-check` -> `sunshine-update-spec` -> 提交（第 3.4 步）-> `/sunshine:finish-work`。
 主会话默认：派发 implement/check 子代理。不得以任务小、改动少为由改走 inline；inline 分支只属于 Codex（见 [workflow-state:in_progress-inline]）。子代理自豁免：如果自己已经是 `sunshine-implement`，不要再派生 `sunshine-implement` 或 `sunshine-check`；如果自己已经是 `sunshine-check`，不要再派生 `sunshine-check` 或 `sunshine-implement`。派发只由主会话做。
-派发提示词以 `Active task: <task current 给出的任务路径>` 开头。读上下文的顺序：jsonl 条目 -> `prd.md` -> `design.md（如有）` -> `implement.md（如有）`。jsonl 条目只读 reason 指明的部分，大文件先 grep 定位。
+派发提示词以 `Active task: <task current 给出的任务路径>` 开头。读上下文的顺序：jsonl 条目 -> `prd.md` -> `design.md（如有）` -> `implement.md（如有）`。jsonl 条目只读 reason 指明的部分；带 `lines` 的条目注入时只切该行范围（1-based 闭区间），无 `lines` 的大文件先 grep 定位。
 [/workflow-state:in_progress]
 
 <!-- 每轮面包屑：codex.dispatch_mode=inline 且 status='in_progress' 时显示。
@@ -353,7 +353,7 @@ brainstorm skill 会引导你：
 
 **设计文档落盘**：设计阶段产出的文档（需求列表、概要设计、高保真原型等，按项目与设计者自定，有没有都行）落盘在项目 `doc/`，不在 `.sunshine`；首次落盘时创建 `doc/` 目录。`doc/` 里有什么就用什么，没有原型就按 PRD 或需求列表拆；什么设计文档都没有就是纯代码任务，走直接开发。产品设计文档与任务目录里的技术设计 `design.md` 不是一回事，别混淆。
 
-**高保真原型派发给子代理**：原型是代码（HTML/CSS/JS + mock 数据），不要由主会话顺手写。用 Task 工具派发 `sunshine-prototype` 子代理（`subagent_type` 为 `sunshine-prototype`），派发提示里给出 `doc/design/需求列表.md` 与 `doc/design/概要设计.md` 的路径；子代理只读这两份文件，产出 `doc/prototype/原型.html` 后只汇报页数、mock 记录数与文件路径，主会话不直接写原型，只收汇报。初版生成与结构性大改走子代理；小修（改个按钮颜色、一行文案）在主会话里用 grep 定向改，不重新派发。
+**高保真原型派发给子代理**：原型是代码（HTML/CSS/JS + mock 数据），不要由主会话顺手写。用 Task 工具派发 `sunshine-prototype` 子代理（`subagent_type` 为 `sunshine-prototype`），派发提示里给出 `doc/design/需求列表.md` 与 `doc/design/概要设计.md` 的路径；子代理只读这两份文件，按页产出 `doc/prototype/`（每页一个文件 + `index.html` 导航入口）后只汇报页数、mock 记录数与文件路径，主会话不直接写原型，只收汇报。初版生成与结构性大改走子代理；小修（改个按钮颜色、一行文案）在主会话里用 grep 定向改，不重新派发。
 
 需求变化时随时回到本步，修订相关产物。
 
@@ -368,6 +368,8 @@ brainstorm skill 会引导你：
 - 为每个子任务建任务目录：`sunshine task create "<子任务标题>" --description "<一句话摘要>" --parent <父任务>`；已有任务挂成子任务用 `sunshine task add-subtask <父任务> <子任务>`。
 - 父任务记好子任务映射、跨子任务验收标准与最终集成复核。
 - 子任务随后各自走 1.1（自己的 `prd.md` / `design.md` / `implement.md`）→ 1.4（自己的 jsonl）→ 1.5（自己的 `task start`）→ 第 2 阶段。
+
+**后端基础**：拆解时除按原型页拆需求子任务外，还要判断后端基础工作量（选型、脚手架、数据库建模、缓存）。默认先建一个“后端基础：技术选型与脚手架”子任务，排在第一个需求子任务前面；后端选型项（语言、框架、数据库、缓存，按需再加消息队列、对象存储等）以 `[待定]` 标在它的 `prd.md` 里。它的 1.1 读到 `[待定]` 先问答（一次只问一个问题、优先给选项），开发人员确定后记进 `prd.md` / `design.md`，再做脚手架、建库、接缓存；它归档后需求子任务再启动（依赖写进需求子任务的 `prd.md`）。后端量小、单独一个任务是 overhead 时，待定项写进第一个需求子任务的 `prd.md`，它的 1.1 先问答定选型再动手。依据按“有什么读什么”：有概要设计时从模块划分、数据、技术选型三节拆；没有时按父任务 `prd.md` 建。选型定了以后不再改，后续子任务沿用；要改走需求变更流程。
 
 **拆解只做一次**：评审通过后，读齐 `doc/` 里的全部设计文档，一次性定好子任务清单；不要做好一个页面拆一次、边设计边拆——开发进场时设计包必须是完整的。
 
@@ -417,7 +419,7 @@ brainstorm skill 会引导你：
 
 **位置**：`{TASK_DIR}/implement.jsonl` 与 `{TASK_DIR}/check.jsonl`（已存在）。
 
-**格式**：每行一个 JSON 对象——`{"file": "<路径>", "reason": "<原因>"}`。路径相对于仓库根目录。
+**格式**：每行一个 JSON 对象——`{"file": "<路径>", "reason": "<原因>", "lines": "<起始行>-<结束行>"}`。路径相对于仓库根目录。`lines` 可选（1-based 闭区间，如 `"120-180"`，单行写 `"120-120"`），只对文件型条目有效，缺省注入整文件；带 `lines` 的条目注入时只切该段。
 
 **放什么**：
 - **规范文件**——`.sunshine/spec/<包名>/<分层>/index.md`，以及与本任务相关的具体指南文件（`error-handling.md`、`conventions.md` 等）
@@ -449,6 +451,10 @@ sunshine task context --mode packages
 ```bash
 sunshine task add-context "$TASK_DIR" implement "<路径>" "<原因>"
 sunshine task add-context "$TASK_DIR" check "<路径>" "<原因>"
+# 原型按页分文件：直接指自己那页的文件
+sunshine task add-context "$TASK_DIR" implement "doc/prototype/申请页.html" "系统原型：申请页"
+# 其它长单文件只读其中一段时加 --lines "起始行-结束行"（1-based 闭区间）
+sunshine task add-context "$TASK_DIR" implement ".sunshine/spec/backend.md" "后端规范：接口定义" --lines "120-180"
 ```
 
 有了真实条目后删掉预置的 `_example` 行（可选——消费者会自动跳过它）。

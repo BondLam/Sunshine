@@ -685,7 +685,7 @@
             });
           }
           // 兜底：按三份已知文档名从顶层字段拼
-          var names = ['需求列表.md', '概要设计.md', '原型.html'];
+          var names = ['需求列表.md', '概要设计.md', '原型/'];
           var self = this;
           return names.map(function (n) {
             var key = n.replace(/[^a-zA-Z0-9]/g, '_');

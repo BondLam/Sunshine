@@ -42,7 +42,7 @@ func TestInitSpecTypeSkipsMismatchedSpec(t *testing.T) {
 }
 
 // TestInitDesignWritesDocTemplates 校验 SpecType=Design：spec 三份全写
-// （与全栈相同），doc/ 下写三份设计文档模板；
+// （与全栈相同），doc/ 下写四份设计文档模板；
 // 模板不进哈希清单；已填过的文件 -f 重建也不覆盖。
 func TestInitDesignWritesDocTemplates(t *testing.T) {
 	dir := t.TempDir()
@@ -58,7 +58,7 @@ func TestInitDesignWritesDocTemplates(t *testing.T) {
 	if err != nil {
 		t.Fatalf("读取哈希清单失败：%v", err)
 	}
-	for _, key := range []string{"doc/design/需求列表.md", "doc/design/概要设计.md", "doc/prototype/原型.html"} {
+	for _, key := range []string{"doc/design/需求列表.md", "doc/design/概要设计.md", "doc/prototype/index.html", "doc/prototype/示例页.html"} {
 		if strings.Contains(string(data), key) {
 			t.Errorf("哈希清单不应含 %s", key)
 		}
@@ -82,7 +82,7 @@ func TestInitDesignWritesDocTemplates(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(dir, "doc/design/需求列表.md"), []byte(edited), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.Remove(filepath.Join(dir, "doc/prototype/原型.html")); err != nil {
+	if err := os.Remove(filepath.Join(dir, "doc/prototype/index.html")); err != nil {
 		t.Fatal(err)
 	}
 	if err := InitWithOptions(dir, "张三", InitOptions{Force: true, SpecType: projecttype.Design}); err != nil {
@@ -95,12 +95,12 @@ func TestInitDesignWritesDocTemplates(t *testing.T) {
 	if string(kept) != edited {
 		t.Errorf("-f 不应覆盖已填的 需求列表.md，实际：%q", string(kept))
 	}
-	if _, err := os.Stat(filepath.Join(dir, "doc/prototype/原型.html")); err != nil {
-		t.Errorf("-f 应补写缺失的 原型.html：%v", err)
+	if _, err := os.Stat(filepath.Join(dir, "doc/prototype/index.html")); err != nil {
+		t.Errorf("-f 应补写缺失的 index.html：%v", err)
 	}
 }
 
-// assertDesignTemplates 校验 doc/ 下三份设计文档模板存在且内容是模板。
+// assertDesignTemplates 校验 doc/ 下四份设计文档模板存在且内容是模板。
 func assertDesignTemplates(t *testing.T, dir string) {
 	t.Helper()
 	for _, tc := range []struct {
@@ -109,7 +109,8 @@ func assertDesignTemplates(t *testing.T, dir string) {
 	}{
 		{"doc/design/需求列表.md", "# 需求列表"},
 		{"doc/design/概要设计.md", "# 概要设计"},
-		{"doc/prototype/原型.html", "（请填写产品名称）原型"},
+		{"doc/prototype/index.html", "（请填写产品名称）原型"},
+		{"doc/prototype/示例页.html", "（请填写产品名称）原型 · 示例页"},
 	} {
 		data, err := os.ReadFile(filepath.Join(dir, filepath.FromSlash(tc.rel)))
 		if err != nil {

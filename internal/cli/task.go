@@ -104,17 +104,21 @@ var taskAddContextCmd = &cobra.Command{
 
 <文件> 可简写 implement 或 check（自动补 .jsonl）；<路径> 为目录时
 记为目录型条目；<路径> 不存在时拒绝；已存在相同路径的条目时警告
-并返回 0。`,
+并返回 0。--lines 只对文件型条目有效（"起始行-结束行"，1-based
+闭区间，如 "120-180"），注入子代理时只切该段，不填则整文件。`,
 	Example: `  sunshine task add-context 11-09-退款原因必填 implement src/Refund.vue
-  sunshine task add-context 11-09-退款原因必填 check docs/api.md "字段定义"`,
+  sunshine task add-context 11-09-退款原因必填 check docs/api.md "字段定义"
+  sunshine task add-context 11-09-退款原因必填 implement doc/prototype/申请页.html "系统原型：申请页"
+  sunshine task add-context 11-09-退款原因必填 implement .sunshine/spec/backend.md "后端规范：接口定义" --lines "120-180"`,
 	Args: cobra.RangeArgs(3, 4),
 	Run: func(cmd *cobra.Command, args []string) {
 		reason := ""
 		if len(args) == 4 {
 			reason = args[3]
 		}
+		lines, _ := cmd.Flags().GetString("lines")
 		runTaskCode(cmd, func(r *task.Runner) int {
-			return r.AddContext(args[0], args[1], args[2], reason)
+			return r.AddContext(args[0], args[1], args[2], reason, lines)
 		})
 	},
 }
@@ -419,6 +423,8 @@ func init() {
 	taskCreateCmd.Flags().StringArray("meta", nil, "元数据 key=value（可重复）")
 	taskCreateCmd.Flags().Bool("no-start", false, "创建后不自动激活")
 	taskCreateCmd.Flags().Bool("force", false, "同名任务已存在时覆盖")
+
+	taskAddContextCmd.Flags().String("lines", "", "只注入的行范围（\"起始行-结束行\"，1-based 闭区间，如 \"120-180\"），仅文件型条目")
 
 	taskStartCmd.Flags().Bool("allow-empty-context", false, "上下文清单为空时也允许开始")
 

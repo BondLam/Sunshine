@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"strconv"
 	"strings"
 	"unicode/utf8"
 )
@@ -472,8 +473,44 @@ func budgetedBlock(b *budget, header, plainPath, content, reason string, sizeFor
 	return block
 }
 
+// parseLineRange 解析 jsonl 条目的 lines 字段（"120-180"，1-based 闭区间）。
+// 空串表示不限（整文件）；格式非法或 start<1 或 start>end 返回 ok=false。
+func parseLineRange(s string) (start, end int, ok bool) {
+	if s == "" {
+		return 0, 0, false
+	}
+	parts := strings.Split(s, "-")
+	if len(parts) != 2 {
+		return 0, 0, false
+	}
+	start, err1 := strconv.Atoi(strings.TrimSpace(parts[0]))
+	end, err2 := strconv.Atoi(strings.TrimSpace(parts[1]))
+	if err1 != nil || err2 != nil || start < 1 || start > end {
+		return 0, 0, false
+	}
+	return start, end, true
+}
+
+// sliceLines 按 1-based 闭区间 [start, end] 取 data 的行子集；end 超过
+// 总行数时截到文件末尾。返回（切片内容，总行数，实际注入的末行）。
+func sliceLines(data []byte, start, end int) (string, int, int) {
+	lines := strings.Split(string(data), "\n")
+	if n := len(lines); n > 0 && lines[n-1] == "" {
+		lines = lines[:n-1]
+	}
+	total := len(lines)
+	if start > total {
+		return "", total, 0
+	}
+	if end > total {
+		end = total
+	}
+	return strings.Join(lines[start-1:end], "\n"), total, end
+}
+
 // materializeFile 读一个 jsonl 引用的文件，施加单文件上限再计入总预算。
-func materializeFile(basePath, filePath, reason string, limits Limits, b *budget) string {
+// lines 非空时只注入该行范围（1-based 闭区间），块头注明实际注入的行号。
+func materializeFile(basePath, filePath, reason, lines string, limits Limits, b *budget) string {
 	data := readFileBytes(basePath, filePath)
 	if data == nil {
 		return ""
@@ -484,12 +521,26 @@ func materializeFile(basePath, filePath, reason string, limits Limits, b *budget
 		b.add(len(notice))
 		return notice
 	}
+	header := filePath
+	if lines != "" {
+		if start, end, ok := parseLineRange(lines); ok {
+			content, total, clampedEnd := sliceLines(data, start, end)
+			if clampedEnd == 0 {
+				notice := fmt.Sprintf("[Sunshine: %s 的 lines %q 超出文件总行数（%d 行），未注入内容]", filePath, lines, total)
+				b.add(len(notice))
+				return notice
+			}
+			header = fmt.Sprintf("%s (lines %d-%d of %d)", filePath, start, clampedEnd, total)
+			data = []byte(content)
+			size = len(data)
+		}
+	}
 	truncated := truncateUTF8(data, limits.MaxFileBytes)
 	content := string(truncated)
 	if len(truncated) < size {
 		content += truncateNotice(filePath, limits.MaxFileBytes)
 	}
-	return budgetedBlock(b, filePath, filePath, content, reason, size)
+	return budgetedBlock(b, header, filePath, content, reason, size)
 }
 
 // materializeDirectory 读目录下全部 .md 文件（最多 20 个，按名排序），
@@ -513,7 +564,7 @@ func materializeDirectory(basePath, dirPath, reason string, limits Limits, b *bu
 	var blocks []string
 	for _, name := range names {
 		rel := dirPath + "/" + name
-		if block := materializeFile(basePath, rel, reason, limits, b); block != "" {
+		if block := materializeFile(basePath, rel, reason, "", limits, b); block != "" {
 			blocks = append(blocks, block)
 		}
 	}
@@ -521,11 +572,13 @@ func materializeDirectory(basePath, dirPath, reason string, limits Limits, b *bu
 }
 
 // jsonlEntry 是 jsonl 上下文文件里的一行：{"file": 路径, "type": "file"|
-// "directory", "reason": …}；无 file 字段的行（旧版占位行）跳过。
+// "directory", "reason": …, "lines": "120-180"（可选，1-based 闭区间，
+// 缺省整文件）}；无 file 字段的行（旧版占位行）跳过。
 type jsonlEntry struct {
 	File   string
 	Type   string
 	Reason string
+	Lines  string
 }
 
 func readJSONLEntries(basePath, jsonlPath string, stderr io.Writer) []jsonlEntry {
@@ -565,7 +618,14 @@ func readJSONLEntries(basePath, jsonlPath string, stderr io.Writer) []jsonlEntry
 		if reason == "" {
 			reason = "-"
 		}
-		entries = append(entries, jsonlEntry{File: file, Type: typ, Reason: reason})
+		lines, _ := item["lines"].(string)
+		if lines != "" {
+			if _, _, ok := parseLineRange(lines); !ok {
+				fmt.Fprintf(stderr, "[inject-subagent-context] WARN: %s 的 lines %q 格式非法（应为 \"起始行-结束行\"，如 \"120-180\"），已按整文件注入\n", file, lines)
+				lines = ""
+			}
+		}
+		entries = append(entries, jsonlEntry{File: file, Type: typ, Reason: reason, Lines: lines})
 	}
 	if !sawReal {
 		fmt.Fprintf(stderr, "[inject-subagent-context] WARN: %s has no curated entries (only seed / empty) — sub-agent will receive only task artifacts. See workflow.md planning artifact guidance.\n", jsonlPath)
@@ -578,7 +638,7 @@ func materializeJSONLEntries(basePath, jsonlPath string, limits Limits, b *budge
 	for _, entry := range readJSONLEntries(basePath, jsonlPath, stderr) {
 		if entry.Type == "directory" {
 			blocks = append(blocks, materializeDirectory(basePath, entry.File, entry.Reason, limits, b)...)
-		} else if block := materializeFile(basePath, entry.File, entry.Reason, limits, b); block != "" {
+		} else if block := materializeFile(basePath, entry.File, entry.Reason, entry.Lines, limits, b); block != "" {
 			blocks = append(blocks, block)
 		}
 	}
