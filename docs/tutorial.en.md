@@ -1826,6 +1826,14 @@ Each sub-task's implement.jsonl / check.jsonl lists only specs, research, and do
 
 **[Developers enter]**
 
+When developers enter, start with the opening prompt below.
+
+It first lists the subtasks and the first subtask's context for the user to confirm, then works through them one by one.
+
+> The design review passed and the subtasks are split. Now let's start development following the sunshine workflow: first list the parent task's subtasks and the first subtask's context for me to confirm; after I confirm, start from the first subtask and work through them one by one; start each subtask, then check it, write the specs back, commit, and archive it before starting the next one; once all subtasks are archived, run the final integration review on the parent task and archive it.
+
+After confirmation, development follows each sub-task's record below, one by one; if the session closes and reopens midway, run /sunshine:continue — it routes by the task.json status.
+
 One sub-task at a time: each runs the full implement → check → write back → commit → archive cycle before the next starts. Here is each sub-task's record (the conversation is an example; the commands and outputs are real values from runs).
 
 ### Backend foundation: stack choice and scaffolding
