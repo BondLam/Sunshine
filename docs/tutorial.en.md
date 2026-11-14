@@ -1652,7 +1652,7 @@ Example prompt (an example, not a record of a real session):
 
 > I want to build a web store with coupons from zero, design-first. Please follow the Sunshine workflow.
 >
-> Design runs per requirement, one loop at a time: for each requirement, ask me first to pin down that requirement's product logic (one question at a time, options first), record the answer in prd.md right away, write that requirement into doc/design/需求列表.md as an R-xxx line, then dispatch a prototype sub-agent to build or update that requirement's page from the requirements list. The prototype is a multi-page HTML demo with mock data — don't ask real or demo; don't ask about the tech stack in the design phase.
+> Design runs per requirement, one loop at a time: for each requirement, ask me first to pin down that requirement's product logic (one question at a time, with your suggestion and trade-offs), record the answer in prd.md right away, write that requirement into doc/design/需求列表.md as an R-xxx line, then dispatch a prototype sub-agent to build or update that requirement's page from the requirements list. The prototype is a multi-page HTML demo with mock data — don't ask real or demo; don't ask about the tech stack in the design phase.
 >
 > After the loop, generate the delivery document for the client as needed (the outline design is one possibility), then give me the final planning summary for review — by then the requirements list, the outline design, and the prototype pages are already in doc/. After the review passes, split it into sub-tasks per requirement and then implement.
 >

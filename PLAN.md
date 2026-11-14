@@ -2715,3 +2715,11 @@ pre-commit install       # 在仓库根目录执行一次
 **验证**：三处新规则 grep 在位（流程固定 4 处、子任务顺序固定 3 处、问答即记 4 处）；go build/vet/gofmt/test 全过（20 包）；init 实测新二进制，.sunshine/workflow.md 三处各 1、.claude/skills/sunshine-brainstorm/SKILL.md 两处各 1。
 
 **发布 v0.5.9（2026-11-13，已发布，已验证）**：主提交一笔——固化三处流程顺序（本地 523cbc8 → 远端 5662531，4 个文件，20 插入/2 删除）。tag v0.5.9 对象 d5b857f → 5662531。Release：https://github.com/linrong007/Sunshine/releases/tag/v0.5.9，6 个资产。发布 run 43403535594 success。验证：changelog 含主提交 5662531；darwin arm64 checksum 对上（b6ffa66c…）；Mach-O 64-bit arm64 确认；一键装（linrong007 地址）装上 v0.5.9；v0.5.8 发布版二进制 upgrade --dry-run 查到 0.5.9（下载地址已是 linrong007）。
+
+## 提问措辞统一为 brainstorm skill（2026-11-14，已发布 v0.5.10）
+
+**背景**：用户让重写产品设计阶段工作流程并逐条核对，核对时指出“一次只问一个问题，优先给选项”不是要的效果。翻查确认：workflow 模板写的是“优先给选项，而不是开放式提问”，但 brainstorm skill 写的是“提出单个最高价值问题，附上你的建议与取舍”，而且明确说“建议不是默认选项，不要因为用户要求实现，就替用户选了推荐的产品决策”。两处意思不一样：列选项是让用户挑一个；给建议讲取舍，是把分析、建议、代价讲清楚，让用户自己定。用户定按 brainstorm skill 统一，立即改并发版。
+
+**改法**：三份 workflow 模板里的“优先给选项”全部改成“附上你的建议与取舍”，并补“建议不是默认选项，不替用户选”限定。共 8 处：每份模板的 1.1 提问列表项、按需求循环段、技术选型段各 1 处（channel-driven 无提问列表项，只有后两处）；其中提问列表项与按需求循环段各补“建议不是默认选项，不替用户选”一句，共 5 处。教程 §12.6 开场提示词中英文同步改（“优先给选项”→“附上你的建议与取舍”，英文“options first”→“with your suggestion and trade-offs”），因为那是用户照抄的范例，要与工作流一致。PLAN.md 历史记录里的 3 处“优先给选项”保留原样（是过去的记录，不改写历史）。brainstorm skill 本身不用动（它本来就是对的）。
+
+**验证**：workflow + 教程里的“优先给选项”清零（PLAN 历史 3 处保留）；“附上你的建议与取舍” workflow 里 8 处在位，“建议不是默认选项” 5 处在位；英文教程“options first”清零、“with your suggestion and trade-offs” 1 处在位；go build/vet/gofmt/test 全过；init 实测新二进制，.sunshine/workflow.md 里“附上你的建议与取舍” 3 处、“建议不是默认选项” 2 处、“优先给选项” 0 处。
