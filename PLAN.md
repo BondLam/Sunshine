@@ -2723,3 +2723,5 @@ pre-commit install       # 在仓库根目录执行一次
 **改法**：三份 workflow 模板里的“优先给选项”全部改成“附上你的建议与取舍”，并补“建议不是默认选项，不替用户选”限定。共 8 处：每份模板的 1.1 提问列表项、按需求循环段、技术选型段各 1 处（channel-driven 无提问列表项，只有后两处）；其中提问列表项与按需求循环段各补“建议不是默认选项，不替用户选”一句，共 5 处。教程 §12.6 开场提示词中英文同步改（“优先给选项”→“附上你的建议与取舍”，英文“options first”→“with your suggestion and trade-offs”），因为那是用户照抄的范例，要与工作流一致。PLAN.md 历史记录里的 3 处“优先给选项”保留原样（是过去的记录，不改写历史）。brainstorm skill 本身不用动（它本来就是对的）。
 
 **验证**：workflow + 教程里的“优先给选项”清零（PLAN 历史 3 处保留）；“附上你的建议与取舍” workflow 里 8 处在位，“建议不是默认选项” 5 处在位；英文教程“options first”清零、“with your suggestion and trade-offs” 1 处在位；go build/vet/gofmt/test 全过；init 实测新二进制，.sunshine/workflow.md 里“附上你的建议与取舍” 3 处、“建议不是默认选项” 2 处、“优先给选项” 0 处。
+
+**发布 v0.5.10（2026-11-14，已发布，已验证）**：主提交一笔——提问措辞统一为 brainstorm skill（本地 68719cf → 远端 e40bd45，6 个文件，18 插入/10 删除）。tag v0.5.10 对象 1ec676a6 → e40bd457。Release：https://github.com/linrong007/Sunshine/releases/tag/v0.5.10，6 个资产。发布 run 43548519899 success。验证：changelog 含主提交 e40bd45；darwin arm64 checksum 对上（28c883a3…）；Mach-O 64-bit arm64 确认；一键装（linrong007 地址）装上 v0.5.10；v0.5.9 发布版二进制 upgrade --dry-run 两次均报 GitHub API 403 rate limit（未鉴权共享 IP 限流，环境问题，与发版无关），该路径未验证，其余口径均已通过。
